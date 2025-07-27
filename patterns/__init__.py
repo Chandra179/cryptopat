@@ -1,0 +1,1 @@
+# Patterns module for cryptocurrency pattern recognition

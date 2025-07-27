@@ -1,0 +1,10 @@
+.env
+.env.*
+.env.local
+.env.production
+.env.development
+test_schema_crypto_data.db
+test_offline_crypto_data.db
+setup.sh
+./data/__pycache__
+Makefile
