@@ -219,10 +219,6 @@ class MACDStrategy:
         # Detect signals
         signals = self.detect_crossovers(macd_line, signal_line, histogram, closes)
         
-        # Display results - TODAY ONLY
-        print(f"\nMACD Analysis for {symbol} ({timeframe}) - TODAY ONLY")
-        print("=" * 80)
-        
         today = datetime.now().date()
         today_signals = []
         

@@ -137,3 +137,24 @@ Make sure to add new handler to the cli. /cli/macd_handler.py
 [2025-07-29 13:00:00] MACD: -0.018 | SIGNAL: -0.016 | HIST: -0.002 | ⬇️ Crossover | Signal: SELL | 🧨 Weak Momentum
 ### CLI
 Make sure to add new handler to the cli. /cli/all_trend_handler.py
+
+
+## Phase 6: OBV (On-Balance Volume)
+- Create file `/trend/obv.py`
+- Use **Close** price and **Volume** from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require at least **50–100 closes and volumes** for stable OBV calculation
+- **OBV Calculation:**  
+  - If today's Close > yesterday's Close → OBV = previous OBV + today's Volume  
+  - If today's Close < yesterday's Close → OBV = previous OBV − today's Volume  
+  - If today's Close = yesterday's Close → OBV = previous OBV (no change)  
+- **BUY signal:** OBV rising, confirming price uptrend (especially when price breaks resistance)  
+- **SELL signal:** OBV falling, confirming price downtrend or divergence with price  
+- Use OBV to confirm momentum and validate breakouts or reversals indicated by EMA, MACD, or RSI  
+- Effective in all timeframes, but especially useful in swing (4h+) and position (1d+) trading to avoid fake breakouts  
+### Input in terminal
+> obv s=BTC/USDT t=1d l=100
+### Output example in terminal
+[2025-07-29 00:00:00] OBV: 1,234,567,890 | Price: 30,500 | Signal: BUY | 📈 Confirmed Uptrend  
+[2025-07-30 00:00:00] OBV: 1,220,000,000 | Price: 29,800 | Signal: SELL | ⚠️ Divergence Detected
+### CLI
+Make sure to add new handler to the cli. `/cli/obv_handler.py`

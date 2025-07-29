@@ -155,10 +155,6 @@ class EMA9_21Strategy:
         # Detect signals
         signals = self.detect_crossovers(ema9, ema21, closes, volumes)
         
-        # Display results - TODAY ONLY
-        print(f"\nEMA 9/21 Analysis for {symbol} ({timeframe}) - TODAY ONLY")
-        print("=" * 80)
-        
         today = datetime.now().date()
         today_signals = []
         

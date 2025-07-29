@@ -1,5 +1,5 @@
 """
-All trend analysis module that orchestrates EMA 9/21, MACD, and RSI 14 strategies.
+All trend analysis module that orchestrates EMA 9/21, MACD, RSI 14, and OBV strategies.
 Provides comprehensive market analysis by running all trend indicators together.
 """
 
@@ -8,15 +8,17 @@ from typing import Tuple
 from trend.ema_9_21 import EMA9_21Strategy
 from trend.macd import MACDStrategy
 from trend.rsi_14 import RSI14Strategy
+from trend.obv import OBVStrategy
 
 
 class AllTrendStrategy:
-    """All trend analysis strategy combining EMA, MACD, and RSI indicators."""
+    """All trend analysis strategy combining EMA, MACD, RSI, and OBV indicators."""
     
     def __init__(self):
         self.ema_strategy = EMA9_21Strategy()
         self.macd_strategy = MACDStrategy()
         self.rsi_strategy = RSI14Strategy()
+        self.obv_strategy = OBVStrategy()
     
     def analyze(self, symbol: str, timeframe: str, limit: int) -> None:
         """
@@ -33,6 +35,7 @@ class AllTrendStrategy:
         self.ema_strategy.analyze(symbol, timeframe, limit)
         self.macd_strategy.analyze(symbol, timeframe, limit)
         self.rsi_strategy.analyze(symbol, timeframe, limit)
+        self.obv_strategy.analyze(symbol, timeframe, limit)
 
 
 def parse_command(command: str) -> Tuple[str, str, int]:

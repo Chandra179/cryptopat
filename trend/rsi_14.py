@@ -160,11 +160,7 @@ class RSI14Strategy:
         
         # Detect signals
         signals = self.detect_rsi_signals(rsi_values, closes)
-        
-        # Display results - TODAY ONLY
-        print(f"\nRSI(14) Analysis for {symbol} ({timeframe}) - TODAY ONLY")
-        print("=" * 80)
-        
+
         today = datetime.now().date()
         today_signals = []
         

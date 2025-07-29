@@ -11,6 +11,7 @@ from cli.ema_9_21_handler import EMA921Handler
 from cli.rsi_14_handler import RSI14Handler
 from cli.macd_handler import MACDHandler
 from cli.all_trend_handler import AllTrendHandler
+from cli.obv_handler import OBVHandler
 
 
 class InteractiveCLI:
@@ -22,6 +23,7 @@ class InteractiveCLI:
         self.rsi_handler = RSI14Handler()
         self.macd_handler = MACDHandler()
         self.all_trend_handler = AllTrendHandler()
+        self.obv_handler = OBVHandler()
         self._setup_readline()
     
     def _setup_readline(self):
@@ -83,6 +85,8 @@ class InteractiveCLI:
         print()
         self.macd_handler.print_help()
         print()
+        self.obv_handler.print_help()
+        print()
         self.all_trend_handler.print_help()
         print("\n  help - Show this help message")
         print("  exit - Exit the application")
@@ -135,6 +139,18 @@ class InteractiveCLI:
         """
         return self.all_trend_handler.handle(command)
     
+    def handle_obv(self, command: str) -> bool:
+        """
+        Handle OBV analysis command.
+        
+        Args:
+            command: The command string
+            
+        Returns:
+            True if command was handled successfully, False otherwise
+        """
+        return self.obv_handler.handle(command)
+    
     def process_command(self, command: str) -> bool:
         """
         Process a user command.
@@ -173,6 +189,11 @@ class InteractiveCLI:
         # Handle MACD command
         if command.startswith('macd'):
             self.handle_macd(command)
+            return True
+        
+        # Handle OBV command
+        if command.startswith('obv'):
+            self.handle_obv(command)
             return True
         
         # Handle all trend command
