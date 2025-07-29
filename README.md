@@ -408,3 +408,29 @@ Signal: BUY | 🚀 Breakout Reversal | ✅ Neckline breached — Bull Trend Form
 Make sure to add new handler to the CLI: `/cli/inverse_head_and_shoulders_handler.py`
 ### All patterns
 Add iH&S to `/patterns/all_patterns.py` for consolidated reversal detection
+
+
+## Phase 16: Ascending Triangle Pattern
+- Create file `/patterns/ascending_triangle.py`
+- Use **Close** price from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require at least **80–120 candles** to identify consolidation and breakout
+- **Pattern Definition (Bullish Continuation):**  
+  - **Flat Resistance Line (Top):** multiple swing highs near the same level  
+  - **Rising Support Line (Bottom):** ascending swing lows  
+  - **Converging Structure**: price squeezed between flat top and rising bottom  
+  - **Breakout:** confirmed when price **closes above** resistance line with volume
+- **BUY signal:** Close above resistance line + volume spike → breakout confirmed  
+- **Failed Breakout / Fakeout Detection:**  
+  - Price closes above but quickly returns below resistance → no signal  
+- Use with MACD/RSI/Volume confluence to filter noise  
+- Works best in **15m–4h** for breakout trading or **1d** for position entries
+### Input in terminal
+> ascending_triangle s=ETH/USDT t=1h l=120
+### Output example in terminal
+XRPUSDT (4h) - Triangle
+Price: 3.1621 | Signal: NONE ⏳ | Neckline: —
+Target: — | Confidence: —
+### CLI
+Make sure to add new handler to the CLI: `/cli/ascending_triangle_handler.py`
+### All patterns
+Add this pattern to `/patterns/all_patterns.py` to integrate with full breakout scanner

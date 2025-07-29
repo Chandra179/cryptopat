@@ -12,6 +12,9 @@ from patterns.double_bottom import analyze_double_bottom
 from patterns.double_top import analyze_double_top
 from patterns.head_and_shoulders import analyze_head_and_shoulders, format_head_and_shoulders_output
 from patterns.inverse_head_and_shoulders import analyze_inverse_head_and_shoulders, format_inverse_head_and_shoulders_output
+from patterns.triangle import analyze_triangle, format_triangle_output
+from patterns.flag import analyze_flag, format_flag_output
+from patterns.wedge import analyze_wedge, format_wedge_output
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,10 +31,9 @@ class AllPatternsAnalyzer:
             'double_top': analyze_double_top,
             'head_and_shoulders': analyze_head_and_shoulders,
             'inverse_head_and_shoulders': analyze_inverse_head_and_shoulders,
-            # Future patterns will be added here:
-            # 'triangle': analyze_triangle,
-            # 'flag': analyze_flag,
-            # 'wedge': analyze_wedge,
+            'triangle': analyze_triangle,
+            'flag': analyze_flag,
+            'wedge': analyze_wedge,
         }
     
     def analyze_all_patterns(self, symbol: str, timeframe: str = '4h', limit: int = 200) -> str:
@@ -67,17 +69,25 @@ class AllPatternsAnalyzer:
                     result = analysis_func(symbol, timeframe, limit)
                     pattern_results[pattern_name] = result
                     
-                    # Format result based on pattern type
-                    if pattern_name == 'head_and_shoulders':
-                        # Head and Shoulders returns a dict, format it
-                        formatted_result = format_head_and_shoulders_output(result)
-                        results.append(formatted_result)
-                    elif pattern_name == 'inverse_head_and_shoulders':
-                        # Inverse Head and Shoulders returns a dict, format it
-                        formatted_result = format_inverse_head_and_shoulders_output(result)
+                    # Format result based on pattern type and return value
+                    if isinstance(result, dict):
+                        # Pattern returns a dict, use appropriate formatter
+                        if pattern_name == 'head_and_shoulders':
+                            formatted_result = format_head_and_shoulders_output(result)
+                        elif pattern_name == 'inverse_head_and_shoulders':
+                            formatted_result = format_inverse_head_and_shoulders_output(result)
+                        elif pattern_name == 'triangle':
+                            formatted_result = format_triangle_output(result)
+                        elif pattern_name == 'flag':
+                            formatted_result = format_flag_output(result)
+                        elif pattern_name == 'wedge':
+                            formatted_result = format_wedge_output(result)
+                        else:
+                            # Fallback for unknown dict patterns
+                            formatted_result = str(result)
                         results.append(formatted_result)
                     else:
-                        # Other patterns return formatted strings
+                        # Pattern returns a formatted string
                         results.append(result)
                     
                 except Exception as e:

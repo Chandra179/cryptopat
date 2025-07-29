@@ -237,37 +237,20 @@ class DoubleBottomDetector:
             return f"❌ Error analyzing {symbol}: {pattern_data['error']}"
         
         if not pattern_data["pattern_detected"]:
-            return f"{symbol} ({timeframe}): No Double Bottom pattern detected"
+            return f"{symbol} ({timeframe}) - No Double bottom Pattern Detected"
         
-        result_lines = [f"Double Bottom Analysis - {symbol} ({timeframe})"]
-        
-        # Pattern details
-        low1_time = pattern_data["low1_timestamp"].strftime("%Y-%m-%d %H:%M")
-        low2_time = pattern_data["low2_timestamp"].strftime("%Y-%m-%d %H:%M")
-        
-        result_lines.append(
-            f"[{low1_time}] Low1: {pattern_data['low1_price']:.4f} | "
-            f"Peak: {pattern_data['peak_price']:.4f} | "
-            f"[{low2_time}] Low2: {pattern_data['low2_price']:.4f} | "
-            f"Neckline: {pattern_data['neckline']:.4f}"
-        )
-        
-        # Current status
+        # Format the output in the new structure
         signal_emoji = {"BUY": "🚀", "SELL": "📉", "NONE": "⏳"}
-        status_emoji = {"Breakout Confirmed": "✅", "Pattern Forming": "⏳", 
-                       "Pattern Complete - Awaiting Breakout": "⏸️"}
+        neckline = pattern_data.get('neckline', '—')
+        neckline_str = f"{neckline:.4f}" if isinstance(neckline, (int, float)) else "—"
         
-        result_lines.append(
-            f"Price: {pattern_data['current_price']:.4f} | "
+        return (
+            f"{symbol} ({timeframe}) - Double Bottom\n"
+            f"Price: {pattern_data['current_price']:.2f} | "
             f"Signal: {pattern_data['signal']} {signal_emoji.get(pattern_data['signal'], '')} | "
-            f"{status_emoji.get(pattern_data['pattern_status'], '')} {pattern_data['pattern_status']}"
+            f"Neckline: {neckline_str}\n"
+            f"Target: — | Confidence: —%"
         )
-        
-        # Volume confirmation
-        vol_status = "✅ Volume Confirmed" if pattern_data["volume_confirmation"] else "⚠️ Volume Warning"
-        result_lines.append(f"Volume Analysis: {vol_status}")
-        
-        return "\n".join(result_lines)
 
 
 def analyze_double_bottom(symbol: str, timeframe: str = '4h', limit: int = 200) -> str:

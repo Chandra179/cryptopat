@@ -236,39 +236,23 @@ class DoubleTopDetector:
         if "error" in pattern_data:
             return f"❌ Error analyzing {symbol}: {pattern_data['error']}"
         
+        symbol_clean = symbol.replace('/', '').upper()
+        
         if not pattern_data["pattern_detected"]:
-            return f"{symbol} ({timeframe}): No Double Top pattern detected"
+            return f"{symbol_clean} ({timeframe}) - Double Top\nPrice: {pattern_data.get('current_price', '—')} | Signal: NONE ⏳ | Neckline: —\nTarget: — | Confidence: —"
         
-        result_lines = [f"\nDouble Top Analysis - {symbol} ({timeframe})"]
-        
-        # Pattern details
-        high1_time = pattern_data["high1_timestamp"].strftime("%Y-%m-%d %H:%M")
-        valley_time = pattern_data["valley_timestamp"].strftime("%Y-%m-%d %H:%M")
-        high2_time = pattern_data["high2_timestamp"].strftime("%Y-%m-%d %H:%M")
-        
-        result_lines.append(
-            f"[{high1_time}] High1: {pattern_data['high1_price']:.4f} | "
-            f"Valley: {pattern_data['valley_price']:.4f} | "
-            f"High2: {pattern_data['high2_price']:.4f} | "
-            f"Neckline: {pattern_data['neckline']:.4f}"
-        )
-        
-        # Current status
+        # Pattern detected
         signal_emoji = {"BUY": "🚀", "SELL": "📉", "NONE": "⏳"}
-        status_emoji = {"Breakdown Confirmed": "✅", "Pattern Forming": "⏳", 
-                       "Pattern Complete - Awaiting Breakdown": "⏸️"}
+        signal = pattern_data['signal']
+        neckline = pattern_data['neckline']
+        target = pattern_data.get('target_price', '—')  
+        confidence = pattern_data.get('confidence', '—')
         
-        result_lines.append(
-            f"Price: {pattern_data['current_price']:.4f} | "
-            f"Signal: {pattern_data['signal']} {signal_emoji.get(pattern_data['signal'], '')} | "
-            f"{status_emoji.get(pattern_data['pattern_status'], '')} {pattern_data['pattern_status']}"
-        )
+        output = f"{symbol} ({timeframe}) - Double Top\n"
+        output += f"Price: {pattern_data['current_price']:.2f} | Signal: {signal} {signal_emoji.get(signal, '')} | Neckline: {neckline}\n"
+        output += f"Target: {target} | Confidence: {confidence}%"
         
-        # Volume confirmation
-        vol_status = "✅ Volume Confirmed" if pattern_data["volume_confirmation"] else "⚠️ Volume Warning"
-        result_lines.append(f"Volume Analysis: {vol_status}")
-        
-        return "\n".join(result_lines)
+        return output
 
 
 def analyze_double_top(symbol: str, timeframe: str = '4h', limit: int = 200) -> str:

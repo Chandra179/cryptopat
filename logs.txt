@@ -1,5 +1,23 @@
-[2025-07-28 15:00:00] CLOSE: 3.2448 | EMA9: 3.2270 | EMA21: 3.2213 | ➖ NONE | Trend: NEUTRAL | ⏳ Waiting
-[2025-07-28 19:00:00] CLOSE: 3.1601 | EMA9: 3.2136 | EMA21: 3.2157 | ⬇️ SELL | Trend: BEARISH | ✔️ Confirmed
-[2025-07-28 23:00:00] CLOSE: 3.1607 | EMA9: 3.2030 | EMA21: 3.2107 | ➖ NONE | Trend: NEUTRAL | ⏳ Waiting
-[2025-07-29 03:00:00] CLOSE: 3.1235 | EMA9: 3.1871 | EMA21: 3.2028 | ➖ NONE | Trend: NEUTRAL | ⏳ Waiting
-[2025-07-29 07:00:00] CLOSE: 3.1062 | EMA9: 3.1709 | EMA21: 3.1940 | ➖ NONE | Trend: NEUTRAL | ⏳ Waiting
+> all_patterns s=XRP/USDT t=4h l=50
+INFO:cli.pattern.all_patterns_handler:Running all patterns analysis for XRP/USDT on 4h with 50 candles
+INFO:patterns.all_patterns:Running all pattern analysis for XRP/USDT on 4h
+INFO:patterns.all_patterns:Running double_bottom analysis...
+INFO:data.collector:Fetching 4h OHLCV data for XRP/USDT
+INFO:data.collector:Retrieved 50 candles for XRP/USDT
+INFO:patterns.all_patterns:Running double_top analysis...
+INFO:data.collector:Fetching 4h OHLCV data for XRP/USDT
+INFO:data.collector:Retrieved 50 candles for XRP/USDT
+INFO:patterns.all_patterns:Running head_and_shoulders analysis...
+INFO:data.collector:Fetching 4h OHLCV data for XRP/USDT
+INFO:data.collector:Retrieved 50 candles for XRP/USDT
+INFO:patterns.all_patterns:Running triangle analysis...
+INFO:data.collector:Fetching 4h OHLCV data for XRP/USDT
+INFO:data.collector:Retrieved 50 candles for XRP/USDT
+INFO:patterns.all_patterns:Running flag analysis...
+INFO:data.collector:Fetching 4h OHLCV data for XRP/USDT
+INFO:data.collector:Retrieved 50 candles for XRP/USDT
+INFO:patterns.all_patterns:Running wedge analysis...
+INFO:data.collector:Fetching 4h OHLCV data for XRP/USDT
+INFO:data.collector:Retrieved 50 candles for XRP/USDT
+ERROR:patterns.all_patterns:Error in all patterns analysis: sequence item 8: expected str instance, dict found
+❌ Error running all patterns analysis: sequence item 8: expected str instance, dict found

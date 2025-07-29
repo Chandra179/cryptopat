@@ -203,36 +203,21 @@ def format_head_and_shoulders_output(analysis: Dict) -> str:
     if 'error' in analysis:
         return f"❌ Error: {analysis['error']}"
     
-    output = []
-    
     if not analysis['pattern_detected']:
-        output.append("🔍 No Head and Shoulders pattern detected in current data")
-        output.append(f"Analyzed {analysis['total_candles']} candles - need clear L.Shoulder → Head → R.Shoulder formation")
-        return '\n'.join(output)
+        symbol_clean = analysis['symbol'].replace('/', '').upper()
+        return f"{symbol_clean} ({analysis['timeframe']}) - Head & Shoulders\nPrice: {analysis['current_price']} | Signal: NONE ⏳ | Neckline: —\nTarget: — | Confidence: —"
     
     # Pattern detected
-    ls = analysis['left_shoulder']
-    head = analysis['head'] 
-    rs = analysis['right_shoulder']
+    symbol_clean = analysis['symbol'].replace('/', '').upper()
+    signal_emoji = "📉" if analysis['signal'] == 'SELL' else "⏳"
+    signal = analysis['signal'] if analysis['confirmed'] else 'NONE'
+    target = analysis['target_price'] if analysis['confirmed'] else '—'
     
-    output.append(f"🧠 Head and Shoulders Pattern Detected!")
-    output.append(f"Left Shoulder:  {ls['price']} at {ls['timestamp'].strftime('%Y-%m-%d %H:%M')}")
-    output.append(f"Head:          {head['price']} at {head['timestamp'].strftime('%Y-%m-%d %H:%M')}")
-    output.append(f"Right Shoulder: {rs['price']} at {rs['timestamp'].strftime('%Y-%m-%d %H:%M')}")
-    output.append(f"Neckline:      {analysis['neckline']}")
-    output.append("")
+    output = f"{symbol_clean} ({analysis['timeframe']}) - Head & Shoulders\n"
+    output += f"Price: {analysis['current_price']} | Signal: {signal} {signal_emoji} | Neckline: {analysis['neckline']}\n"
+    output += f"Target: {target} | Confidence: {analysis['confidence']}%"
     
-    if analysis['confirmed']:
-        output.append(f"✅ CONFIRMED: Price broke neckline → {analysis['signal']}")
-        output.append(f"🎯 Target Price: {analysis['target_price']}")
-        output.append("⚠️ Classic Bearish Reversal - Downtrend Expected")
-    else:
-        output.append(f"⏳ PENDING: Waiting for neckline break at {analysis['neckline']}")
-        output.append(f"Current: {analysis['current_price']} | Need close below {analysis['neckline']}")
-    
-    output.append(f"🎯 Confidence: {analysis['confidence']}%")
-    
-    return '\n'.join(output)
+    return output
 
 
 if __name__ == "__main__":

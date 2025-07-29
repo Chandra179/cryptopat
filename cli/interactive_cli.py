@@ -20,6 +20,9 @@ from cli.pattern.double_bottom_handler import handle_double_bottom_command, pars
 from cli.pattern.all_patterns_handler import handle_all_patterns_command, parse_all_patterns_args, get_all_patterns_help
 from cli.pattern.head_and_shoulders_handler import handle_head_and_shoulders_command
 from cli.pattern.inverse_head_and_shoulders_handler import handle_inverse_head_and_shoulders_command
+from cli.pattern.triangle_handler import handle_triangle_command, parse_triangle_args, get_triangle_help
+from cli.pattern.flag_handler import handle_flag_command, parse_flag_args, get_flag_help
+from cli.pattern.wedge_handler import handle_wedge_command, parse_wedge_args, get_wedge_help
 
 
 class InteractiveCLI:
@@ -115,6 +118,12 @@ class InteractiveCLI:
         print()
         print("  inverse_head_and_shoulders s=SOL/USDT t=4h l=150")
         print("  inverse_head_and_shoulders s=ETH/USDT t=1d l=100")
+        print()
+        print(get_triangle_help())
+        print()
+        print(get_flag_help())
+        print()
+        print(get_wedge_help())
         print()
         print(get_all_patterns_help())
         print("\n  help - Show this help message")
@@ -308,6 +317,30 @@ class InteractiveCLI:
             # Extract command arguments after 'inverse_head_and_shoulders'
             command_args = command[len('inverse_head_and_shoulders'):].strip()
             result = handle_inverse_head_and_shoulders_command(command_args)
+            print(result)
+            return True
+        
+        # Handle triangle pattern command
+        if command.startswith('triangle'):
+            command_parts = command.split()
+            args = parse_triangle_args(command_parts)
+            result = handle_triangle_command(args)
+            print(result)
+            return True
+        
+        # Handle flag pattern command
+        if command.startswith('flag'):
+            command_parts = command.split()
+            args = parse_flag_args(command_parts)
+            result = handle_flag_command(args)
+            print(result)
+            return True
+        
+        # Handle wedge pattern command
+        if command.startswith('wedge'):
+            command_parts = command.split()
+            args = parse_wedge_args(command_parts)
+            result = handle_wedge_command(args)
             print(result)
             return True
         
