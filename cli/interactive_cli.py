@@ -4,8 +4,8 @@ Provides a terminal interface for running various analysis commands.
 """
 
 import sys
-from trend.ema_9_21 import EMA9_21Strategy, parse_command as parse_ema_command
-from trend.rsi_14 import RSI14Strategy, parse_command as parse_rsi_command
+from cli.ema_9_21_handler import EMA921Handler
+from cli.rsi_14_handler import RSI14Handler
 
 
 class InteractiveCLI:
@@ -13,49 +13,23 @@ class InteractiveCLI:
     
     def __init__(self):
         self.running = True
-        self.ema_strategy = EMA9_21Strategy()
-        self.rsi_strategy = RSI14Strategy()
+        self.ema_handler = EMA921Handler()
+        self.rsi_handler = RSI14Handler()
     
     def print_welcome(self):
         """Print welcome message and available commands."""
         print("=" * 60)
         print("CryptoPat - Interactive Cryptocurrency Pattern Analysis")
         print("=" * 60)
-        print("\nAvailable commands:")
-        print("  ema_9_21 s=SYMBOL t=TIMEFRAME l=LIMIT")
-        print("    - Analyze EMA 9/21 crossover strategy")
-        print("    - Example: ema_9_21 s=XRP/USDT t=1d l=30")
-        print("  rsi_14 s=SYMBOL t=TIMEFRAME l=LIMIT")
-        print("    - Analyze RSI(14) momentum and reversal signals")
-        print("    - Example: rsi_14 s=XRP/USDT t=1d l=30")
-        print("    - Timeframes: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 3d, 1w, 1M")
-        print("\n  help - Show this help message")
-        print("  exit - Exit the application")
-        print("\n" + "=" * 60)
     
     def print_help(self):
         """Print help information."""
         print("\nCryptoPat Interactive CLI Help")
         print("=" * 40)
         print("\nCommands:")
-        print("  ema_9_21 s=SYMBOL t=TIMEFRAME l=LIMIT")
-        print("    Perform EMA 9/21 crossover analysis")
-        print("    Parameters:")
-        print("      s= : Trading symbol (required) - e.g., XRP/USDT, BTC/USDT")
-        print("      t= : Timeframe (optional, default: 1d) - 1m, 5m, 1h, 4h, 1d, etc.")
-        print("      l= : Limit of candles (optional, default: 30) - minimum 50 recommended")
-        print("\n  rsi_14 s=SYMBOL t=TIMEFRAME l=LIMIT")
-        print("    Perform RSI(14) momentum and reversal analysis")
-        print("    Parameters:")
-        print("      s= : Trading symbol (required) - e.g., XRP/USDT, BTC/USDT")
-        print("      t= : Timeframe (optional, default: 1d) - 1m, 5m, 1h, 4h, 1d, etc.")
-        print("      l= : Limit of candles (optional, default: 30) - minimum 20 recommended")
-        print("\n  Examples:")
-        print("    ema_9_21 s=XRP/USDT t=1d l=30")
-        print("    ema_9_21 s=BTC/USDT t=4h l=50")
-        print("    ema_9_21 s=ETH/USDT")  # Uses defaults: t=1d, l=30")
-        print("    rsi_14 s=XRP/USDT t=1d l=30")
-        print("    rsi_14 s=BTC/USDT t=4h l=50")
+        self.ema_handler.print_help()
+        print()
+        self.rsi_handler.print_help()
         print("\n  help - Show this help message")
         print("  exit - Exit the application")
     
@@ -69,16 +43,7 @@ class InteractiveCLI:
         Returns:
             True if command was handled successfully, False otherwise
         """
-        try:
-            symbol, timeframe, limit = parse_ema_command(command)
-            print(f"\nExecuting: {command}")
-            self.ema_strategy.analyze(symbol, timeframe, limit)
-            return True
-        except Exception as e:
-            print(f"Error: {e}")
-            print("Usage: ema_9_21 s=SYMBOL t=TIMEFRAME l=LIMIT")
-            print("Example: ema_9_21 s=XRP/USDT t=1d l=30")
-            return False
+        return self.ema_handler.handle(command)
     
     def handle_rsi_14(self, command: str) -> bool:
         """
@@ -90,16 +55,7 @@ class InteractiveCLI:
         Returns:
             True if command was handled successfully, False otherwise
         """
-        try:
-            symbol, timeframe, limit = parse_rsi_command(command)
-            print(f"\nExecuting: {command}")
-            self.rsi_strategy.analyze(symbol, timeframe, limit)
-            return True
-        except Exception as e:
-            print(f"Error: {e}")
-            print("Usage: rsi_14 s=SYMBOL t=TIMEFRAME l=LIMIT")
-            print("Example: rsi_14 s=XRP/USDT t=1d l=30")
-            return False
+        return self.rsi_handler.handle(command)
     
     def process_command(self, command: str) -> bool:
         """

@@ -15,6 +15,21 @@ class RSI14Strategy:
     def __init__(self):
         self.collector = DataCollector()
     
+    def print_help(self):
+        """Print RSI 14 specific help information."""
+        print("\nRSI(14) Momentum Analysis Help")
+        print("=" * 40)
+        print("\nCommand:")
+        print("  rsi_14 s=SYMBOL t=TIMEFRAME l=LIMIT")
+        print("    Perform RSI(14) momentum and reversal analysis")
+        print("\nParameters:")
+        print("  s= : Trading symbol (required) - e.g., XRP/USDT, BTC/USDT")
+        print("  t= : Timeframe (optional, default: 1d) - 1m, 5m, 1h, 4h, 1d, etc.")
+        print("  l= : Limit of candles (optional, default: 30) - minimum 20 recommended")
+        print("\nExamples:")
+        print("  rsi_14 s=XRP/USDT t=1d l=30")
+        print("  rsi_14 s=BTC/USDT t=4h l=50")
+    
     def calculate_rsi(self, prices: List[float], period: int = 14) -> List[float]:
         """
         Calculate Relative Strength Index (RSI).

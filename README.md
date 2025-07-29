@@ -30,26 +30,21 @@ A Python-based system for detecting chart patterns in cryptocurrency data using 
 4 Hour timeframe
 2025-07-24 04:00:00,1753329600000,3.192,3.1965,2.9555,3.075,114510469.6
 2025-07-24 08:00:00,1753344000000,3.075,3.1788,3.055,3.1685,64732542.0
-2025-07-24 12:00:00,1753358400000,3.1684,3.2651,3.1185,3.2261,67528520.1
-2025-07-24 16:00:00,1753372800000,3.2261,3.2603,3.1686,3.2087,38914160.0
-2025-07-24 20:00:00,1753387200000,3.2087,3.2426,3.126,3.1453,31555219.8
-2025-07-25 00:00:00,1753401600000,3.1454,3.1618,3.0447,3.0689,43909091.3
 
 1 Days timeframe
 2025-06-30,1751241600000,2.2062,2.3271,2.165,2.2362,151525906.2
 2025-07-01,1751328000000,2.2362,2.2537,2.1475,2.172,123558690.1
-2025-07-02,1751414400000,2.1719,2.2917,2.157,2.2336,149340795.4
 
 3 Days timeframe
 2025-05-03,1746230400000,2.2093,2.22,2.1067,2.1306,236650634.9
 2025-05-06,1746489600000,2.1306,2.3297,2.0777,2.3272,422235051.4
-2025-05-09,1746748800000,2.3272,2.4844,2.2845,2.367,606652449.1
 ```
 
-## Order Book: Bid/ask prices and volumes at different levels
-## Ticker Data: Current market prices, 24h volume, price changes
-## Trades: Recent trade history with price, volume, timestamp
-## Markets: Available trading pairs and exchange information
+### Order Book: Bid/ask prices and volumes at different levels
+### Ticker Data: Current market prices, 24h volume, price changes
+### Trades: Recent trade history with price, volume, timestamp
+### Markets: Available trading pairs and exchange information
+
 
 ## Phase 1: EMA 9/21
 1. create files /trend/ema_9_21.py
@@ -64,7 +59,6 @@ A Python-based system for detecting chart patterns in cryptocurrency data using 
 - s = symbol
 - l = limit to 30 candles
 - data fetch is defaulting to current days
-
 ### Output example in terminal
 [2025-07-29 09:00:00] CLOSE: 103.25 | EMA9: 102.80 | EMA21: 102.50 | ⬆️ BUY | Trend: BULLISH | ✔️ Confirmed
 [2025-07-29 09:05:00] CLOSE: 103.10 | EMA9: 102.85 | EMA21: 102.65 | ➖ NONE | Trend: NEUTRAL | ⏳ Waiting
@@ -82,8 +76,9 @@ create interactive terminal cli, example:
 
 ```
 
+
 ## Phase 3: RSI
-- Create file `/trend/rsi_14.py`
+- Create file `/trend/rsi.py`
 - Use only **Close** price from OHLCV data (via `collector.py → fetch_ohlcv_data`)
 - Require at least **20–30 closes** for RSI(14) calculation
 - **Overbought zone:** RSI > 70 → signal potential reversal or trend weakness
@@ -94,8 +89,9 @@ create interactive terminal cli, example:
 - **SELL bias:** When RSI > 70 and dropping (bearish reversal)  
 - **NEUTRAL:** When RSI between 40–60 or flat (sideways market)  
 ### Input in terminal
-> rsi_14 s=XRP/USDT t=1d l=30
+> rsi s=XRP/USDT t=1d l=30
 ### Output example in terminal
 [2025-07-29 09:00:00] CLOSE: 103.25 | RSI(14): 72.50 | ⚠️ OVERBOUGHT | Signal: SELL | ⏳ Waiting
 [2025-07-29 09:05:00] CLOSE: 101.80 | RSI(14): 68.90 | ✅ Confirmed Signal: SELL
 [2025-07-29 10:00:00] CLOSE: 98.75  | RSI(14): 29.60 | 🔽 OVERSOLD | Signal: BUY | ⏳ Waiting
+

@@ -50,20 +50,6 @@ def main():
             
         except Exception as e:
             print(f"Error: {e}")
-    elif command in ['--help', '-h', 'help']:
-        print("CryptoPat - Cryptocurrency Pattern Recognition")
-        print("\nUsage:")
-        print("  python main.py                           # Launch interactive CLI")
-        print("  python main.py ema_9_21 s=SYMBOL t=TIMEFRAME l=LIMIT")
-        print("  python main.py rsi_14 s=SYMBOL t=TIMEFRAME l=LIMIT")
-        print("\nExamples:")
-        print("  python main.py                           # Interactive mode")
-        print("  python main.py ema_9_21 s=XRP/USDT t=1d l=30")
-        print("  python main.py rsi_14 s=XRP/USDT t=1d l=30")
-    else:
-        print(f"Unknown command: {command}")
-        print("Available commands: ema_9_21, rsi_14")
-        print("Run 'python main.py' for interactive mode or 'python main.py --help' for help")
 
 if __name__ == '__main__':
     main()
