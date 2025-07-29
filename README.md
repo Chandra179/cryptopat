@@ -352,3 +352,59 @@ Signal: SELL | ⚠️ Bearish Reversal | 📉 Price breaking support zone
 Make sure to add new handler to the CLI: `/cli/double_top_handler.py`
 ### All patterns
 Add `double_top` detection to `/patterns/all_patterns.py`
+
+
+## Phase 14: Head and Shoulders (H&S) Pattern
+- Create file `/patterns/head_and_shoulders.py`
+- Use **Close** price from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require at least **80–150 candles** to reliably detect three major swing highs/lows
+- **Pattern Definition (Bearish Reversal):**  
+  - **Left Shoulder (LS):** swing high  
+  - **Head:** higher swing high  
+  - **Right Shoulder (RS):** lower high near LS level  
+  - **Neckline:** support line connecting LS-RS valleys  
+  - **Confirmation:** Close below neckline after RS
+- **Signal Conditions:**  
+  - Head peak is **above** both shoulders  
+  - Both shoulders are **near-equal height** (within ~3%)  
+  - Neckline break confirms the setup
+- **SELL signal:** Price breaks neckline after RS → bearish reversal  
+- Use with RSI divergence, MACD bearish crossover, or OBV drop for confluence  
+- Effective in swing (4h) and position (1d) timeframes
+### Input in terminal
+> head_and_shoulders s=BTC/USDT t=4h l=150
+### Output example in terminal
+[2025-07-30 04:00:00] H&S Detected | LS: 62,300 | Head: 64,000 | RS: 62,100 | Neckline: 60,400 | Confirmed: Yes  
+Signal: SELL | 🧠 Classic Reversal | ⚠️ Neckline broken — Downtrend Imminent
+### CLI
+Make sure to add new handler to the CLI: `/cli/head_and_shoulders_handler.py`
+### All patterns
+Add H&S to `/patterns/all_patterns.py` for full-pattern confluence scanning
+
+
+## Phase 15: Inverse Head and Shoulders (iH&S) Pattern
+- Create file `/patterns/inverse_head_and_shoulders.py`
+- Use **Close** price from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require at least **80–150 candles** to reliably detect three major swing lows/highs
+- **Pattern Definition (Bullish Reversal):**  
+  - **Left Shoulder (LS):** swing low  
+  - **Head:** lower swing low  
+  - **Right Shoulder (RS):** higher low near LS level  
+  - **Neckline:** resistance line connecting LS-RS highs  
+  - **Confirmation:** Close above neckline after RS
+- **Signal Conditions:**  
+  - Head dip is **lower** than both shoulders  
+  - Shoulders are **roughly equal** (within ~3%)  
+  - Breakout above neckline confirms the pattern
+- **BUY signal:** Price breaks above neckline after RS → bullish reversal  
+- Combine with RSI bullish divergence, MACD crossover, or OBV rise for confluence  
+- Effective in swing (4h) and position (1d) timeframe
+### Input in terminal
+> inverse_head_and_shoulders s=SOL/USDT t=4h l=150
+### Output example in terminal
+[2025-07-30 08:00:00] iH&S Detected | LS: 18.20 | Head: 17.00 | RS: 18.10 | Neckline: 19.60 | Confirmed: Yes  
+Signal: BUY | 🚀 Breakout Reversal | ✅ Neckline breached — Bull Trend Forming
+### CLI
+Make sure to add new handler to the CLI: `/cli/inverse_head_and_shoulders_handler.py`
+### All patterns
+Add iH&S to `/patterns/all_patterns.py` for consolidated reversal detection

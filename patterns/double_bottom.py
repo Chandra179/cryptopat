@@ -243,13 +243,12 @@ class DoubleBottomDetector:
         
         # Pattern details
         low1_time = pattern_data["low1_timestamp"].strftime("%Y-%m-%d %H:%M")
-        peak_time = pattern_data["peak_timestamp"].strftime("%Y-%m-%d %H:%M")
         low2_time = pattern_data["low2_timestamp"].strftime("%Y-%m-%d %H:%M")
         
         result_lines.append(
             f"[{low1_time}] Low1: {pattern_data['low1_price']:.4f} | "
             f"Peak: {pattern_data['peak_price']:.4f} | "
-            f"Low2: {pattern_data['low2_price']:.4f} | "
+            f"[{low2_time}] Low2: {pattern_data['low2_price']:.4f} | "
             f"Neckline: {pattern_data['neckline']:.4f}"
         )
         

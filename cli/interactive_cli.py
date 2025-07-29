@@ -18,6 +18,8 @@ from cli.divergence_handler import DivergenceHandler
 from cli.vwap_handler import handle_vwap_command, get_vwap_help
 from cli.pattern.double_bottom_handler import handle_double_bottom_command, parse_double_bottom_args, get_double_bottom_help
 from cli.pattern.all_patterns_handler import handle_all_patterns_command, parse_all_patterns_args, get_all_patterns_help
+from cli.pattern.head_and_shoulders_handler import handle_head_and_shoulders_command
+from cli.pattern.inverse_head_and_shoulders_handler import handle_inverse_head_and_shoulders_command
 
 
 class InteractiveCLI:
@@ -107,6 +109,12 @@ class InteractiveCLI:
         self.all_trend_handler.print_help()
         print()
         print(get_double_bottom_help())
+        print()
+        print("  head_and_shoulders s=BTC/USDT t=4h l=150")
+        print("  head_and_shoulders s=ETH/USDT t=1d l=100")
+        print()
+        print("  inverse_head_and_shoulders s=SOL/USDT t=4h l=150")
+        print("  inverse_head_and_shoulders s=ETH/USDT t=1d l=100")
         print()
         print(get_all_patterns_help())
         print("\n  help - Show this help message")
@@ -284,6 +292,22 @@ class InteractiveCLI:
             command_parts = command.split()
             args = parse_double_bottom_args(command_parts)
             result = handle_double_bottom_command(args)
+            print(result)
+            return True
+        
+        # Handle head and shoulders pattern command
+        if command.startswith('head_and_shoulders'):
+            # Extract command arguments after 'head_and_shoulders'
+            command_args = command[len('head_and_shoulders'):].strip()
+            result = handle_head_and_shoulders_command(command_args)
+            print(result)
+            return True
+        
+        # Handle inverse head and shoulders pattern command
+        if command.startswith('inverse_head_and_shoulders'):
+            # Extract command arguments after 'inverse_head_and_shoulders'
+            command_args = command[len('inverse_head_and_shoulders'):].strip()
+            result = handle_inverse_head_and_shoulders_command(command_args)
             print(result)
             return True
         

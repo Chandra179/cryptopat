@@ -1,20 +1,20 @@
 """
-CLI handler for All Patterns analysis.
-Processes command line arguments and displays consolidated pattern analysis results.
+CLI handler for Double Top pattern analysis.
+Processes command line arguments and displays pattern detection results.
 """
 
 import logging
 from typing import Dict
-from patterns.all_patterns import analyze_all_patterns
+from patterns.double_top import analyze_double_top
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def handle_all_patterns_command(args: Dict[str, str]) -> str:
+def handle_double_top_command(args: Dict[str, str]) -> str:
     """
-    Handle all_patterns command with parsed arguments.
+    Handle double_top command with parsed arguments.
     
     Args:
         args: Dictionary containing parsed command arguments
@@ -25,9 +25,9 @@ def handle_all_patterns_command(args: Dict[str, str]) -> str:
     """
     try:
         # Extract parameters with defaults
-        symbol = args.get('s', 'ADA/USDT')
+        symbol = args.get('s', 'ETH/USDT')
         timeframe = args.get('t', '4h')
-        limit = int(args.get('l', '200'))
+        limit = int(args.get('l', '100'))
         
         # Validate parameters
         if not symbol:
@@ -43,26 +43,26 @@ def handle_all_patterns_command(args: Dict[str, str]) -> str:
         if limit > 1000:
             return "❌ Error: Maximum limit is 1000 candles"
         
-        logger.info(f"Running all patterns analysis for {symbol} on {timeframe} with {limit} candles")
+        logger.info(f"Analyzing double top pattern for {symbol} on {timeframe} with {limit} candles")
         
         # Perform analysis
-        result = analyze_all_patterns(symbol, timeframe, limit)
+        result = analyze_double_top(symbol, timeframe, limit)
         
         return result
         
     except ValueError as e:
         return f"❌ Error: Invalid limit value - must be a number: {e}"
     except Exception as e:
-        logger.error(f"Error in all_patterns command: {e}")
-        return f"❌ Error analyzing patterns: {e}"
+        logger.error(f"Error in double_top command: {e}")
+        return f"❌ Error analyzing double top pattern: {e}"
 
 
-def parse_all_patterns_args(command_parts: list) -> Dict[str, str]:
+def parse_double_top_args(command_parts: list) -> Dict[str, str]:
     """
-    Parse command line arguments for all_patterns command.
+    Parse command line arguments for double_top command.
     
     Args:
-        command_parts: List of command parts (e.g., ['all_patterns', 's=ADA/USDT', 't=4h', 'l=200'])
+        command_parts: List of command parts (e.g., ['double_top', 's=ETH/USDT', 't=4h', 'l=100'])
     
     Returns:
         Dictionary with parsed arguments
@@ -80,22 +80,22 @@ def parse_all_patterns_args(command_parts: list) -> Dict[str, str]:
     return args
 
 
-def get_all_patterns_help() -> str:
+def get_double_top_help() -> str:
     """
-    Get help text for the all_patterns command.
+    Get help text for the double_top command.
     
     Returns:
         Help text string
     """
     return """
-  all_patterns s=XRP/USDT t=4h l=200
-  all_patterns s=BTC/USDT t=1d l=150
-  all_patterns s=ETH/USDT t=1h l=300
+  double_top s=ETH/USDT t=4h l=100
+  double_top s=BTC/USDT t=1d l=150
+  double_top s=SOL/USDT t=1h l=200
 """
 
 
 if __name__ == "__main__":
     # Test the handler
-    test_args = {'s': 'ADA/USDT', 't': '4h', 'l': '200'}
-    result = handle_all_patterns_command(test_args)
+    test_args = {'s': 'ETH/USDT', 't': '4h', 'l': '100'}
+    result = handle_double_top_command(test_args)
     print(result)

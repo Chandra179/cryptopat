@@ -6,9 +6,12 @@ Similar to /trend/all_trend.py but focused on chart patterns.
 """
 
 import logging
-from typing import Dict, List
+from typing import Dict
 from datetime import datetime
-from pattern.double_bottom import analyze_double_bottom
+from patterns.double_bottom import analyze_double_bottom
+from patterns.double_top import analyze_double_top
+from patterns.head_and_shoulders import analyze_head_and_shoulders, format_head_and_shoulders_output
+from patterns.inverse_head_and_shoulders import analyze_inverse_head_and_shoulders, format_inverse_head_and_shoulders_output
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,9 +25,10 @@ class AllPatternsAnalyzer:
         """Initialize the all patterns analyzer."""
         self.pattern_methods = {
             'double_bottom': analyze_double_bottom,
+            'double_top': analyze_double_top,
+            'head_and_shoulders': analyze_head_and_shoulders,
+            'inverse_head_and_shoulders': analyze_inverse_head_and_shoulders,
             # Future patterns will be added here:
-            # 'double_top': analyze_double_top,
-            # 'head_shoulders': analyze_head_shoulders,
             # 'triangle': analyze_triangle,
             # 'flag': analyze_flag,
             # 'wedge': analyze_wedge,
@@ -63,8 +67,18 @@ class AllPatternsAnalyzer:
                     result = analysis_func(symbol, timeframe, limit)
                     pattern_results[pattern_name] = result
                     
-                    # Add pattern result to output
-                    results.append(result)
+                    # Format result based on pattern type
+                    if pattern_name == 'head_and_shoulders':
+                        # Head and Shoulders returns a dict, format it
+                        formatted_result = format_head_and_shoulders_output(result)
+                        results.append(formatted_result)
+                    elif pattern_name == 'inverse_head_and_shoulders':
+                        # Inverse Head and Shoulders returns a dict, format it
+                        formatted_result = format_inverse_head_and_shoulders_output(result)
+                        results.append(formatted_result)
+                    else:
+                        # Other patterns return formatted strings
+                        results.append(result)
                     
                 except Exception as e:
                     error_msg = f"❌ Error in {pattern_name} analysis: {e}"

@@ -369,7 +369,8 @@ class DivergenceDetector:
                     dt = datetime.fromtimestamp(timestamps[timestamp_idx] / 1000)
                     self.print_divergence(latest_div, dt, "Latest")
         else:
-            print(f"\nDivergence Analysis for {symbol} ({timeframe}):")
+            print("=" * 60)
+            print(f"Divergence Analysis for {symbol} ({timeframe}):")
             print("=" * 60)
             
             for div, dt in recent_divergences:

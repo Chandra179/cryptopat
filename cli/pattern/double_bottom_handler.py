@@ -5,7 +5,7 @@ Processes command line arguments and displays pattern detection results.
 
 import logging
 from typing import Dict
-from pattern.double_bottom import analyze_double_bottom
+from patterns.double_bottom import analyze_double_bottom
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
