@@ -15,7 +15,9 @@ from cli.obv_handler import OBVHandler
 from cli.atr_adx_handler import ATRADXHandler
 from cli.bollinger_bands_handler import BollingerBandsHandler
 from cli.divergence_handler import DivergenceHandler
+from cli.regime_handler import RegimeHandler
 from cli.vwap_handler import handle_vwap_command, get_vwap_help
+from cli.multi_tf_handler import MultiTFHandler
 from cli.pattern.double_bottom_handler import handle_double_bottom_command, parse_double_bottom_args, get_double_bottom_help
 from cli.pattern.all_patterns_handler import handle_all_patterns_command, parse_all_patterns_args, get_all_patterns_help
 from cli.pattern.head_and_shoulders_handler import handle_head_and_shoulders_command
@@ -38,6 +40,8 @@ class InteractiveCLI:
         self.atr_adx_handler = ATRADXHandler()
         self.bb_handler = BollingerBandsHandler()
         self.divergence_handler = DivergenceHandler()
+        self.regime_handler = RegimeHandler()
+        self.multi_tf_handler = MultiTFHandler()
         self._setup_readline()
     
     def _setup_readline(self):
@@ -107,7 +111,11 @@ class InteractiveCLI:
         print()
         self.divergence_handler.print_help()
         print()
+        self.regime_handler.print_help()
+        print()
         print(get_vwap_help())
+        print()
+        self.multi_tf_handler.print_help()
         print()
         self.all_trend_handler.print_help()
         print()
@@ -225,6 +233,30 @@ class InteractiveCLI:
         """
         return self.divergence_handler.handle(command)
     
+    def handle_regime(self, command: str) -> bool:
+        """
+        Handle market regime analysis command.
+        
+        Args:
+            command: The command string
+            
+        Returns:
+            True if command was handled successfully, False otherwise
+        """
+        return self.regime_handler.handle(command)
+    
+    def handle_multi_tf(self, command: str) -> bool:
+        """
+        Handle multi-timeframe confluence analysis command.
+        
+        Args:
+            command: The command string
+            
+        Returns:
+            True if command was handled successfully, False otherwise
+        """
+        return self.multi_tf_handler.handle(command)
+    
     def process_command(self, command: str) -> bool:
         """
         Process a user command.
@@ -285,10 +317,20 @@ class InteractiveCLI:
             self.handle_divergence(command)
             return True
         
+        # Handle regime command
+        if command.startswith('regime'):
+            self.handle_regime(command)
+            return True
+        
         # Handle VWAP command
         if command.startswith('vwap'):
             result = handle_vwap_command(command)
             print(result)
+            return True
+        
+        # Handle multi-timeframe confluence command
+        if command.startswith('multi_tf'):
+            self.handle_multi_tf(command)
             return True
         
         # Handle all trend command

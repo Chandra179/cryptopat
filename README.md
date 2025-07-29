@@ -427,3 +427,74 @@ Target: — | Confidence: —
 Make sure to add new handler to the CLI: `/cli/ascending_triangle_handler.py`
 ### All patterns
 Add this pattern to `/patterns/all_patterns.py` to integrate with full breakout scanner
+
+
+## Phase 17: Market Regime Detection (Trend vs Range)
+- Create file `/trend/regime.py`
+- Use **OHLCV** data (via `collector.py → fetch_ohlcv_data`)
+- Works best on **1h to 1D** timeframes for reliable classification  
+- **Core Indicators Used:**  
+  - **ATR** (Average True Range) → Volatility gauge  
+  - **ADX** (Average Directional Index) → Trend strength  
+  - **EMA Slope** or EMA distance → Trend direction  
+  - **Bollinger Band Width** → Compression/expansion signal  
+- **Rules for Market Regime Classification:**  
+  - **TRENDING** if:
+    - **ADX > 25**
+    - **EMA-9 > EMA-21** (Uptrend) or **EMA-9 < EMA-21** (Downtrend)
+    - **ATR % of Close > 1.5%**
+  - **RANGING** if:
+    - **ADX < 20**
+    - **EMA-9 ≈ EMA-21** (Flat or crossing repeatedly)
+    - **Bollinger Band Width** is below 20-period average (compression)
+  - **NEUTRAL / UNDEFINED** if mixed signals (e.g. high ADX but flat EMAs)
+- **Regime Output:**  
+  - `Regime: TRENDING ↑` or `Regime: TRENDING ↓`  
+  - `Regime: RANGING ⏸️`  
+  - `Regime: NEUTRAL ❓`  
+- **Optional Enhancements:**  
+  - Add **trend strength score** (e.g. scale from 0–100)  
+  - Add **volatility level classification**: Low, Moderate, High  
+  - Add recent **BOS/CHOCH detection** for breakout confirmation  
+### Input in terminal
+> regime s=BTC/USDT t=4h l=100
+### Output example in terminal
+[2025-07-29 04:00:00] ADX: 32.1 | ATR%: 2.3% | EMA Angle: Positive | BB Width: Expanding |  
+Signal: TRENDING ↑ | 📈 Strong Bullish Trend
+### CLI
+Make sure to add handler: `/cli/regime_handler.py`
+### All trend
+Add regime output to `/trend/all_trend.py`
+
+
+## Phase 18: Multi-Timeframe Confluence
+- Create file `/trend/multi_tf_confluence.py`
+- Use OHLCV data across at least 2-3 timeframes (e.g., Daily, 4H, 1H)
+- Core idea: Confirm signals on higher timeframe before taking action on lower timeframe  
+- **Rules:**
+  - **EMA Alignment:**
+    - Calculate EMA 9 and EMA 21 on each timeframe  
+    - Confirm trend only if EMA 9 > EMA 21 on *all* selected timeframes for bullish trend  
+    - Confirm trend only if EMA 9 < EMA 21 on *all* selected timeframes for bearish trend  
+  - **MACD Histogram Confluence:**
+    - MACD histogram should be positive on higher timeframe to support bullish trades on lower timeframe  
+    - MACD histogram should be negative on higher timeframe to support bearish trades on lower timeframe  
+  - **RSI Divergence Match:**
+    - Check for RSI bullish or bearish divergence on the higher timeframe  
+    - Only consider lower timeframe signals if divergence confirms potential reversal or continuation  
+- **Signal Logic:**
+  - Enter trade on lower timeframe only if higher timeframe confirms trend or divergence  
+  - Reject or avoid trades if higher timeframe trend contradicts lower timeframe signals  
+  - Use higher timeframe trend as bias filter, lower timeframe for entry precision  
+- **Timeframe Examples:**
+  - Daily (trend bias) + 4H (confirmation) + 1H (entry)  
+  - 4H (trend) + 1H (confirmation) + 15m (entry)  
+- **Bonus:**
+  - Add strength scoring by counting how many timeframes align in the same direction  
+  - Use cross-timeframe RSI and MACD divergence to detect early reversals  
+### Input in terminal
+> multi_tf s=BTC/USDT t1=1d t2=4h t3=1h indicators=ema9/21,macd,rsi14 l=200  
+### Output example in terminal
+[TIMESTAMP] EMA: Bullish (all TF) | MACD: Bullish Confirmed | RSI Div: Bullish HTF | Signal: BUY | 📈 Trend Strong
+### CLI
+Add new handler `/cli/multi_tf_handler.py` for signal processing and alerts

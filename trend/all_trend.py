@@ -1,5 +1,5 @@
 """
-All trend analysis module that orchestrates EMA 9/21, MACD, RSI 14, OBV, ATR+ADX, Bollinger Bands, Divergence, and Supertrend strategies.
+All trend analysis module that orchestrates EMA 9/21, MACD, RSI 14, OBV, ATR+ADX, Bollinger Bands, Divergence, Supertrend, and Market Regime strategies.
 Provides comprehensive market analysis by running all trend indicators together.
 """
 
@@ -14,10 +14,11 @@ from trend.bollinger_bands import BollingerBandsStrategy
 from trend.divergence import DivergenceDetector
 from trend.supertrend import SupertrendStrategy
 from trend.vwap import run_vwap_analysis
+from trend.regime import MarketRegimeStrategy
 
 
 class AllTrendStrategy:
-    """All trend analysis strategy combining EMA, MACD, RSI, OBV, ATR+ADX, Bollinger Bands, Divergence, Supertrend, and VWAP indicators."""
+    """All trend analysis strategy combining EMA, MACD, RSI, OBV, ATR+ADX, Bollinger Bands, Divergence, Supertrend, VWAP, and Market Regime indicators."""
     
     def __init__(self):
         self.ema_strategy = EMA9_21Strategy()
@@ -28,6 +29,7 @@ class AllTrendStrategy:
         self.bb_strategy = BollingerBandsStrategy()
         self.divergence_detector = DivergenceDetector()
         self.supertrend_strategy = SupertrendStrategy()
+        self.regime_strategy = MarketRegimeStrategy()
     
     def analyze(self, symbol: str, timeframe: str, limit: int) -> None:
         """
@@ -54,6 +56,9 @@ class AllTrendStrategy:
         for line in vwap_lines[-5:]:  # Show last 5 signals
             if line.strip():
                 print(line)
+        
+        # Market Regime Analysis
+        self.regime_strategy.analyze(symbol, timeframe, limit)
 
 
 def parse_command(command: str) -> Tuple[str, str, int]:
