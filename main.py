@@ -7,6 +7,7 @@ from trend.rsi_14 import RSI14Strategy, parse_command as parse_rsi_command
 from trend.macd import MACDStrategy, parse_command as parse_macd_command
 from trend.divergence import DivergenceDetector, parse_command as parse_divergence_command
 from trend.supertrend import SupertrendStrategy, parse_command as parse_supertrend_command
+from trend.smc import SMCStrategy, parse_command as parse_smc_command
 from cli.interactive_cli import InteractiveCLI
 
 # Configure logging
@@ -86,6 +87,18 @@ def main():
             # Run Supertrend analysis
             strategy = SupertrendStrategy()
             strategy.analyze(symbol, timeframe, limit, atr_period, multiplier)
+            
+        except Exception as e:
+            print(f"Error: {e}")
+    elif command == 'smc':
+        try:
+            # Parse command arguments
+            full_command = ' '.join(sys.argv[1:])
+            symbol, timeframe, limit, zones, choch = parse_smc_command(full_command)
+            
+            # Run SMC analysis
+            strategy = SMCStrategy()
+            strategy.analyze(symbol, timeframe, limit, zones, choch)
             
         except Exception as e:
             print(f"Error: {e}")

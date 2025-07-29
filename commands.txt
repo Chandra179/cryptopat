@@ -1,0 +1,2 @@
+multi_tf s=XRP/USDT t1=1d t2=4h t3=1h indicators=ema9/21,macd,rsi14 l=200
+all_trend s=XRP/USDT t=4h l=200

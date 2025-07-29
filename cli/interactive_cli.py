@@ -25,6 +25,7 @@ from cli.pattern.inverse_head_and_shoulders_handler import handle_inverse_head_a
 from cli.pattern.triangle_handler import handle_triangle_command, parse_triangle_args, get_triangle_help
 from cli.pattern.flag_handler import handle_flag_command, parse_flag_args, get_flag_help
 from cli.pattern.wedge_handler import handle_wedge_command, parse_wedge_args, get_wedge_help
+from cli.smc_handler import SMCHandler
 
 
 class InteractiveCLI:
@@ -42,6 +43,7 @@ class InteractiveCLI:
         self.divergence_handler = DivergenceHandler()
         self.regime_handler = RegimeHandler()
         self.multi_tf_handler = MultiTFHandler()
+        self.smc_handler = SMCHandler()
         self._setup_readline()
     
     def _setup_readline(self):
@@ -116,6 +118,8 @@ class InteractiveCLI:
         print(get_vwap_help())
         print()
         self.multi_tf_handler.print_help()
+        print()
+        self.smc_handler.print_help()
         print()
         self.all_trend_handler.print_help()
         print()
@@ -257,6 +261,18 @@ class InteractiveCLI:
         """
         return self.multi_tf_handler.handle(command)
     
+    def handle_smc(self, command: str) -> bool:
+        """
+        Handle Smart Money Concepts analysis command.
+        
+        Args:
+            command: The command string
+            
+        Returns:
+            True if command was handled successfully, False otherwise
+        """
+        return self.smc_handler.handle(command)
+    
     def process_command(self, command: str) -> bool:
         """
         Process a user command.
@@ -331,6 +347,11 @@ class InteractiveCLI:
         # Handle multi-timeframe confluence command
         if command.startswith('multi_tf'):
             self.handle_multi_tf(command)
+            return True
+        
+        # Handle SMC command
+        if command.startswith('smc'):
+            self.handle_smc(command)
             return True
         
         # Handle all trend command

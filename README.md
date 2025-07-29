@@ -498,3 +498,48 @@ Add regime output to `/trend/all_trend.py`
 [TIMESTAMP] EMA: Bullish (all TF) | MACD: Bullish Confirmed | RSI Div: Bullish HTF | Signal: BUY | 📈 Trend Strong
 ### CLI
 Add new handler `/cli/multi_tf_handler.py` for signal processing and alerts
+
+
+## Phase 19: Smart Money Concepts (SMC)
+- Create file /trend/smc.py
+- Use **OHLCV** data from `collector.py → fetch_ohlcv_data`
+- Require **sufficient historical data** (≥200 candles) for structure context  
+- Focus timeframes: **15m, 1h, 4h, 1D** for cleaner structure detection  
+### 🔍 Core Concepts
+#### 1. **Liquidity Zones**
+- Identify **equal highs/lows**, recent swing highs/lows
+- Mark zones where stop hunts are likely (retail SL clusters)
+- Use wick rejections + volume spikes to confirm raid attempts  
+- Zone logic:
+  - **Above recent highs** = Buy-side liquidity
+  - **Below recent lows** = Sell-side liquidity
+#### 2. **Order Blocks**
+- Find **last bullish/bearish candle before a strong move**
+- Confirm with:
+  - **Large-bodied impulse candle** following the block
+  - **Volume surge** or **imbalance gap**
+- Use zone ± buffer range for entry triggers
+#### 3. **Break of Structure (BOS)**
+- Detect when price **closes above/below previous swing high/low**
+- Confirms trend continuation or trend shift initiation
+#### 4. **Change of Character (CHOCH)**
+- Signals **early reversal**
+- Happens when price breaks the most recent **minor swing** opposite to current trend
+- Use in confluence with OB or Liquidity sweep
+### ✅ Signal Logic
+- **BUY signal:**
+  - Liquidity sweep + CHOCH + bullish OB retest  
+- **SELL signal:**
+  - Liquidity sweep + CHOCH + bearish OB retest  
+### 📥 Input in terminal
+> smc s=BTC/USDT t=1h l=300  
+> smc s=ETH/USDT t=4h l=500 zones=true choch=true  
+### 📤 Output example in terminal
+[2025-07-29 16:00:00] BOS: YES | CHOCH: YES | OB Zone Hit: YES | Signal: BUY | 🟢 Bullish Reversal  
+[2025-07-29 20:00:00] BOS: NO | CHOCH: YES | Signal: SELL | 🔻 Potential Liquidity Sweep  
+### 🧠 Bonus
+- Highlight **FVG (Fair Value Gaps)** or imbalance zones for sniper entries  
+- Add option to export marked zones as plot or JSON for chart overlay  
+- Optional: Detect **internal BOS (iBOS)** for LTF entry precision  
+### CLI
+Make sure to add new handler to the CLI: /cli/smc_handler.py

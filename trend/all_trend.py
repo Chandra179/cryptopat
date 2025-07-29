@@ -15,10 +15,11 @@ from trend.divergence import DivergenceDetector
 from trend.supertrend import SupertrendStrategy
 from trend.vwap import run_vwap_analysis
 from trend.regime import MarketRegimeStrategy
+from trend.smc import SMCStrategy
 
 
 class AllTrendStrategy:
-    """All trend analysis strategy combining EMA, MACD, RSI, OBV, ATR+ADX, Bollinger Bands, Divergence, Supertrend, VWAP, and Market Regime indicators."""
+    """All trend analysis strategy combining EMA, MACD, RSI, OBV, ATR+ADX, Bollinger Bands, Divergence, Supertrend, VWAP, Market Regime, and SMC indicators."""
     
     def __init__(self):
         self.ema_strategy = EMA9_21Strategy()
@@ -30,6 +31,7 @@ class AllTrendStrategy:
         self.divergence_detector = DivergenceDetector()
         self.supertrend_strategy = SupertrendStrategy()
         self.regime_strategy = MarketRegimeStrategy()
+        self.smc_strategy = SMCStrategy()
     
     def analyze(self, symbol: str, timeframe: str, limit: int) -> None:
         """
@@ -59,6 +61,12 @@ class AllTrendStrategy:
         
         # Market Regime Analysis
         self.regime_strategy.analyze(symbol, timeframe, limit)
+        
+        # SMC Analysis (Smart Money Concepts)
+        print("\n" + "="*50)
+        print("📊 SMC (SMART MONEY CONCEPTS) ANALYSIS")
+        print("="*50)
+        self.smc_strategy.analyze(symbol, timeframe, max(200, limit))
 
 
 def parse_command(command: str) -> Tuple[str, str, int]:
