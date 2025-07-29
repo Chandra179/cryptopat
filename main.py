@@ -4,6 +4,7 @@ import logging
 import sys
 from trend.ema_9_21 import EMA9_21Strategy, parse_command as parse_ema_command
 from trend.rsi_14 import RSI14Strategy, parse_command as parse_rsi_command
+from trend.macd import MACDStrategy, parse_command as parse_macd_command
 from cli.interactive_cli import InteractiveCLI
 
 # Configure logging
@@ -46,6 +47,18 @@ def main():
             
             # Run RSI 14 analysis
             strategy = RSI14Strategy()
+            strategy.analyze(symbol, timeframe, limit)
+            
+        except Exception as e:
+            print(f"Error: {e}")
+    elif command == 'macd':
+        try:
+            # Parse command arguments
+            full_command = ' '.join(sys.argv[1:])
+            symbol, timeframe, limit = parse_macd_command(full_command)
+            
+            # Run MACD analysis
+            strategy = MACDStrategy()
             strategy.analyze(symbol, timeframe, limit)
             
         except Exception as e:

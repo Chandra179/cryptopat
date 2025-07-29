@@ -14,13 +14,7 @@ class EMA921Handler:
     
     def print_help(self):
         """Print EMA 9/21 specific help information."""
-        print("  ema_9_21 s=SYMBOL t=TIMEFRAME l=LIMIT")
         print("    Perform EMA 9/21 crossover analysis")
-        print("    Parameters:")
-        print("      s= : Trading symbol (required) - e.g., XRP/USDT, BTC/USDT")
-        print("      t= : Timeframe (optional, default: 1d) - 1m, 5m, 1h, 4h, 1d, etc.")
-        print("      l= : Limit of candles (optional, default: 30) - minimum 50 recommended")
-        print("  Examples:")
         print("    ema_9_21 s=XRP/USDT t=1d l=30")
         print("    ema_9_21 s=BTC/USDT t=4h l=50")
         print("    ema_9_21 s=ETH/USDT")

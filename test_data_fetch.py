@@ -7,7 +7,7 @@ Tests the DataCollector class and exports OHLCV data to CSV files.
 import os
 import pandas as pd
 from datetime import datetime
-from data.collector import DataCollector
+from data import get_data_collector
 
 def main():
     """Test data fetching and export to CSV."""
@@ -15,7 +15,7 @@ def main():
     
     # Initialize data collector
     try:
-        collector = DataCollector()
+        collector = get_data_collector()
         print(f"✓ Connected to {collector.exchange_name} exchange")
     except Exception as e:
         print(f"✗ Failed to initialize collector: {e}")

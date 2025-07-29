@@ -6,14 +6,14 @@ Uses exponential moving averages to detect bullish and bearish trend signals.
 import sys
 from datetime import datetime
 from typing import List, Tuple
-from data.collector import DataCollector
+from data import get_data_collector
 
 
 class EMA9_21Strategy:
     """EMA 9/21 crossover strategy for trend detection."""
     
     def __init__(self):
-        self.collector = DataCollector()
+        self.collector = get_data_collector()
     
     def calculate_ema(self, prices: List[float], period: int) -> List[float]:
         """

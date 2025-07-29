@@ -14,13 +14,7 @@ class RSI14Handler:
     
     def print_help(self):
         """Print RSI 14 specific help information."""
-        print("  rsi_14 s=SYMBOL t=TIMEFRAME l=LIMIT")
         print("    Perform RSI(14) momentum and reversal analysis")
-        print("    Parameters:")
-        print("      s= : Trading symbol (required) - e.g., XRP/USDT, BTC/USDT")
-        print("      t= : Timeframe (optional, default: 1d) - 1m, 5m, 1h, 4h, 1d, etc.")
-        print("      l= : Limit of candles (optional, default: 30) - minimum 20 recommended")
-        print("  Examples:")
         print("    rsi_14 s=XRP/USDT t=1d l=30")
         print("    rsi_14 s=BTC/USDT t=4h l=50")
     

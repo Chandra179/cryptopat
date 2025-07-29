@@ -62,6 +62,8 @@ A Python-based system for detecting chart patterns in cryptocurrency data using 
 ### Output example in terminal
 [2025-07-29 09:00:00] CLOSE: 103.25 | EMA9: 102.80 | EMA21: 102.50 | ⬆️ BUY | Trend: BULLISH | ✔️ Confirmed
 [2025-07-29 09:05:00] CLOSE: 103.10 | EMA9: 102.85 | EMA21: 102.65 | ➖ NONE | Trend: NEUTRAL | ⏳ Waiting
+### CLI
+Make sure to add new handler to the cli. /cli/ema_9_21_handler.py
 
 
 ## Phase 2
@@ -77,8 +79,8 @@ create interactive terminal cli, example:
 ```
 
 
-## Phase 3: RSI
-- Create file `/trend/rsi.py`
+## Phase 3: RSI 14
+- Create file `/trend/rsi_14.py`
 - Use only **Close** price from OHLCV data (via `collector.py → fetch_ohlcv_data`)
 - Require at least **20–30 closes** for RSI(14) calculation
 - **Overbought zone:** RSI > 70 → signal potential reversal or trend weakness
@@ -89,9 +91,49 @@ create interactive terminal cli, example:
 - **SELL bias:** When RSI > 70 and dropping (bearish reversal)  
 - **NEUTRAL:** When RSI between 40–60 or flat (sideways market)  
 ### Input in terminal
-> rsi s=XRP/USDT t=1d l=30
+> rsi_14 s=XRP/USDT t=1d l=30
 ### Output example in terminal
 [2025-07-29 09:00:00] CLOSE: 103.25 | RSI(14): 72.50 | ⚠️ OVERBOUGHT | Signal: SELL | ⏳ Waiting
 [2025-07-29 09:05:00] CLOSE: 101.80 | RSI(14): 68.90 | ✅ Confirmed Signal: SELL
 [2025-07-29 10:00:00] CLOSE: 98.75  | RSI(14): 29.60 | 🔽 OVERSOLD | Signal: BUY | ⏳ Waiting
+### CLI
+Make sure to add new handler to the cli. /cli/rsi_14_handler.py
 
+
+## Phase 4: MACD
+- Create file `/trend/macd.py`
+- Use only **Close** price from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require at least **50–100 closes** to generate smooth MACD values
+- **MACD Line = EMA(12) − EMA(26)**
+- **Signal Line = EMA(9)** of MACD Line
+- **Histogram = MACD − Signal**
+- **BUY signal:** When MACD Line crosses above Signal Line  
+- **SELL signal:** When MACD Line crosses below Signal Line  
+- **STRONG trend:** When histogram grows in direction of crossover  
+- Use MACD to confirm EMA 9/21 crossovers and RSI direction  
+- Effective in scalping (15m+), swing (4h+), or position (1d+)
+
+### Input in terminal
+> macd s=XRP/USDT t=4h l=100
+### Output example in terminal
+[2025-07-29 09:00:00] MACD: 0.034 | SIGNAL: 0.029 | HIST: +0.005 | ⬆️ Crossover | Signal: BUY | 🔄 Confirming Uptrend  
+[2025-07-29 13:00:00] MACD: -0.018 | SIGNAL: -0.016 | HIST: -0.002 | ⬇️ Crossover | Signal: SELL | 🧨 Weak Momentum
+### CLI
+Make sure to add new handler to the cli. /cli/macd_handler.py
+
+
+## Phase 5: All trend analysis
+- command "all_trend" analysis every method in the trend analysis
+- call all trend analysis one by one and show the output on the terminal
+### Input in terminal
+> all_trend s=XRP/USDT t=4h l=100
+### Output example in terminal
+[2025-07-29 09:00:00] CLOSE: 103.25 | EMA9: 102.80 | EMA21: 102.50 | ⬆️ BUY | Trend: BULLISH | ✔️ Confirmed
+[2025-07-29 09:00:00] MACD: 0.034 | SIGNAL: 0.029 | HIST: +0.005 | ⬆️ Crossover | Signal: BUY | 🔄 Confirming Uptrend  
+[2025-07-29 09:00:00] CLOSE: 103.25 | RSI(14): 72.50 | ⚠️ OVERBOUGHT | Signal: SELL | ⏳ Waiting
+[2025-07-29 09:05:00] CLOSE: 101.80 | RSI(14): 68.90 | ✅ Confirmed Signal: SELL
+[2025-07-29 09:05:00] CLOSE: 103.10 | EMA9: 102.85 | EMA21: 102.65 | ➖ NONE | Trend: NEUTRAL | ⏳ Waiting
+[2025-07-29 10:00:00] CLOSE: 98.75  | RSI(14): 29.60 | 🔽 OVERSOLD | Signal: BUY | ⏳ Waiting
+[2025-07-29 13:00:00] MACD: -0.018 | SIGNAL: -0.016 | HIST: -0.002 | ⬇️ Crossover | Signal: SELL | 🧨 Weak Momentum
+### CLI
+Make sure to add new handler to the cli. /cli/all_trend_handler.py

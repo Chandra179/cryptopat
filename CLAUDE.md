@@ -53,17 +53,20 @@ make pengu1  # Run PENGU/USDT analysis with SMA, EMA indicators
 - `Makefile` - Contains shortcuts for common development tasks
 
 **Key Classes:**
-- `DataCollector` (data/collector.py:16) - Handles all market data fetching with rate limiting
+- `DataCollector` (data/collector.py:37) - Singleton class that handles all market data fetching with rate limiting
+  - Uses singleton pattern to ensure only one exchange connection per application run
   - `fetch_ohlcv_data()` - Gets candlestick data for specified symbols/timeframes
   - `fetch_order_book()` - Gets bid/ask price levels
   - `fetch_ticker()` - Gets current market prices and volume
   - `get_market_info()` - Gets trading limits and fees
+- `get_data_collector()` (data/__init__.py:11) - Factory function that returns the singleton DataCollector instance
 
 **Data Flow:**
-1. DataCollector initializes exchange connection with rate limiting (1.2s between requests)
-2. Fetches OHLCV, order book, and ticker data from Binance exchange
-3. Data exported to CSV files in `data/csv_exports/` for analysis
-4. Analysis modules (to be implemented) will process data for pattern detection
+1. DataCollector singleton initializes exchange connection with rate limiting (1.2s between requests)
+2. All trend analysis modules share the same DataCollector instance to avoid multiple exchange connections
+3. Fetches OHLCV, order book, and ticker data from Binance exchange
+4. Data exported to CSV files in `data/csv_exports/` for analysis
+5. Analysis modules process data for pattern detection using technical indicators
 
 **Supported Data Types:**
 - OHLCV candlestick data with configurable timeframes (1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 3d, 1w, 1M)
