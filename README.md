@@ -177,14 +177,11 @@ add obv analyzer to all_trend.py too
 - Use ATR for dynamic stop loss placement and position sizing based on current volatility  
 - Combine ADX with EMA/MACD/RSI/OBV to confirm strong trending conditions and avoid sideways noise  
 - Highly effective for swing (4h+) and position (1d+) trading to improve risk management and signal accuracy  
-
 ### Input in terminal
 > atr_adx s=ETH/USDT t=4h l=14
-
 ### Output example in terminal
 [2025-07-29 12:00:00] ATR: 250 | ADX: 32 | +DI: 28 | -DI: 15 | Signal: BUY | 📊 Strong Trend Confirmed  
 [2025-07-30 00:00:00] ATR: 200 | ADX: 22 | +DI: 18 | -DI: 22 | Signal: HOLD | ⚠️ Weak Trend - Avoid New Positions
-
 ### CLI
 Make sure to add new handler to the cli. `/cli/atr_adx_handler.py`
 
@@ -203,13 +200,71 @@ Make sure to add new handler to the cli. `/cli/atr_adx_handler.py`
 - **STRONG trend confirmation:** When price rides the Upper Band (uptrend) or Lower Band (downtrend)  
 - Use BB to spot volatility squeezes (narrow bands) and breakout entries/exits  
 - Pair with RSI/MACD for better entry timing
-
 ### Input in terminal
 > bb s=ETH/USDT t=4h l=100
-
 ### Output example in terminal
 [2025-07-29 12:00:00] Price: 1,850.00 | MB: 1,820.50 | UB: 1,880.75 | LB: 1,760.25 | Signal: BUY | 🔄 Squeeze Breakout  
 [2025-07-29 16:00:00] Price: 1,890.00 | MB: 1,825.00 | UB: 1,885.00 | LB: 1,765.00 | Signal: SELL | ⚠️ Overbought
-
 ### CLI
 Make sure to add new handler to the cli: `/cli/bollinger_bands_handler.py`
+
+
+## Phase 9: Divergence Detection Engine
+- Create file `/trend/divergence.py`
+- Use **Close** price from OHLCV and indicator values from existing analysis modules: `rsi_14.py`, `macd.py`, and `obv.py`
+- Require at least **30–50 candles** to establish valid swing highs/lows
+- **Bullish Divergence:**  
+  - Price makes a **lower low**, but indicator (RSI, MACD, or OBV) makes a **higher low**  
+  - Signal: BUY — Potential reversal from downtrend  
+- **Bearish Divergence:**  
+  - Price makes a **higher high**, but indicator makes a **lower high**  
+  - Signal: SELL — Potential reversal from uptrend  
+- **Supported Indicators:**  
+  - RSI(14) → momentum divergence  
+  - MACD Line → trend momentum divergence  
+  - OBV → volume divergence confirmation  
+- **Classification:**  
+  - Weak, Moderate, Strong (based on distance between swings and confluence across indicators)  
+- Use divergence detection to **pre-warn trend shifts** and filter false breakouts  
+- Works best in swing (4h) and position (1d) timeframes
+### Input in terminal
+> divergence s=SOL/USDT t=4h l=100
+### Output example in terminal
+[2025-07-30 00:00:00] RSI Divergence: Bullish | Price LL: 27.50 → 26.80 | RSI HL: 30.2 → 32.6 | Signal: BUY | 🧠 Early Reversal  
+[2025-07-30 04:00:00] MACD Divergence: Bearish | Price HH: 28.90 → 29.25 | MACD LH: 0.034 → 0.022 | Signal: SELL | ⚠️ Weak Momentum  
+[2025-07-30 08:00:00] OBV Divergence: Bullish | OBV Rising vs Price Drop | Signal: BUY | 🔋 Accumulation Phase
+### CLI
+Make sure to add new handler to the cli: `/cli/divergence_handler.py`
+### All trend
+Add divergence check to `/trend/all_trend.py` for full confluence analysis
+
+
+## Phase 10: Supertrend Indicator
+- Create file `/trend/supertrend.py`
+- Use **High, Low, Close** prices from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require at least **20–50 candles** for reliable trend generation
+- **Calculation:**  
+  - **ATR(n)** → use existing ATR logic (default n = 10 or 14)  
+  - **Basic Upper Band = (High + Low) / 2 + Multiplier × ATR**  
+  - **Basic Lower Band = (High + Low) / 2 − Multiplier × ATR**  
+  - **Final Upper/Lower Band = Dynamic, based on price direction**  
+  - **Supertrend:**  
+    - If Close > Final Upper Band → Trend = Bullish  
+    - If Close < Final Lower Band → Trend = Bearish  
+    - Else → Continue previous trend  
+- **BUY signal:** Price crosses above Supertrend band → trend shift to bullish  
+- **SELL signal:** Price crosses below Supertrend band → trend shift to bearish  
+- **Utility:**  
+  - Provides **clear directional bias**  
+  - Acts as **dynamic stop-loss** and **re-entry guide**  
+  - Works extremely well in combination with EMA crossovers and ADX for confirmation
+
+### Input in terminal
+> supertrend s=BTC/USDT t=1h l=100
+### Output example in terminal
+[2025-07-30 10:00:00] Price: 29,800 | Supertrend: 29,600 | Signal: BUY | ✅ Trend Reversal Confirmed  
+[2025-07-30 11:00:00] Price: 29,350 | Supertrend: 29,550 | Signal: SELL | 🔻 Bearish Trend Shift
+### CLI
+Make sure to add new handler to the CLI: `/cli/supertrend_handler.py`
+### All trend
+Add Supertrend output to `/trend/all_trend.py` for unified signal reporting

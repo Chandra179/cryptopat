@@ -14,6 +14,7 @@ from cli.all_trend_handler import AllTrendHandler
 from cli.obv_handler import OBVHandler
 from cli.atr_adx_handler import ATRADXHandler
 from cli.bollinger_bands_handler import BollingerBandsHandler
+from cli.divergence_handler import DivergenceHandler
 
 
 class InteractiveCLI:
@@ -28,6 +29,7 @@ class InteractiveCLI:
         self.obv_handler = OBVHandler()
         self.atr_adx_handler = ATRADXHandler()
         self.bb_handler = BollingerBandsHandler()
+        self.divergence_handler = DivergenceHandler()
         self._setup_readline()
     
     def _setup_readline(self):
@@ -94,6 +96,8 @@ class InteractiveCLI:
         self.atr_adx_handler.print_help()
         print()
         self.bb_handler.print_help()
+        print()
+        self.divergence_handler.print_help()
         print()
         self.all_trend_handler.print_help()
         print("\n  help - Show this help message")
@@ -183,6 +187,18 @@ class InteractiveCLI:
         """
         return self.bb_handler.handle(command)
     
+    def handle_divergence(self, command: str) -> bool:
+        """
+        Handle divergence analysis command.
+        
+        Args:
+            command: The command string
+            
+        Returns:
+            True if command was handled successfully, False otherwise
+        """
+        return self.divergence_handler.handle(command)
+    
     def process_command(self, command: str) -> bool:
         """
         Process a user command.
@@ -236,6 +252,11 @@ class InteractiveCLI:
         # Handle Bollinger Bands command
         if command.startswith('bb'):
             self.handle_bollinger_bands(command)
+            return True
+        
+        # Handle divergence command
+        if command.startswith('divergence'):
+            self.handle_divergence(command)
             return True
         
         # Handle all trend command

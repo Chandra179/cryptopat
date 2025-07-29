@@ -5,6 +5,8 @@ import sys
 from trend.ema_9_21 import EMA9_21Strategy, parse_command as parse_ema_command
 from trend.rsi_14 import RSI14Strategy, parse_command as parse_rsi_command
 from trend.macd import MACDStrategy, parse_command as parse_macd_command
+from trend.divergence import DivergenceDetector, parse_command as parse_divergence_command
+from trend.supertrend import SupertrendStrategy, parse_command as parse_supertrend_command
 from cli.interactive_cli import InteractiveCLI
 
 # Configure logging
@@ -60,6 +62,30 @@ def main():
             # Run MACD analysis
             strategy = MACDStrategy()
             strategy.analyze(symbol, timeframe, limit)
+            
+        except Exception as e:
+            print(f"Error: {e}")
+    elif command == 'divergence':
+        try:
+            # Parse command arguments
+            full_command = ' '.join(sys.argv[1:])
+            symbol, timeframe, limit = parse_divergence_command(full_command)
+            
+            # Run divergence analysis
+            detector = DivergenceDetector()
+            detector.analyze(symbol, timeframe, limit)
+            
+        except Exception as e:
+            print(f"Error: {e}")
+    elif command == 'supertrend':
+        try:
+            # Parse command arguments
+            full_command = ' '.join(sys.argv[1:])
+            symbol, timeframe, limit, atr_period, multiplier = parse_supertrend_command(full_command)
+            
+            # Run Supertrend analysis
+            strategy = SupertrendStrategy()
+            strategy.analyze(symbol, timeframe, limit, atr_period, multiplier)
             
         except Exception as e:
             print(f"Error: {e}")
