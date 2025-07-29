@@ -14,7 +14,7 @@ class AllTrendHandler:
     
     def print_help(self):
         """Print all trend specific help information."""
-        print("    Perform comprehensive trend analysis (EMA + MACD + RSI + OBV + ATR+ADX)")
+        print("    Perform comprehensive trend analysis (EMA + MACD + RSI + OBV + ATR+ADX + Bollinger Bands)")
         print("    all_trend s=XRP/USDT t=4h l=100")
         print("    all_trend s=BTC/USDT t=1d l=50")
         print("    all_trend s=ETH/USDT")

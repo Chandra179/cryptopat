@@ -13,6 +13,7 @@ from cli.macd_handler import MACDHandler
 from cli.all_trend_handler import AllTrendHandler
 from cli.obv_handler import OBVHandler
 from cli.atr_adx_handler import ATRADXHandler
+from cli.bollinger_bands_handler import BollingerBandsHandler
 
 
 class InteractiveCLI:
@@ -26,6 +27,7 @@ class InteractiveCLI:
         self.all_trend_handler = AllTrendHandler()
         self.obv_handler = OBVHandler()
         self.atr_adx_handler = ATRADXHandler()
+        self.bb_handler = BollingerBandsHandler()
         self._setup_readline()
     
     def _setup_readline(self):
@@ -90,6 +92,8 @@ class InteractiveCLI:
         self.obv_handler.print_help()
         print()
         self.atr_adx_handler.print_help()
+        print()
+        self.bb_handler.print_help()
         print()
         self.all_trend_handler.print_help()
         print("\n  help - Show this help message")
@@ -167,6 +171,18 @@ class InteractiveCLI:
         """
         return self.atr_adx_handler.handle(command)
     
+    def handle_bollinger_bands(self, command: str) -> bool:
+        """
+        Handle Bollinger Bands analysis command.
+        
+        Args:
+            command: The command string
+            
+        Returns:
+            True if command was handled successfully, False otherwise
+        """
+        return self.bb_handler.handle(command)
+    
     def process_command(self, command: str) -> bool:
         """
         Process a user command.
@@ -215,6 +231,11 @@ class InteractiveCLI:
         # Handle ATR+ADX command
         if command.startswith('atr_adx'):
             self.handle_atr_adx(command)
+            return True
+        
+        # Handle Bollinger Bands command
+        if command.startswith('bb'):
+            self.handle_bollinger_bands(command)
             return True
         
         # Handle all trend command

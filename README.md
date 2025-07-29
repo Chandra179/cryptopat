@@ -187,3 +187,29 @@ add obv analyzer to all_trend.py too
 
 ### CLI
 Make sure to add new handler to the cli. `/cli/atr_adx_handler.py`
+
+
+## Phase 8: Bollinger Bands (BB)
+- Create file `/trend/bollinger_bands.py`
+- Use **Close** price from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require at least **50–100 closes** for reliable SMA and standard deviation
+- **Calculation:**  
+  - **Middle Band (MB) = SMA(n)** of Close (default n = 20)  
+  - **Standard Deviation (SD) = stdev** of Close over n periods  
+  - **Upper Band (UB) = MB + (k × SD)** (default k = 2)  
+  - **Lower Band (LB) = MB − (k × SD)**  
+- **BUY signal:** When Close crosses above Lower Band (oversold bounce)  
+- **SELL signal:** When Close crosses below Upper Band (overbought reversal)  
+- **STRONG trend confirmation:** When price rides the Upper Band (uptrend) or Lower Band (downtrend)  
+- Use BB to spot volatility squeezes (narrow bands) and breakout entries/exits  
+- Pair with RSI/MACD for better entry timing
+
+### Input in terminal
+> bb s=ETH/USDT t=4h l=100
+
+### Output example in terminal
+[2025-07-29 12:00:00] Price: 1,850.00 | MB: 1,820.50 | UB: 1,880.75 | LB: 1,760.25 | Signal: BUY | 🔄 Squeeze Breakout  
+[2025-07-29 16:00:00] Price: 1,890.00 | MB: 1,825.00 | UB: 1,885.00 | LB: 1,765.00 | Signal: SELL | ⚠️ Overbought
+
+### CLI
+Make sure to add new handler to the cli: `/cli/bollinger_bands_handler.py`
