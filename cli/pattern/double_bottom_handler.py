@@ -1,0 +1,101 @@
+"""
+CLI handler for Double Bottom pattern analysis.
+Processes command line arguments and displays pattern detection results.
+"""
+
+import logging
+from typing import Dict
+from pattern.double_bottom import analyze_double_bottom
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+def handle_double_bottom_command(args: Dict[str, str]) -> str:
+    """
+    Handle double_bottom command with parsed arguments.
+    
+    Args:
+        args: Dictionary containing parsed command arguments
+              Expected keys: 's' (symbol), 't' (timeframe), 'l' (limit)
+    
+    Returns:
+        Formatted analysis result string
+    """
+    try:
+        # Extract parameters with defaults
+        symbol = args.get('s', 'ADA/USDT')
+        timeframe = args.get('t', '4h')
+        limit = int(args.get('l', '200'))
+        
+        # Validate parameters
+        if not symbol:
+            return "❌ Error: Symbol parameter 's' is required"
+        
+        valid_timeframes = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '3d', '1w', '1M']
+        if timeframe not in valid_timeframes:
+            return f"❌ Error: Invalid timeframe '{timeframe}'. Valid options: {', '.join(valid_timeframes)}"
+        
+        if limit < 50:
+            return "❌ Error: Minimum limit is 50 candles for reliable pattern detection"
+        
+        if limit > 1000:
+            return "❌ Error: Maximum limit is 1000 candles"
+        
+        logger.info(f"Analyzing double bottom pattern for {symbol} on {timeframe} with {limit} candles")
+        
+        # Perform analysis
+        result = analyze_double_bottom(symbol, timeframe, limit)
+        
+        return result
+        
+    except ValueError as e:
+        return f"❌ Error: Invalid limit value - must be a number: {e}"
+    except Exception as e:
+        logger.error(f"Error in double_bottom command: {e}")
+        return f"❌ Error analyzing double bottom pattern: {e}"
+
+
+def parse_double_bottom_args(command_parts: list) -> Dict[str, str]:
+    """
+    Parse command line arguments for double_bottom command.
+    
+    Args:
+        command_parts: List of command parts (e.g., ['double_bottom', 's=ADA/USDT', 't=4h', 'l=200'])
+    
+    Returns:
+        Dictionary with parsed arguments
+    """
+    args = {}
+    
+    for part in command_parts[1:]:  # Skip the command name
+        if '=' in part:
+            key, value = part.split('=', 1)
+            args[key] = value
+        else:
+            # Handle positional arguments if needed
+            pass
+    
+    return args
+
+
+def get_double_bottom_help() -> str:
+    """
+    Get help text for the double_bottom command.
+    
+    Returns:
+        Help text string
+    """
+    return """
+  double_bottom s=ADA/USDT t=4h l=200
+  double_bottom s=BTC/USDT t=1d l=150
+  double_bottom s=ETH/USDT t=1h l=300
+"""
+
+
+if __name__ == "__main__":
+    # Test the handler
+    test_args = {'s': 'ADA/USDT', 't': '4h', 'l': '200'}
+    result = handle_double_bottom_command(test_args)
+    print(result)

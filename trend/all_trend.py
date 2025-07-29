@@ -13,10 +13,11 @@ from trend.atr_adx import ATR_ADXStrategy
 from trend.bollinger_bands import BollingerBandsStrategy
 from trend.divergence import DivergenceDetector
 from trend.supertrend import SupertrendStrategy
+from trend.vwap import run_vwap_analysis
 
 
 class AllTrendStrategy:
-    """All trend analysis strategy combining EMA, MACD, RSI, OBV, ATR+ADX, Bollinger Bands, Divergence, and Supertrend indicators."""
+    """All trend analysis strategy combining EMA, MACD, RSI, OBV, ATR+ADX, Bollinger Bands, Divergence, Supertrend, and VWAP indicators."""
     
     def __init__(self):
         self.ema_strategy = EMA9_21Strategy()
@@ -37,6 +38,7 @@ class AllTrendStrategy:
             timeframe: Timeframe (e.g., '4h', '1d', '1h')
             limit: Number of candles to analyze
         """
+        print("=" * 80)
         print(f"\nAll Trend Analysis for {symbol} ({timeframe})")
         print("=" * 80)
     
@@ -48,6 +50,14 @@ class AllTrendStrategy:
         self.bb_strategy.analyze(symbol, timeframe, limit)
         self.divergence_detector.analyze(symbol, timeframe, limit)
         self.supertrend_strategy.analyze(symbol, timeframe, limit)
+        
+        # VWAP Analysis
+        vwap_result = run_vwap_analysis(symbol, timeframe, limit)
+        # Extract just the signal lines (skip header)
+        vwap_lines = vwap_result.split('\n')[2:]  # Skip header and separator
+        for line in vwap_lines[-5:]:  # Show last 5 signals
+            if line.strip():
+                print(line)
 
 
 def parse_command(command: str) -> Tuple[str, str, int]:

@@ -268,3 +268,87 @@ Add divergence check to `/trend/all_trend.py` for full confluence analysis
 Make sure to add new handler to the CLI: `/cli/supertrend_handler.py`
 ### All trend
 Add Supertrend output to `/trend/all_trend.py` for unified signal reporting
+
+
+## Phase 11: VWAP (Volume Weighted Average Price)
+- Create file `/trend/vwap.py`
+- Use **Close** price, **Volume**, and **Typical Price** (H+L+C)/3 from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require intraday or daily candles; more effective in **1m to 4h** timeframes  
+- **VWAP Calculation (standard):**  
+  - **Cumulative TP×Volume / Cumulative Volume**, where **TP = (High + Low + Close) / 3**  
+  - Reset at the start of each trading day or anchor manually  
+- **Signal logic:**  
+  - If **Close > VWAP** → Bullish Bias  
+  - If **Close < VWAP** → Bearish Bias  
+  - Use crossover as a trigger or confirmation for trend shifts  
+- **BUY signal:** Price crosses above VWAP with volume confirmation  
+- **SELL signal:** Price crosses below VWAP with downward momentum  
+- **Bonus:**  
+  - Implement **Anchored VWAP** support by setting a custom index/time as the anchor  
+  - Useful for analyzing breakout points or post-event reactions
+### Input in terminal
+> vwap s=ETH/USDT t=15m l=200  
+> vwap s=BTC/USDT t=1h l=100 anchor="2025-07-29T04:00:00"
+### Output example in terminal
+[2025-07-30 10:15:00] Price: 2,950 | VWAP: 2,940 | Signal: BUY | 🟢 Price Above VWAP  
+[2025-07-30 10:45:00] Price: 2,915 | VWAP: 2,925 | Signal: SELL | 🔻 Bearish Bias
+### CLI
+Make sure to add new handler to the CLI: `/cli/vwap_handler.py`
+### All trend
+Add VWAP output to `/trend/all_trend.py` to support intraday bias analysis and breakout confirmation
+
+
+## Phase 12: Double Bottom Pattern
+- Create file `/patterns/double_bottom.py`
+- Use **Low**, **Close**, and **Volume** from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require at least **50–100 candles** to identify two distinct swing lows
+- **Detection Logic:**  
+  - Identify two swing lows at approximately the same price level, separated by a peak (intervening high)  
+  - **Support Level:** Price lows within a tolerance band (e.g. ±1–2% of each other)  
+  - **Neckline:** The intervening peak’s price level  
+  - Confirm pattern when:  
+    1. Price falls to first low → rebounds to peak → retraces to second low (≈ first low)  
+    2. Volume on second low is lower or equal to first low (showing weakening sell pressure)  
+    3. Breakout above neckline on increased volume  
+- **BUY signal:** Close breaks and holds above the neckline after the second low, with volume spike  
+- **Invalidation:** Price drops below the lower of the two lows after breakout attempt  
+- **Utility:**  
+  - Forecasts trend reversal from downtrend to uptrend  
+  - Provides clear entry level (neckline) and stop-loss (below second low)  
+  - Pair with RSI rising from oversold (<30) for extra confirmation
+### Input in terminal
+> double_bottom s=ADA/USDT t=4h l=200
+### Output example in terminal
+[2025-07-30 08:00:00] Low1: 0.420 | Peak: 0.460 | Low2: 0.422 | Neckline: 0.460 | Signal: NONE | ⏳ Pattern Forming  
+[2025-07-30 12:00:00] Price: 0.465 | Volume: +25% | Signal: BUY | 🚀 Breakout Confirmed  
+### CLI
+Make sure to add new handler to the CLI: `/cli/pattern/double_bottom_handler.py`
+### All patterns
+Add Double Bottom detection to `/patterns/all_patterns.py`
+
+
+## Phase 13: Double Top Pattern
+- Create file `/patterns/double_top.py`
+- Use **Close** price from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require at least **50–100 closes** to detect valid swing highs
+- **Double Top Definition:**  
+  - Two prominent swing highs at **similar price levels**  
+  - A **swing low (valley)** between them  
+  - Confirmation when price **breaks below** the valley low
+- **Signal Conditions:**  
+  - First peak formed  
+  - Price retraces (valley)  
+  - Second peak forms **within ~1–3% of the first**  
+  - Price then **breaks below valley** → confirms pattern  
+- **SELL signal:** Pattern confirmed → potential bearish reversal  
+- Use pattern with RSI divergence, MACD crossover, or OBV drop for confluence  
+- Best suited for swing (4h) and position (1d) timeframes
+### Input in terminal
+> double_top s=ETH/USDT t=4h l=100
+### Output example in terminal
+[2025-07-30 08:00:00] Double Top Detected | Peaks: 3,200 & 3,180 | Valley: 3,050 | Confirmed: Yes  
+Signal: SELL | ⚠️ Bearish Reversal | 📉 Price breaking support zone
+### CLI
+Make sure to add new handler to the CLI: `/cli/double_top_handler.py`
+### All patterns
+Add `double_top` detection to `/patterns/all_patterns.py`

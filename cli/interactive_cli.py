@@ -15,6 +15,9 @@ from cli.obv_handler import OBVHandler
 from cli.atr_adx_handler import ATRADXHandler
 from cli.bollinger_bands_handler import BollingerBandsHandler
 from cli.divergence_handler import DivergenceHandler
+from cli.vwap_handler import handle_vwap_command, get_vwap_help
+from cli.pattern.double_bottom_handler import handle_double_bottom_command, parse_double_bottom_args, get_double_bottom_help
+from cli.pattern.all_patterns_handler import handle_all_patterns_command, parse_all_patterns_args, get_all_patterns_help
 
 
 class InteractiveCLI:
@@ -99,7 +102,13 @@ class InteractiveCLI:
         print()
         self.divergence_handler.print_help()
         print()
+        print(get_vwap_help())
+        print()
         self.all_trend_handler.print_help()
+        print()
+        print(get_double_bottom_help())
+        print()
+        print(get_all_patterns_help())
         print("\n  help - Show this help message")
         print("  exit - Exit the application")
     
@@ -259,9 +268,31 @@ class InteractiveCLI:
             self.handle_divergence(command)
             return True
         
+        # Handle VWAP command
+        if command.startswith('vwap'):
+            result = handle_vwap_command(command)
+            print(result)
+            return True
+        
         # Handle all trend command
         if command.startswith('all_trend'):
             self.handle_all_trend(command)
+            return True
+        
+        # Handle double bottom pattern command
+        if command.startswith('double_bottom'):
+            command_parts = command.split()
+            args = parse_double_bottom_args(command_parts)
+            result = handle_double_bottom_command(args)
+            print(result)
+            return True
+        
+        # Handle all patterns command
+        if command.startswith('all_patterns'):
+            command_parts = command.split()
+            args = parse_all_patterns_args(command_parts)
+            result = handle_all_patterns_command(args)
+            print(result)
             return True
         
         # Unknown command
