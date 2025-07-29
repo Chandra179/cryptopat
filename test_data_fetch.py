@@ -23,8 +23,8 @@ def main():
     
     # Test symbols (subset for quick testing)
     test_symbols = ['XRP/USDT']
-    timeframe = '3d'
-    limit = 30  # 30 candles in 4 hour timeframe
+    timeframe = '4h'
+    limit = 100  # 30 candles in 4 hour timeframe
     
     print(f"\nFetching {timeframe} data for {len(test_symbols)} symbols...")
     

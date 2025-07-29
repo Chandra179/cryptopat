@@ -167,7 +167,7 @@ class OBVStrategy:
                     print(f"\nLatest signal:")
                     print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
                           f"OBV: {latest_signal['obv']:,.0f} | "
-                          f"Price: {latest_signal['close']:.4f} | "
+                          f"PRICE: {latest_signal['close']:.4f} | "
                           f"Signal: {latest_signal['signal']} | "
                           f"{signal_icon} {latest_signal['trend_confirmation']} {divergence_icon}")
         else:
@@ -178,7 +178,7 @@ class OBVStrategy:
                 
                 print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
                       f"OBV: {signal['obv']:,.0f} | "
-                      f"Price: {signal['close']:.4f} | "
+                      f"PRICE: {signal['close']:.4f} | "
                       f"Signal: {signal['signal']} | "
                       f"{signal_icon} {signal['trend_confirmation']} {divergence_icon}")
 

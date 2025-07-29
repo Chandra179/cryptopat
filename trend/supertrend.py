@@ -232,10 +232,6 @@ class SupertrendStrategy:
                 highs, lows, closes, atr_period, multiplier
             )
             
-            print("="*80)
-            print(f"📊 Analysis completed for {len(ohlcv_data)} candles")
-            print(f"⚙️  Parameters: ATR Period={atr_period}, Multiplier={multiplier}")
-            
             # Display results for last 10 candles
             display_count = min(10, len(ohlcv_data))
             start_idx = len(ohlcv_data) - display_count
@@ -257,25 +253,12 @@ class SupertrendStrategy:
                 trend_icon = "📈" if current_trend == "BULLISH" else "📉" if current_trend == "BEARISH" else "❓"
                 signal_icon = "🟢 BUY" if signal == "BUY" else "🔴 SELL" if signal == "SELL" else "🟡 HOLD"
                 
+                # Format trend emoji
+                trend_emoji = "📈" if current_trend == "BULLISH" else "📉" if current_trend == "BEARISH" else "➖"
+                
                 print(f"[{timestamp.strftime('%Y-%m-%d %H:%M:%S')}] "
                       f"Price: {close:,.2f} | Supertrend: {supertrend:,.2f} | "
-                      f"Signal: {signal_icon} | {trend_icon} {current_trend} | {status}")
-            
-            # Summary
-            current_trend = trend_directions[-1]
-            current_signal, current_status = self.get_signal(
-                current_trend, 
-                trend_directions[-2] if len(trend_directions) > 1 else "UNKNOWN",
-                closes[-1], 
-                supertrend_values[-1]
-            )
-            
-            print(f"📋 CURRENT STATUS:")
-            print(f"   Trend: {current_trend}")
-            print(f"   Signal: {current_signal}")
-            print(f"   Status: {current_status}")
-            print(f"   Price: {closes[-1]:,.2f}")
-            print(f"   Supertrend: {supertrend_values[-1]:,.2f}")
+                      f"Signal: {signal} | {trend_emoji} {current_trend}")
             
         except Exception as e:
             print(f"❌ Error in Supertrend analysis: {e}")

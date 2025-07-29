@@ -38,10 +38,6 @@ class AllTrendStrategy:
             timeframe: Timeframe (e.g., '4h', '1d', '1h')
             limit: Number of candles to analyze
         """
-        print("=" * 80)
-        print(f"All Trend Analysis for {symbol} ({timeframe})")
-        print("=" * 80)
-    
         self.ema_strategy.analyze(symbol, timeframe, limit)
         self.macd_strategy.analyze(symbol, timeframe, limit)
         self.rsi_strategy.analyze(symbol, timeframe, limit)

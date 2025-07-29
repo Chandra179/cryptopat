@@ -369,10 +369,6 @@ class DivergenceDetector:
                     dt = datetime.fromtimestamp(timestamps[timestamp_idx] / 1000)
                     self.print_divergence(latest_div, dt, "Latest")
         else:
-            print("=" * 60)
-            print(f"Divergence Analysis for {symbol} ({timeframe}):")
-            print("=" * 60)
-            
             for div, dt in recent_divergences:
                 self.print_divergence(div, dt)
     
@@ -393,28 +389,32 @@ class DivergenceDetector:
         price1, price2 = div['price_points']
         ind1, ind2 = div['indicator_points']
         
-        # Format indicator values
+        # Format indicator and price values
         if indicator == 'RSI':
-            ind_str = f"RSI {'HL' if div_type == 'Bullish' else 'LH'}: {ind1:.1f} → {ind2:.1f}"
-            icon = "🧠" if div_type == 'Bullish' else "⚠️"
-            context = "Early Reversal" if div_type == 'Bullish' else "Weak Momentum"
+            metric1 = f"RSI_PREV: {ind1:.1f}"
+            metric2 = f"RSI_CURR: {ind2:.1f}"
+            trend_emoji = "📈" if div_type == 'Bullish' else "📉"
+            trend_label = "Bullish Divergence" if div_type == 'Bullish' else "Bearish Divergence"
         elif indicator == 'MACD':
-            ind_str = f"MACD {'HL' if div_type == 'Bullish' else 'LH'}: {ind1:.3f} → {ind2:.3f}"
-            icon = "📈" if div_type == 'Bullish' else "📉"  
-            context = "Momentum Shift" if div_type == 'Bullish' else "Trend Weakening"
+            metric1 = f"MACD_PREV: {ind1:.3f}"
+            metric2 = f"MACD_CURR: {ind2:.3f}"
+            trend_emoji = "📈" if div_type == 'Bullish' else "📉"
+            trend_label = "Bullish Divergence" if div_type == 'Bullish' else "Bearish Divergence"
         else:  # OBV
-            ind_str = f"OBV {'Rising' if div_type == 'Bullish' else 'Falling'} vs Price {'Drop' if div_type == 'Bullish' else 'Rise'}"
-            icon = "🔋" if div_type == 'Bullish' else "🔻"
-            context = "Accumulation Phase" if div_type == 'Bullish' else "Distribution Phase"
+            metric1 = f"OBV_PREV: {ind1:.0f}"
+            metric2 = f"OBV_CURR: {ind2:.0f}"
+            trend_emoji = "📈" if div_type == 'Bullish' else "📉"
+            trend_label = "Bullish Divergence" if div_type == 'Bullish' else "Bearish Divergence"
         
-        price_str = f"Price {'LL' if div_type == 'Bullish' else 'HH'}: {price1:.4f} → {price2:.4f}"
+        price_prev = f"PRICE_PREV: {price1:.4f}"
+        price_curr = f"PRICE_CURR: {price2:.4f}"
+        strength_metric = f"STRENGTH: {strength}"
         
         prefix_str = f"{prefix}: " if prefix else ""
         
         print(f"{prefix_str}[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
-              f"{indicator} Divergence: {div_type} | "
-              f"{price_str} | {ind_str} | "
-              f"Signal: {signal} | {icon} {context} ({strength})")
+              f"{price_prev} | {price_curr} | {metric1} | {metric2} | {strength_metric} | "
+              f"Signal: {signal} | {trend_emoji} {trend_label}")
 
 
 def parse_command(command: str) -> Tuple[str, str, int]:

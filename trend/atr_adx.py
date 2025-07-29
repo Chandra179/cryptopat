@@ -316,17 +316,30 @@ class ATR_ADXStrategy:
                 trend_icon = self._get_trend_icon(latest_signal['trend_strength'])
                 
                 print(f"\nLatest signal:")
+                # Get appropriate trend emoji for latest signal
+                if latest_signal['signal'] == 'BUY':
+                    trend_emoji = '📈'
+                elif latest_signal['signal'] == 'SELL':
+                    trend_emoji = '📉'
+                else:
+                    trend_emoji = '➖'
+                
                 print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
                       f"ATR: {latest_signal['atr']:.0f} | "
                       f"ADX: {latest_signal['adx']:.0f} | "
                       f"+DI: {latest_signal['plus_di']:.0f} | "
                       f"-DI: {latest_signal['minus_di']:.0f} | "
                       f"Signal: {latest_signal['signal']} | "
-                      f"{trend_icon} {latest_signal['description']}")
+                      f"{trend_emoji} {latest_signal['description']}")
         else:
             for signal, dt in today_signals:
-                signal_icon = self._get_signal_icon(signal['signal'])
-                trend_icon = self._get_trend_icon(signal['trend_strength'])
+                # Get appropriate trend emoji
+                if signal['signal'] == 'BUY':
+                    trend_emoji = '📈'
+                elif signal['signal'] == 'SELL':
+                    trend_emoji = '📉'
+                else:
+                    trend_emoji = '➖'
                 
                 print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
                       f"ATR: {signal['atr']:.0f} | "
@@ -334,7 +347,7 @@ class ATR_ADXStrategy:
                       f"+DI: {signal['plus_di']:.0f} | "
                       f"-DI: {signal['minus_di']:.0f} | "
                       f"Signal: {signal['signal']} | "
-                      f"{trend_icon} {signal['description']}")
+                      f"{trend_emoji} {signal['description']}")
     
     def _get_signal_icon(self, signal: str) -> str:
         """Get icon for signal type."""

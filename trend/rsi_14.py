@@ -193,23 +193,17 @@ class RSI14Strategy:
             dt: Datetime object
             is_latest: Whether this is the latest signal (for reference)
         """
-        # Format condition indicators
+        # Format trend emoji based on condition
         if signal['condition'] == 'OVERBOUGHT':
-            condition_icon = "⚠️"
+            trend_emoji = "📉"
         elif signal['condition'] == 'OVERSOLD':
-            condition_icon = "🔽"
-        elif signal['condition'] == 'SIDEWAYS':
-            condition_icon = "↔️"
+            trend_emoji = "📈"
         elif signal['condition'] == 'BULLISH_MOMENTUM':
-            condition_icon = "📈"
+            trend_emoji = "📈"
         elif signal['condition'] == 'BEARISH_MOMENTUM':
-            condition_icon = "📉"
+            trend_emoji = "📉"
         else:
-            condition_icon = "➖"
-        
-        # Format signal indicators
-        signal_icon = "⬆️" if signal['signal'] == 'BUY' else "⬇️" if signal['signal'] == 'SELL' else "➖"
-        confirmed_icon = "✅" if signal['confirmed'] else "⏳"
+            trend_emoji = "➖"
         
         prefix = "\nLatest signal:" if is_latest else ""
         if prefix:
@@ -218,9 +212,9 @@ class RSI14Strategy:
         print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
               f"CLOSE: {signal['close']:.4f} | "
               f"RSI(14): {signal['rsi']:.2f} | "
-              f"{condition_icon} {signal['condition']} | "
+              f"CONDITION: {signal['condition']} | "
               f"Signal: {signal['signal']} | "
-              f"{confirmed_icon} {'Confirmed' if signal['confirmed'] else 'Waiting'}")
+              f"{trend_emoji} {signal['condition']}")
 
 
 def parse_command(command: str) -> Tuple[str, str, int]:

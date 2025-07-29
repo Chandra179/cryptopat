@@ -253,23 +253,27 @@ class BollingerBandsStrategy:
     
     def _print_signal(self, signal: dict, dt: datetime, is_latest: bool = False) -> None:
         """Print formatted signal output."""
-        # Format signal indicators
+        # Format trend emoji based on signal and description
         if signal['signal'] == 'BUY':
-            signal_icon = "🔄" if "Squeeze" in signal['description'] else "⬆️"
+            trend_emoji = "📈"
         elif signal['signal'] == 'SELL':
-            signal_icon = "⚠️"
+            trend_emoji = "📉"
+        elif "Uptrend" in signal['description']:
+            trend_emoji = "📈"
+        elif "Downtrend" in signal['description']:
+            trend_emoji = "📉"
         else:
-            signal_icon = "📊" if "Trend" in signal['description'] else "⏸️"
+            trend_emoji = "➖"
         
         prefix = "Latest signal:\n" if is_latest else ""
         
         print(f"{prefix}[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
               f"Price: {signal['price']:.2f} | "
-              f"MB: {signal['middle_band']:.2f} | "
-              f"UB: {signal['upper_band']:.2f} | "
-              f"LB: {signal['lower_band']:.2f} | "
+              f"Upper Band: {signal['upper_band']:.2f} | "
+              f"Middle Band: {signal['middle_band']:.2f} | "
+              f"Lower Band: {signal['lower_band']:.2f} | "
               f"Signal: {signal['signal']} | "
-              f"{signal_icon} {signal['description']}")
+              f"{trend_emoji} {signal['description']}")
 
 
 def parse_command(command: str) -> Tuple[str, str, int]:

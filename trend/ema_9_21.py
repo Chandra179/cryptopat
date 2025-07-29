@@ -173,30 +173,25 @@ class EMA9_21Strategy:
                 timestamp_idx = latest_signal['index'] + 20
                 if timestamp_idx < len(timestamps):
                     dt = datetime.fromtimestamp(timestamps[timestamp_idx] / 1000)
-                    signal_icon = "⬆️" if latest_signal['signal'] == 'BUY' else "⬇️" if latest_signal['signal'] == 'SELL' else "➖"
-                    confirmed_icon = "✔️" if latest_signal['confirmed'] else "⏳"
                     
                     print(f"\nLatest signal:")
+                    trend_emoji = "📈" if latest_signal['trend'] == 'BULLISH' else "📉" if latest_signal['trend'] == 'BEARISH' else "➖"
                     print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
                           f"CLOSE: {latest_signal['close']:.4f} | "
                           f"EMA9: {latest_signal['ema9']:.4f} | "
                           f"EMA21: {latest_signal['ema21']:.4f} | "
-                          f"{signal_icon} {latest_signal['signal']} | "
-                          f"Trend: {latest_signal['trend']} | "
-                          f"{confirmed_icon} {'Confirmed' if latest_signal['confirmed'] else 'Waiting'}")
+                          f"Signal: {latest_signal['signal']} | "
+                          f"{trend_emoji} {latest_signal['trend']}")
         else:
             for signal, dt in today_signals:
-                # Format signal indicators
-                signal_icon = "⬆️" if signal['signal'] == 'BUY' else "⬇️" if signal['signal'] == 'SELL' else "➖"
-                confirmed_icon = "✔️" if signal['confirmed'] else "⏳"
+                trend_emoji = "📈" if signal['trend'] == 'BULLISH' else "📉" if signal['trend'] == 'BEARISH' else "➖"
                 
                 print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
                       f"CLOSE: {signal['close']:.4f} | "
                       f"EMA9: {signal['ema9']:.4f} | "
                       f"EMA21: {signal['ema21']:.4f} | "
-                      f"{signal_icon} {signal['signal']} | "
-                      f"Trend: {signal['trend']} | "
-                      f"{confirmed_icon} {'Confirmed' if signal['confirmed'] else 'Waiting'}")
+                      f"Signal: {signal['signal']} | "
+                      f"{trend_emoji} {signal['trend']}")
 
 
 def parse_command(command: str) -> Tuple[str, str, int]:

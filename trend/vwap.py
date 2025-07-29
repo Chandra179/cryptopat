@@ -107,7 +107,15 @@ def format_vwap_output(signals: List[dict]) -> str:
         signal_type = signal['signal']
         bias = signal['bias']
         
-        line = f"[{timestamp}] Price: {close:.4f} | VWAP: {vwap:.4f} | Signal: {signal_type} | {bias}"
+        # Determine trend emoji based on signal
+        if signal_type == "BUY":
+            trend_emoji = "📈"
+        elif signal_type == "SELL":
+            trend_emoji = "📉"
+        else:
+            trend_emoji = "➖"
+        
+        line = f"[{timestamp}] Price: {close:.4f} | VWAP: {vwap:.4f} | Signal: {signal_type} | {trend_emoji} {bias}"
         output_lines.append(line)
     
     return '\n'.join(output_lines)

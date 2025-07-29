@@ -60,8 +60,7 @@ A Python-based system for detecting chart patterns in cryptocurrency data using 
 - l = limit to 30 candles
 - data fetch is defaulting to current days
 ### Output example in terminal
-[2025-07-29 09:00:00] CLOSE: 103.25 | EMA9: 102.80 | EMA21: 102.50 | ⬆️ BUY | Trend: BULLISH | ✔️ Confirmed
-[2025-07-29 09:05:00] CLOSE: 103.10 | EMA9: 102.85 | EMA21: 102.65 | ➖ NONE | Trend: NEUTRAL | ⏳ Waiting
+[TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
 ### CLI
 Make sure to add new handler to the cli. /cli/ema_9_21_handler.py
 
@@ -93,9 +92,7 @@ create interactive terminal cli, example:
 ### Input in terminal
 > rsi_14 s=XRP/USDT t=1d l=30
 ### Output example in terminal
-[2025-07-29 09:00:00] CLOSE: 103.25 | RSI(14): 72.50 | ⚠️ OVERBOUGHT | Signal: SELL | ⏳ Waiting
-[2025-07-29 09:05:00] CLOSE: 101.80 | RSI(14): 68.90 | ✅ Confirmed Signal: SELL
-[2025-07-29 10:00:00] CLOSE: 98.75  | RSI(14): 29.60 | 🔽 OVERSOLD | Signal: BUY | ⏳ Waiting
+[TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
 ### CLI
 Make sure to add new handler to the cli. /cli/rsi_14_handler.py
 
@@ -116,8 +113,7 @@ Make sure to add new handler to the cli. /cli/rsi_14_handler.py
 ### Input in terminal
 > macd s=XRP/USDT t=4h l=100
 ### Output example in terminal
-[2025-07-29 09:00:00] MACD: 0.034 | SIGNAL: 0.029 | HIST: +0.005 | ⬆️ Crossover | Signal: BUY | 🔄 Confirming Uptrend  
-[2025-07-29 13:00:00] MACD: -0.018 | SIGNAL: -0.016 | HIST: -0.002 | ⬇️ Crossover | Signal: SELL | 🧨 Weak Momentum
+[TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
 ### CLI
 Make sure to add new handler to the cli. /cli/macd_handler.py
 
@@ -154,8 +150,7 @@ Make sure to add new handler to the cli. /cli/all_trend_handler.py
 ### Input in terminal
 > obv s=BTC/USDT t=1d l=100
 ### Output example in terminal
-[2025-07-29 00:00:00] OBV: 1,234,567,890 | Price: 30,500 | Signal: BUY | 📈 Confirmed Uptrend  
-[2025-07-30 00:00:00] OBV: 1,220,000,000 | Price: 29,800 | Signal: SELL | ⚠️ Divergence Detected
+[TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
 ### CLI
 Make sure to add new handler to the cli. `/cli/obv_handler.py`
 ### All trend
@@ -180,8 +175,7 @@ add obv analyzer to all_trend.py too
 ### Input in terminal
 > atr_adx s=ETH/USDT t=4h l=14
 ### Output example in terminal
-[2025-07-29 12:00:00] ATR: 250 | ADX: 32 | +DI: 28 | -DI: 15 | Signal: BUY | 📊 Strong Trend Confirmed  
-[2025-07-30 00:00:00] ATR: 200 | ADX: 22 | +DI: 18 | -DI: 22 | Signal: HOLD | ⚠️ Weak Trend - Avoid New Positions
+[TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
 ### CLI
 Make sure to add new handler to the cli. `/cli/atr_adx_handler.py`
 
@@ -203,8 +197,7 @@ Make sure to add new handler to the cli. `/cli/atr_adx_handler.py`
 ### Input in terminal
 > bb s=ETH/USDT t=4h l=100
 ### Output example in terminal
-[2025-07-29 12:00:00] Price: 1,850.00 | MB: 1,820.50 | UB: 1,880.75 | LB: 1,760.25 | Signal: BUY | 🔄 Squeeze Breakout  
-[2025-07-29 16:00:00] Price: 1,890.00 | MB: 1,825.00 | UB: 1,885.00 | LB: 1,765.00 | Signal: SELL | ⚠️ Overbought
+[TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
 ### CLI
 Make sure to add new handler to the cli: `/cli/bollinger_bands_handler.py`
 
@@ -230,9 +223,7 @@ Make sure to add new handler to the cli: `/cli/bollinger_bands_handler.py`
 ### Input in terminal
 > divergence s=SOL/USDT t=4h l=100
 ### Output example in terminal
-[2025-07-30 00:00:00] RSI Divergence: Bullish | Price LL: 27.50 → 26.80 | RSI HL: 30.2 → 32.6 | Signal: BUY | 🧠 Early Reversal  
-[2025-07-30 04:00:00] MACD Divergence: Bearish | Price HH: 28.90 → 29.25 | MACD LH: 0.034 → 0.022 | Signal: SELL | ⚠️ Weak Momentum  
-[2025-07-30 08:00:00] OBV Divergence: Bullish | OBV Rising vs Price Drop | Signal: BUY | 🔋 Accumulation Phase
+[TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
 ### CLI
 Make sure to add new handler to the cli: `/cli/divergence_handler.py`
 ### All trend
@@ -262,8 +253,7 @@ Add divergence check to `/trend/all_trend.py` for full confluence analysis
 ### Input in terminal
 > supertrend s=BTC/USDT t=1h l=100
 ### Output example in terminal
-[2025-07-30 10:00:00] Price: 29,800 | Supertrend: 29,600 | Signal: BUY | ✅ Trend Reversal Confirmed  
-[2025-07-30 11:00:00] Price: 29,350 | Supertrend: 29,550 | Signal: SELL | 🔻 Bearish Trend Shift
+[TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
 ### CLI
 Make sure to add new handler to the CLI: `/cli/supertrend_handler.py`
 ### All trend
@@ -290,8 +280,7 @@ Add Supertrend output to `/trend/all_trend.py` for unified signal reporting
 > vwap s=ETH/USDT t=15m l=200  
 > vwap s=BTC/USDT t=1h l=100 anchor="2025-07-29T04:00:00"
 ### Output example in terminal
-[2025-07-30 10:15:00] Price: 2,950 | VWAP: 2,940 | Signal: BUY | 🟢 Price Above VWAP  
-[2025-07-30 10:45:00] Price: 2,915 | VWAP: 2,925 | Signal: SELL | 🔻 Bearish Bias
+[TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
 ### CLI
 Make sure to add new handler to the CLI: `/cli/vwap_handler.py`
 ### All trend
@@ -319,8 +308,9 @@ Add VWAP output to `/trend/all_trend.py` to support intraday bias analysis and b
 ### Input in terminal
 > double_bottom s=ADA/USDT t=4h l=200
 ### Output example in terminal
-[2025-07-30 08:00:00] Low1: 0.420 | Peak: 0.460 | Low2: 0.422 | Neckline: 0.460 | Signal: NONE | ⏳ Pattern Forming  
-[2025-07-30 12:00:00] Price: 0.465 | Volume: +25% | Signal: BUY | 🚀 Breakout Confirmed  
+XRPUSDT (4h) - Double bottom
+Price: 3.1482 | Signal: BUY 🚀 | Neckline: 2.5312
+Target: — | Confidence: 95%
 ### CLI
 Make sure to add new handler to the CLI: `/cli/pattern/double_bottom_handler.py`
 ### All patterns
@@ -346,8 +336,9 @@ Add Double Bottom detection to `/patterns/all_patterns.py`
 ### Input in terminal
 > double_top s=ETH/USDT t=4h l=100
 ### Output example in terminal
-[2025-07-30 08:00:00] Double Top Detected | Peaks: 3,200 & 3,180 | Valley: 3,050 | Confirmed: Yes  
-Signal: SELL | ⚠️ Bearish Reversal | 📉 Price breaking support zone
+XRPUSDT (4h) - Double top
+Price: 3.1482 | Signal: BUY 🚀 | Neckline: 2.5312
+Target: — | Confidence: 95%
 ### CLI
 Make sure to add new handler to the CLI: `/cli/double_top_handler.py`
 ### All patterns
@@ -374,8 +365,9 @@ Add `double_top` detection to `/patterns/all_patterns.py`
 ### Input in terminal
 > head_and_shoulders s=BTC/USDT t=4h l=150
 ### Output example in terminal
-[2025-07-30 04:00:00] H&S Detected | LS: 62,300 | Head: 64,000 | RS: 62,100 | Neckline: 60,400 | Confirmed: Yes  
-Signal: SELL | 🧠 Classic Reversal | ⚠️ Neckline broken — Downtrend Imminent
+XRPUSDT (4h) - Head and shoulder
+Price: 3.1482 | Signal: BUY 🚀 | Neckline: 2.5312
+Target: — | Confidence: 95%
 ### CLI
 Make sure to add new handler to the CLI: `/cli/head_and_shoulders_handler.py`
 ### All patterns
@@ -402,8 +394,9 @@ Add H&S to `/patterns/all_patterns.py` for full-pattern confluence scanning
 ### Input in terminal
 > inverse_head_and_shoulders s=SOL/USDT t=4h l=150
 ### Output example in terminal
-[2025-07-30 08:00:00] iH&S Detected | LS: 18.20 | Head: 17.00 | RS: 18.10 | Neckline: 19.60 | Confirmed: Yes  
-Signal: BUY | 🚀 Breakout Reversal | ✅ Neckline breached — Bull Trend Forming
+XRPUSDT (4h) - Inverse head and shoulder
+Price: 3.1482 | Signal: BUY 🚀 | Neckline: 2.5312
+Target: — | Confidence: 95%
 ### CLI
 Make sure to add new handler to the CLI: `/cli/inverse_head_and_shoulders_handler.py`
 ### All patterns

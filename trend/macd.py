@@ -241,24 +241,26 @@ class MACDStrategy:
                     momentum_icon = self._get_momentum_icon(latest_signal['momentum'])
                     
                     print(f"\nLatest signal:")
+                    trend_emoji = "📈" if latest_signal['trend'] == 'BULLISH' else "📉" if latest_signal['trend'] == 'BEARISH' else "➖"
                     print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
                           f"MACD: {latest_signal['macd']:.6f} | "
                           f"SIGNAL: {latest_signal['signal_line']:.6f} | "
                           f"HIST: {latest_signal['histogram']:.6f} | "
-                          f"{signal_icon} {latest_signal['signal']} | "
-                          f"{momentum_icon} {latest_signal['momentum']}")
+                          f"Signal: {latest_signal['signal']} | "
+                          f"{trend_emoji} {latest_signal['trend']}")
         else:
             for signal, dt in today_signals:
                 # Format signal indicators
                 signal_icon = "⬆️" if signal['signal'] == 'BUY' else "⬇️" if signal['signal'] == 'SELL' else "➖"
                 momentum_icon = self._get_momentum_icon(signal['momentum'])
                 
+                trend_emoji = "📈" if signal['trend'] == 'BULLISH' else "📉" if signal['trend'] == 'BEARISH' else "➖"
                 print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
                       f"MACD: {signal['macd']:.6f} | "
                       f"SIGNAL: {signal['signal_line']:.6f} | "
                       f"HIST: {signal['histogram']:.6f} | "
-                      f"{signal_icon} {signal['signal']} | "
-                      f"{momentum_icon} {signal['momentum']}")
+                      f"Signal: {signal['signal']} | "
+                      f"{trend_emoji} {signal['trend']}")
     
     def _get_momentum_icon(self, momentum: str) -> str:
         """Get emoji icon for momentum type."""
