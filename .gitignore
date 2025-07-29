@@ -3,3 +3,5 @@
 .env.*.local
 venv/
 /venv
+/data/csv_exports
+data/csv_exports/

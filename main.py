@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
-import asyncio
 import logging
 import sys
-from cli.parser import create_parser
-from cli.interactive import interactive_mode
-from cli.commands import test_data_collection
-from app.crypto_trend_app import CryptoTrendApp
-from config.settings import VALID_METHODS, METHOD_REQUIREMENTS, TIMEFRAME_ORDER
+from trend.ema_9_21 import EMA9_21Strategy, parse_command as parse_ema_command
+from trend.rsi_14 import RSI14Strategy, parse_command as parse_rsi_command
+from cli.interactive_cli import InteractiveCLI
 
 # Configure logging
 logging.basicConfig(
@@ -19,117 +16,54 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def validate_method_requirements(methods, analysis_days, timeframe):
-    """
-    Validate that analysis configuration meets method requirements.
-    
-    Args:
-        methods: List of analysis methods to validate
-        analysis_days: Number of analysis days requested
-        timeframe: Timeframe for analysis
-        
-    Returns:
-        List of validation error messages (empty if valid)
-    """
-    errors = []
-    
-    for method in methods:
-        if method not in METHOD_REQUIREMENTS:
-            continue
-            
-        req = METHOD_REQUIREMENTS[method]
-        
-        # Check minimum analysis days
-        if analysis_days < req['min_analysis_days']:
-            errors.append(f"Method '{method}' requires minimum {req['min_analysis_days']} analysis days, got {analysis_days}")
-        
-        # Check minimum timeframe (equal or less granular timeframes allowed)
-        method_tf_idx = TIMEFRAME_ORDER.index(req['min_timeframe'])
-        try:
-            current_tf_idx = TIMEFRAME_ORDER.index(timeframe)
-            if current_tf_idx < method_tf_idx:
-                errors.append(f"Method '{method}' requires minimum '{req['min_timeframe']}' granularity timeframe, got '{timeframe}'")
-        except ValueError:
-            errors.append(f"Invalid timeframe '{timeframe}' for method '{method}'")
-    
-    return errors
-
 def main():
     """Main application entry point."""
-    parser = create_parser()
-    
-    # If no arguments provided, start interactive mode
     if len(sys.argv) == 1:
-        interactive_mode()
+        # No arguments - launch interactive CLI
+        cli = InteractiveCLI()
+        cli.run()
         return
     
-    args = parser.parse_args()
+    command = sys.argv[1]
     
-    # Show help if no command specified but args provided
-    if not args.command:
-        parser.print_help()
-        sys.exit(0)
-    
-    # Handle different commands (for non-interactive mode)
-    if args.command == 'collect':
-        test_data_collection(args)
-        return
-    
-    elif args.command == 'analyze':
-        # Validate arguments for analyze command
-        if args.predict_days <= 0:
-            logger.error("Predict days must be positive")
-            sys.exit(1)
-        
-        if args.analysis_days <= 0:
-            logger.error("Analysis days must be positive")
-            sys.exit(1)
-        
-        if args.analysis_days < args.predict_days:
-            logger.warning(f"Analysis period ({args.analysis_days} days) is shorter than prediction period ({args.predict_days} days)")
-        
+    if command == 'ema_9_21':
         try:
-            # Initialize application
-            logger.info("Initializing CryptoPat application...")
-            app = CryptoTrendApp(exchange=args.exchange)
+            # Parse command arguments
+            full_command = ' '.join(sys.argv[1:])
+            symbol, timeframe, limit = parse_ema_command(full_command)
             
-            # Parse methods
-            methods = [m.strip().lower() for m in args.methods.split(',') if m.strip()]
-            methods = [m for m in methods if m in VALID_METHODS]
+            # Run EMA 9/21 analysis
+            strategy = EMA9_21Strategy()
+            strategy.analyze(symbol, timeframe, limit)
             
-            if not methods:
-                logger.error("No valid analysis methods specified. Use: sma, ema, ema_cross, macd, rsi or combinations")
-                sys.exit(1)
-            
-            # Validate method requirements
-            validation_errors = validate_method_requirements(methods, args.analysis_days, args.timeframe)
-            if validation_errors:
-                for error in validation_errors:
-                    logger.error(error)
-                sys.exit(1)
-            
-            # Run analysis
-            asyncio.run(app.run_analysis(
-                predict_days=args.predict_days,
-                analysis_days=args.analysis_days,
-                symbols=args.symbols,
-                methods=methods,
-                timeframe=args.timeframe
-            ))
-            
-            logger.info("Analysis completed successfully")
-            
-        except KeyboardInterrupt:
-            logger.info("Analysis interrupted by user")
-            sys.exit(0)
         except Exception as e:
-            logger.error(f"Application error: {e}")
-            sys.exit(1)
-    
+            print(f"Error: {e}")
+    elif command == 'rsi_14':
+        try:
+            # Parse command arguments
+            full_command = ' '.join(sys.argv[1:])
+            symbol, timeframe, limit = parse_rsi_command(full_command)
+            
+            # Run RSI 14 analysis
+            strategy = RSI14Strategy()
+            strategy.analyze(symbol, timeframe, limit)
+            
+        except Exception as e:
+            print(f"Error: {e}")
+    elif command in ['--help', '-h', 'help']:
+        print("CryptoPat - Cryptocurrency Pattern Recognition")
+        print("\nUsage:")
+        print("  python main.py                           # Launch interactive CLI")
+        print("  python main.py ema_9_21 s=SYMBOL t=TIMEFRAME l=LIMIT")
+        print("  python main.py rsi_14 s=SYMBOL t=TIMEFRAME l=LIMIT")
+        print("\nExamples:")
+        print("  python main.py                           # Interactive mode")
+        print("  python main.py ema_9_21 s=XRP/USDT t=1d l=30")
+        print("  python main.py rsi_14 s=XRP/USDT t=1d l=30")
     else:
-        logger.error(f"Unknown command: {args.command}")
-        parser.print_help()
-        sys.exit(1)
+        print(f"Unknown command: {command}")
+        print("Available commands: ema_9_21, rsi_14")
+        print("Run 'python main.py' for interactive mode or 'python main.py --help' for help")
 
 if __name__ == '__main__':
     main()
