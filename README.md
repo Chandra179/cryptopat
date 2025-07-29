@@ -158,3 +158,32 @@ Make sure to add new handler to the cli. /cli/all_trend_handler.py
 [2025-07-30 00:00:00] OBV: 1,220,000,000 | Price: 29,800 | Signal: SELL | ⚠️ Divergence Detected
 ### CLI
 Make sure to add new handler to the cli. `/cli/obv_handler.py`
+### All trend
+add obv analyzer to all_trend.py too
+
+
+## Phase 7: ATR + ADX (Average True Range & Average Directional Index)
+- Create file `/trend/atr_adx.py`
+- Use **High, Low, Close** price from OHLCV data (via `collector.py → fetch_ohlcv_data`)
+- Require at least **14–30 candles** for ATR and ADX smoothing
+- **ATR Calculation:**  
+  - Measures average true range (volatility) over specified period (default 14)  
+  - True Range = max(High−Low, abs(High−Previous Close), abs(Low−Previous Close))  
+- **ADX Calculation:**  
+  - Measures trend strength from directional movement indicators (+DI and -DI)  
+  - ADX = smoothed average of absolute difference between +DI and -DI divided by sum of +DI and -DI  
+- **BUY signal:** ADX > 25 and +DI crosses above -DI, ATR confirms volatility suitable for entry  
+- **SELL signal:** ADX > 25 and -DI crosses above +DI, ATR indicates elevated volatility for exits or stops  
+- Use ATR for dynamic stop loss placement and position sizing based on current volatility  
+- Combine ADX with EMA/MACD/RSI/OBV to confirm strong trending conditions and avoid sideways noise  
+- Highly effective for swing (4h+) and position (1d+) trading to improve risk management and signal accuracy  
+
+### Input in terminal
+> atr_adx s=ETH/USDT t=4h l=14
+
+### Output example in terminal
+[2025-07-29 12:00:00] ATR: 250 | ADX: 32 | +DI: 28 | -DI: 15 | Signal: BUY | 📊 Strong Trend Confirmed  
+[2025-07-30 00:00:00] ATR: 200 | ADX: 22 | +DI: 18 | -DI: 22 | Signal: HOLD | ⚠️ Weak Trend - Avoid New Positions
+
+### CLI
+Make sure to add new handler to the cli. `/cli/atr_adx_handler.py`

@@ -12,6 +12,7 @@ from cli.rsi_14_handler import RSI14Handler
 from cli.macd_handler import MACDHandler
 from cli.all_trend_handler import AllTrendHandler
 from cli.obv_handler import OBVHandler
+from cli.atr_adx_handler import ATRADXHandler
 
 
 class InteractiveCLI:
@@ -24,6 +25,7 @@ class InteractiveCLI:
         self.macd_handler = MACDHandler()
         self.all_trend_handler = AllTrendHandler()
         self.obv_handler = OBVHandler()
+        self.atr_adx_handler = ATRADXHandler()
         self._setup_readline()
     
     def _setup_readline(self):
@@ -86,6 +88,8 @@ class InteractiveCLI:
         self.macd_handler.print_help()
         print()
         self.obv_handler.print_help()
+        print()
+        self.atr_adx_handler.print_help()
         print()
         self.all_trend_handler.print_help()
         print("\n  help - Show this help message")
@@ -151,6 +155,18 @@ class InteractiveCLI:
         """
         return self.obv_handler.handle(command)
     
+    def handle_atr_adx(self, command: str) -> bool:
+        """
+        Handle ATR+ADX analysis command.
+        
+        Args:
+            command: The command string
+            
+        Returns:
+            True if command was handled successfully, False otherwise
+        """
+        return self.atr_adx_handler.handle(command)
+    
     def process_command(self, command: str) -> bool:
         """
         Process a user command.
@@ -194,6 +210,11 @@ class InteractiveCLI:
         # Handle OBV command
         if command.startswith('obv'):
             self.handle_obv(command)
+            return True
+        
+        # Handle ATR+ADX command
+        if command.startswith('atr_adx'):
+            self.handle_atr_adx(command)
             return True
         
         # Handle all trend command
