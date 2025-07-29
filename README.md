@@ -543,3 +543,59 @@ Add new handler `/cli/multi_tf_handler.py` for signal processing and alerts
 - Optional: Detect **internal BOS (iBOS)** for LTF entry precision  
 ### CLI
 Make sure to add new handler to the CLI: /cli/smc_handler.py
+
+
+## Phase 20: Statistical Pattern Validation
+- Create file /trend/stat_pattern_validation.py  
+- Use **OHLCV** data and output from existing signal modules (e.g., RSI, MACD, Double Top, etc.)
+- Require labeled historical data or run inference using existing strategies over past candles  
+- Focus timeframes: **15m to 1D** for robust pattern outcome sampling
+### 📊 Validation Engine
+#### 1. **Pattern Outcome Tracking**
+- Collect occurrences for the following key patterns:  
+  - Double Bottom  
+  - Double Top  
+  - Head and Shoulders (regular and inverse)  
+  - Triangles (ascending, descending, symmetrical)  
+  - Wedges (rising and falling)   
+  - MACD Crossovers  
+  - RSI Divergence  
+  - Volume Breakouts  
+  - Supertrend Signals  
+  - VWAP Crosses  
+  - ATR + ADX Trend Regime Signals  
+  - Smart Money Concepts Zones & BOS/CHOCH  
+  - On-Balance Volume (OBV) Breakouts  
+- Record subsequent price movement (e.g., +X% within N candles)  
+- Label each occurrence as: `Success`, `Fail`, or `Neutral`
+#### 2. **Metrics to Calculate**
+- **Win Rate:** % of pattern signals that hit profit target before stop loss  
+- **Expectancy:** Avg. gain/loss per trade = (WinRate × AvgWin) - (LossRate × AvgLoss)  
+- **Signal Delay:** Bars between pattern trigger and move  
+- **Frequency:** How often each pattern appears (per 100 candles)  
+#### 3. **Confusion Matrix (Binary Classifier Style)**
+- TP = Correctly predicted move  
+- FP = False breakout  
+- FN = Missed move  
+- TN = Correctly skipped  
+- Output classification matrix per pattern type  
+### ✅ Signal Logic for Backtest
+- BUY signal:
+  - Pattern = "Double Bottom"  
+  - After signal, check if `Close[n] > Entry × (1 + TP%)` before SL is hit  
+- SELL signal:
+  - Pattern = "Head and Shoulders"  
+  - Check if `Close[n] < Entry × (1 - TP%)`
+- You define TP/SL rules globally or per pattern  
+### Bonus Features
+- Calculate **Sharpe Ratio** and **Max Drawdown** per pattern  
+- Add histogram of **outcome distribution** (e.g., % gain after 5 bars)  
+- Generate a leaderboard of **top-performing patterns** by asset
+### Input in terminal
+> statval s=BTC/USDT t=1h l=500 pattern=double_bottom tp=2% sl=1.5%  
+> statval s=ETH/USDT t=4h pattern=macd_cross timeframe_outcome=5
+### Output example in terminal
+[2025-07-29] Pattern: Double Bottom | Win Rate: 64.3% | Expectancy: +0.82R | Count: 28 | Signal Quality: ✅  
+[2025-07-29] Pattern: RSI Divergence | Win Rate: 45.1% | Expectancy: -0.12R | Count: 41 | Signal Quality: ❌
+### CLI
+Make sure to add new handler to the CLI: /cli/stat_pattern_handler.py
