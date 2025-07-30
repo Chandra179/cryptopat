@@ -7,6 +7,7 @@ import sys
 from datetime import datetime
 from typing import List, Tuple
 from data import get_data_collector
+from trend.output_formatter import OutputFormatter
 
 
 class SMCStrategy:
@@ -437,23 +438,19 @@ class SMCStrategy:
             print("No SMC signals detected in recent data")
             return
         
-        # Display signals
+        # Display signals using standardized formatter
         for signal, dt in recent_signals:
-            bos_status = "YES" if signal['bos'] else "NO"
-            choch_status = "YES" if signal['choch'] else "NO"
-            ob_status = "YES" if signal['ob_hit'] else "NO"
-            
-            trend_emoji = "🟢" if signal['trend'] == 'BULLISH' else "🔻" if signal['trend'] == 'BEARISH' else "➖"
-            
-            if signal['signal'] != 'NONE':
-                print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
-                      f"BOS: {bos_status} | CHOCH: {choch_status} | OB Zone Hit: {ob_status} | "
-                      f"Signal: {signal['signal']} | {trend_emoji} {signal['trend']} "
-                      f"(Confidence: {signal['confidence']}%)")
-            else:
-                print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
-                      f"BOS: {bos_status} | CHOCH: {choch_status} | "
-                      f"Signal: {signal['signal']} | {trend_emoji}")
+            formatted_output = OutputFormatter.format_smc_output(
+                timestamp=signal['timestamp'],
+                bos=signal['bos'],
+                choch=signal['choch'],
+                ob_hit=signal['ob_hit'],
+                signal=signal['signal'],
+                trend=signal['trend'],
+                confidence=signal['confidence'] if signal['confidence'] > 0 else 0,
+                price=signal['close']
+            )
+            print(formatted_output)
         
         # Additional details if requested
         if zones and liquidity_zones:

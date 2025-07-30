@@ -166,32 +166,51 @@ class BollingerBandsStrategy:
             current_price = aligned_prices[i]
             prev_price = aligned_prices[i - 1]
             
-            # BUY signal: Price crosses above lower band (oversold bounce)
+            # Calculate position within bands (0 = lower band, 0.5 = middle, 1 = upper band)
+            band_width = upper_band[i] - lower_band[i]
+            if band_width > 0:
+                position = (current_price - lower_band[i]) / band_width
+            else:
+                position = 0.5
+            
+            # BUY signals
             if prev_price <= lower_band[i - 1] and current_price > lower_band[i]:
                 signal['signal'] = 'BUY'
                 signal['description'] = 'Oversold Bounce'
                 if squeezes[i]:
-                    signal['description'] = 'Squeeze Breakout'
+                    signal['description'] = 'Squeeze Breakout (Buy)'
             
-            # SELL signal: Price crosses below upper band (overbought reversal)
+            # Strong BUY: Price breaks above middle band from below
+            elif prev_price < middle_band[i - 1] and current_price >= middle_band[i]:
+                signal['signal'] = 'BUY'
+                signal['description'] = 'Middle Band Breakout'
+            
+            # SELL signals
             elif prev_price >= upper_band[i - 1] and current_price < upper_band[i]:
                 signal['signal'] = 'SELL'
                 signal['description'] = 'Overbought Reversal'
             
-            # Strong uptrend: Price riding upper band
-            elif current_price >= upper_band[i] * 0.98:  # Within 2% of upper band
-                signal['signal'] = 'HOLD'
-                signal['description'] = 'Strong Uptrend'
-                
-            # Strong downtrend: Price riding lower band
-            elif current_price <= lower_band[i] * 1.02:  # Within 2% of lower band
-                signal['signal'] = 'HOLD'
-                signal['description'] = 'Strong Downtrend'
+            # Strong SELL: Price breaks below middle band from above
+            elif prev_price > middle_band[i - 1] and current_price <= middle_band[i]:
+                signal['signal'] = 'SELL'
+                signal['description'] = 'Middle Band Breakdown'
             
-            # Squeeze condition
+            # Position-based descriptions for HOLD signals
+            elif position >= 0.8:  # Near upper band
+                signal['signal'] = 'HOLD'
+                signal['description'] = f'Near Upper Band ({position:.1%})'
+                
+            elif position <= 0.2:  # Near lower band
+                signal['signal'] = 'HOLD'
+                signal['description'] = f'Near Lower Band ({position:.1%})'
+                
             elif squeezes[i]:
                 signal['signal'] = 'HOLD'
-                signal['description'] = 'Volatility Squeeze'
+                signal['description'] = f'Volatility Squeeze ({position:.1%})'
+                
+            else:
+                signal['signal'] = 'HOLD'
+                signal['description'] = f'Normal Range ({position:.1%})'
             
             signals.append(signal)
         
@@ -255,23 +274,37 @@ class BollingerBandsStrategy:
         """Print formatted signal output."""
         # Format trend emoji based on signal and description
         if signal['signal'] == 'BUY':
-            trend_emoji = "📈"
+            if 'Breakout' in signal['description']:
+                trend_emoji = "🚀"
+            else:
+                trend_emoji = "📈"
         elif signal['signal'] == 'SELL':
-            trend_emoji = "📉"
-        elif "Uptrend" in signal['description']:
-            trend_emoji = "📈"
-        elif "Downtrend" in signal['description']:
-            trend_emoji = "📉"
+            if 'Breakdown' in signal['description']:
+                trend_emoji = "📉"
+            else:
+                trend_emoji = "🔻"
+        elif "Upper Band" in signal['description']:
+            trend_emoji = "⚠️"
+        elif "Lower Band" in signal['description']:
+            trend_emoji = "💡"
+        elif "Squeeze" in signal['description']:
+            trend_emoji = "🔄"
         else:
             trend_emoji = "➖"
+        
+        # Calculate band position percentage
+        band_width = signal['upper_band'] - signal['lower_band']
+        if band_width > 0:
+            position_pct = ((signal['price'] - signal['lower_band']) / band_width) * 100
+        else:
+            position_pct = 50
         
         prefix = "Latest signal:\n" if is_latest else ""
         
         print(f"{prefix}[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
-              f"Price: {signal['price']:.2f} | "
-              f"Upper Band: {signal['upper_band']:.2f} | "
-              f"Middle Band: {signal['middle_band']:.2f} | "
-              f"Lower Band: {signal['lower_band']:.2f} | "
+              f"Price: ${signal['price']:.2f} "
+              f"(Position: {position_pct:.0f}%) | "
+              f"Bands: ${signal['lower_band']:.2f} - ${signal['middle_band']:.2f} - ${signal['upper_band']:.2f} | "
               f"Signal: {signal['signal']} | "
               f"{trend_emoji} {signal['description']}")
 

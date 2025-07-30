@@ -19,7 +19,7 @@ from trend.smc import SMCStrategy
 
 
 class AllTrendStrategy:
-    """All trend analysis strategy combining EMA, MACD, RSI, OBV, ATR+ADX, Bollinger Bands, Divergence, Supertrend, VWAP, Market Regime, and SMC indicators."""
+    """All trend analysis strategy combining EMA, MACD, RSI, OBV, ATR+ADX, Bollinger Bands, Divergence, Supertrend, VWAP, Market Regime, SMC, and indicators."""
     
     def __init__(self):
         self.ema_strategy = EMA9_21Strategy()
@@ -59,15 +59,9 @@ class AllTrendStrategy:
             if line.strip():
                 print(line)
         
-        # Market Regime Analysis
         self.regime_strategy.analyze(symbol, timeframe, limit)
-        
-        # SMC Analysis (Smart Money Concepts)
-        print("\n" + "="*50)
-        print("📊 SMC (SMART MONEY CONCEPTS) ANALYSIS")
-        print("="*50)
         self.smc_strategy.analyze(symbol, timeframe, max(200, limit))
-
+        
 
 def parse_command(command: str) -> Tuple[str, str, int]:
     """

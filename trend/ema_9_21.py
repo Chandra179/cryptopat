@@ -25,7 +25,7 @@ class EMA9_21Strategy:
             period: EMA period (9 or 21)
             
         Returns:
-            List of EMA values, same length as prices with NaN for initial values
+            List of EMA values, same length as prices with None for insufficient data
         """
         if len(prices) < period:
             return [None] * len(prices)
@@ -34,8 +34,15 @@ class EMA9_21Strategy:
         df = pd.DataFrame({'price': prices})
         ema_series = df['price'].ewm(span=period, adjust=False).mean()
         
-        # Convert to list and replace NaN with None for consistency
-        ema_values = ema_series.tolist()
+        # Convert to list, keeping NaN as None for early values
+        ema_values = []
+        for i, value in enumerate(ema_series.tolist()):
+            # First (period-1) values should be None as EMA needs time to stabilize
+            if i < period - 1 or pd.isna(value):
+                ema_values.append(None)
+            else:
+                ema_values.append(value)
+        
         return ema_values
     
     def detect_volume_spike(self, volumes: List[float], window: int = 10) -> List[bool]:
@@ -60,8 +67,8 @@ class EMA9_21Strategy:
             avg_volume = sum(volumes[i-window:i]) / window
             current_volume = volumes[i]
             
-            # Volume spike if current > 1.5x average
-            spike = current_volume > (avg_volume * 1.5)
+            # Volume spike if current > 2x average (less sensitive)
+            spike = current_volume > (avg_volume * 2.0)
             spikes.append(spike)
         
         return spikes
@@ -83,10 +90,11 @@ class EMA9_21Strategy:
         signals = []
         volume_spikes = self.detect_volume_spike(volumes)
         
-        # Start from index 21 where both EMAs are valid (EMA21 needs 21 data points)
-        for i in range(20, len(closes)):  # EMA21 starts at index 20 (21st element)
-            # Skip if either EMA has NaN values (pandas may have NaN for early values)
-            if pd.isna(ema9[i]) or pd.isna(ema21[i]):
+        # Start from index 21 where both EMAs are valid and we have previous values
+        for i in range(21, len(closes)):
+            # Skip if either current or previous EMA values are None
+            if (ema9[i] is None or ema21[i] is None or 
+                ema9[i-1] is None or ema21[i-1] is None):
                 continue
                 
             signal = {
@@ -100,24 +108,26 @@ class EMA9_21Strategy:
                 'confirmed': False
             }
             
-            # Previous values (ensure they exist and are not NaN)
-            if i > 20 and not pd.isna(ema9[i-1]) and not pd.isna(ema21[i-1]):
-                prev_ema9 = ema9[i-1]
-                prev_ema21 = ema21[i-1]
-                
-                # Bullish crossover: EMA9 crosses above EMA21
-                if prev_ema9 <= prev_ema21 and ema9[i] > ema21[i]:
-                    if closes[i] > ema9[i] and closes[i] > ema21[i]:
-                        signal['signal'] = 'BUY'
-                        signal['trend'] = 'BULLISH'
-                        signal['confirmed'] = volume_spikes[i] if i < len(volume_spikes) else False
-                
-                # Bearish crossover: EMA9 crosses below EMA21  
-                elif prev_ema9 >= prev_ema21 and ema9[i] < ema21[i]:
-                    if closes[i] < ema9[i] and closes[i] < ema21[i]:
-                        signal['signal'] = 'SELL'
-                        signal['trend'] = 'BEARISH'
-                        signal['confirmed'] = volume_spikes[i] if i < len(volume_spikes) else False
+            prev_ema9 = ema9[i-1]
+            prev_ema21 = ema21[i-1]
+            
+            # Bullish crossover: EMA9 crosses above EMA21
+            if prev_ema9 <= prev_ema21 and ema9[i] > ema21[i]:
+                signal['signal'] = 'BUY'
+                signal['trend'] = 'BULLISH'
+                signal['confirmed'] = volume_spikes[i] if i < len(volume_spikes) else False
+            
+            # Bearish crossover: EMA9 crosses below EMA21  
+            elif prev_ema9 >= prev_ema21 and ema9[i] < ema21[i]:
+                signal['signal'] = 'SELL'
+                signal['trend'] = 'BEARISH'
+                signal['confirmed'] = volume_spikes[i] if i < len(volume_spikes) else False
+            
+            # Add trend information even for non-crossover points
+            elif ema9[i] > ema21[i]:
+                signal['trend'] = 'BULLISH'
+            elif ema9[i] < ema21[i]:
+                signal['trend'] = 'BEARISH'
             
             signals.append(signal)
         
@@ -135,8 +145,8 @@ class EMA9_21Strategy:
         # Fetch OHLCV data
         ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
         
-        if len(ohlcv_data) < 50:
-            print(f"Error: Need at least 50 candles for EMA calculation. Got {len(ohlcv_data)}")
+        if len(ohlcv_data) < 30:
+            print(f"Error: Need at least 30 candles for EMA 9/21 calculation. Got {len(ohlcv_data)}")
             return
         
         # Extract closes and volumes

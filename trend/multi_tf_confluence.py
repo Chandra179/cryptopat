@@ -11,6 +11,7 @@ from data import get_data_collector
 from trend.ema_9_21 import EMA9_21Strategy
 from trend.macd import MACDStrategy
 from trend.rsi_14 import RSI14Strategy
+from trend.output_formatter import OutputFormatter
 
 
 class MultiTimeframeConfluence:
@@ -99,23 +100,10 @@ class MultiTimeframeConfluence:
                     'bearish_zone': latest_rsi < 50
                 }
                 
-                # Check for divergence (simplified - last 5 periods)
-                if len(rsi_values) >= 10 and len(closes) >= 10:
-                    recent_rsi = rsi_values[-5:]
-                    recent_closes = closes[-5:]
-                    
-                    # Check if price made higher high but RSI made lower high (bearish divergence)
-                    price_high_idx = recent_closes.index(max(recent_closes))
-                    rsi_high_idx = recent_rsi.index(max(recent_rsi))
-                    
-                    # Check if price made lower low but RSI made higher low (bullish divergence)
-                    price_low_idx = recent_closes.index(min(recent_closes))
-                    rsi_low_idx = recent_rsi.index(min(recent_rsi))
-                    
-                    result['rsi']['divergence'] = {
-                        'bearish': price_high_idx != rsi_high_idx and max(recent_closes) > recent_closes[0],
-                        'bullish': price_low_idx != rsi_low_idx and min(recent_closes) < recent_closes[0]
-                    }
+                # Proper divergence detection using swing highs/lows
+                if len(rsi_values) >= 20 and len(closes) >= 20:
+                    divergence = self._detect_rsi_divergence(closes, rsi_values)
+                    result['rsi']['divergence'] = divergence
             
         except Exception as e:
             result['error'] = f'Analysis error: {str(e)}'
@@ -258,6 +246,145 @@ class MultiTimeframeConfluence:
         
         return rsi_analysis
     
+    def _detect_rsi_divergence(self, closes: List[float], rsi_values: List[float]) -> Dict:
+        """
+        Detect RSI divergence using proper swing high/low identification.
+        
+        Args:
+            closes: Recent closing prices (last 20)
+            rsi_values: Recent RSI values (last 20)
+            
+        Returns:
+            Dictionary with divergence analysis
+        """
+        if len(closes) < 20 or len(rsi_values) < 20:
+            return {'bearish': False, 'bullish': False}
+        
+        # Use last 20 periods for divergence analysis
+        price_data = closes[-20:]
+        rsi_data = rsi_values[-20:]
+        
+        # Find swing highs and lows with minimum 3-period separation
+        price_highs = self._find_swing_highs(price_data, min_periods=3)
+        price_lows = self._find_swing_lows(price_data, min_periods=3)
+        rsi_highs = self._find_swing_highs(rsi_data, min_periods=3)
+        rsi_lows = self._find_swing_lows(rsi_data, min_periods=3)
+        
+        bearish_divergence = False
+        bullish_divergence = False
+        
+        # Bearish divergence: Price makes higher high, RSI makes lower high
+        if len(price_highs) >= 2 and len(rsi_highs) >= 2:
+            latest_price_high = price_highs[-1]
+            prev_price_high = price_highs[-2]
+            latest_rsi_high = rsi_highs[-1]
+            prev_rsi_high = rsi_highs[-2]
+            
+            if (price_data[latest_price_high] > price_data[prev_price_high] and 
+                rsi_data[latest_rsi_high] < rsi_data[prev_rsi_high]):
+                bearish_divergence = True
+        
+        # Bullish divergence: Price makes lower low, RSI makes higher low
+        if len(price_lows) >= 2 and len(rsi_lows) >= 2:
+            latest_price_low = price_lows[-1]
+            prev_price_low = price_lows[-2]
+            latest_rsi_low = rsi_lows[-1]
+            prev_rsi_low = rsi_lows[-2]
+            
+            if (price_data[latest_price_low] < price_data[prev_price_low] and 
+                rsi_data[latest_rsi_low] > rsi_data[prev_rsi_low]):
+                bullish_divergence = True
+        
+        return {
+            'bearish': bearish_divergence,
+            'bullish': bullish_divergence
+        }
+    
+    def _find_swing_highs(self, data: List[float], min_periods: int = 3) -> List[int]:
+        """
+        Find swing highs in price/indicator data.
+        
+        Args:
+            data: Price or indicator values
+            min_periods: Minimum periods between swings
+            
+        Returns:
+            List of indices where swing highs occur
+        """
+        swing_highs = []
+        
+        for i in range(min_periods, len(data) - min_periods):
+            is_high = True
+            
+            # Check if current point is higher than surrounding points
+            for j in range(i - min_periods, i + min_periods + 1):
+                if j != i and data[j] >= data[i]:
+                    is_high = False
+                    break
+            
+            if is_high:
+                swing_highs.append(i)
+        
+        return swing_highs
+    
+    def _find_swing_lows(self, data: List[float], min_periods: int = 3) -> List[int]:
+        """
+        Find swing lows in price/indicator data.
+        
+        Args:
+            data: Price or indicator values
+            min_periods: Minimum periods between swings
+            
+        Returns:
+            List of indices where swing lows occur
+        """
+        swing_lows = []
+        
+        for i in range(min_periods, len(data) - min_periods):
+            is_low = True
+            
+            # Check if current point is lower than surrounding points
+            for j in range(i - min_periods, i + min_periods + 1):
+                if j != i and data[j] <= data[i]:
+                    is_low = False
+                    break
+            
+            if is_low:
+                swing_lows.append(i)
+        
+        return swing_lows
+    
+    def _get_timeframe_weight(self, timeframe: str) -> float:
+        """
+        Get weight for timeframe based on standard hierarchy.
+        Higher timeframes get more weight.
+        
+        Args:
+            timeframe: Timeframe string (e.g., '1d', '4h', '1h')
+            
+        Returns:
+            Weight multiplier for the timeframe
+        """
+        timeframe_weights = {
+            '1M': 3.0,   # Monthly - highest weight
+            '1w': 2.5,   # Weekly
+            '3d': 2.2,   # 3-day
+            '1d': 2.0,   # Daily
+            '12h': 1.8,  # 12-hour
+            '8h': 1.6,   # 8-hour
+            '6h': 1.5,   # 6-hour
+            '4h': 1.3,   # 4-hour
+            '2h': 1.1,   # 2-hour
+            '1h': 1.0,   # Hourly - base weight
+            '30m': 0.8,  # 30-minute
+            '15m': 0.6,  # 15-minute
+            '5m': 0.4,   # 5-minute
+            '3m': 0.3,   # 3-minute
+            '1m': 0.2    # 1-minute - lowest weight
+        }
+        
+        return timeframe_weights.get(timeframe, 1.0)
+    
     def generate_confluence_signal(self, ema_alignment: Dict, macd_confluence: Dict, 
                                  rsi_analysis: Dict) -> Dict:
         """
@@ -279,40 +406,78 @@ class MultiTimeframeConfluence:
             'reasons': []
         }
         
-        # Calculate strength score (0-100)
-        total_timeframes = len(ema_alignment['timeframes'])
-        if total_timeframes == 0:
+        # Calculate weighted strength score using timeframe hierarchy
+        timeframes = list(ema_alignment['timeframes'].keys())
+        if not timeframes:
             return signal
         
-        # EMA alignment scoring (40% weight)
+        # Calculate weighted strength score using timeframe hierarchy
+        
+        # EMA alignment scoring with timeframe weighting (50% of total)
+        ema_score = 0
+        ema_weight_sum = 0
+        for tf in timeframes:
+            tf_weight = self._get_timeframe_weight(tf)
+            ema_weight_sum += tf_weight
+            
+            if tf in ema_alignment['timeframes']:
+                tf_data = ema_alignment['timeframes'][tf]
+                if tf_data['bullish'] or tf_data['bearish']:
+                    ema_score += tf_weight
+        
+        if ema_weight_sum > 0:
+            ema_normalized = (ema_score / ema_weight_sum) * 50
+            signal['strength_score'] += int(ema_normalized)
+        
         if ema_alignment['all_bullish']:
-            signal['strength_score'] += 40
-            signal['reasons'].append('All timeframes EMA bullish')
+            signal['reasons'].append('All timeframes EMA bullish alignment')
         elif ema_alignment['all_bearish']:
-            signal['strength_score'] += 40
-            signal['reasons'].append('All timeframes EMA bearish')
-        else:
-            # Partial alignment
-            bullish_ratio = ema_alignment['bullish_count'] / total_timeframes
-            bearish_ratio = ema_alignment['bearish_count'] / total_timeframes
-            signal['strength_score'] += int(max(bullish_ratio, bearish_ratio) * 40)
+            signal['reasons'].append('All timeframes EMA bearish alignment')
+        elif ema_alignment['bullish_count'] > ema_alignment['bearish_count']:
+            signal['reasons'].append(f'EMA bullish bias ({ema_alignment["bullish_count"]}/{len(timeframes)} TFs)')
+        elif ema_alignment['bearish_count'] > ema_alignment['bullish_count']:
+            signal['reasons'].append(f'EMA bearish bias ({ema_alignment["bearish_count"]}/{len(timeframes)} TFs)')
         
-        # MACD confluence scoring (30% weight)
+        # MACD confluence scoring with timeframe weighting (30% of total)
+        macd_score = 0
+        macd_weight_sum = 0
+        for tf in timeframes:
+            tf_weight = self._get_timeframe_weight(tf)
+            macd_weight_sum += tf_weight
+            
+            if tf in macd_confluence['timeframes']:
+                tf_data = macd_confluence['timeframes'][tf]
+                if tf_data['positive'] or tf_data['negative']:
+                    macd_score += tf_weight
+        
+        if macd_weight_sum > 0:
+            macd_normalized = (macd_score / macd_weight_sum) * 30
+            signal['strength_score'] += int(macd_normalized)
+        
         if macd_confluence['all_positive']:
-            signal['strength_score'] += 30
-            signal['reasons'].append('All timeframes MACD positive')
+            signal['reasons'].append('All timeframes MACD positive histogram')
         elif macd_confluence['all_negative']:
-            signal['strength_score'] += 30
-            signal['reasons'].append('All timeframes MACD negative')
-        else:
-            # Partial confluence
-            pos_ratio = macd_confluence['positive_count'] / total_timeframes
-            neg_ratio = macd_confluence['negative_count'] / total_timeframes
-            signal['strength_score'] += int(max(pos_ratio, neg_ratio) * 30)
+            signal['reasons'].append('All timeframes MACD negative histogram')
         
-        # RSI divergence scoring (30% weight)
+        # RSI divergence scoring with higher timeframe emphasis (20% of total)
         if rsi_analysis['divergence_confirmed']:
-            signal['strength_score'] += 30
+            # Higher weight for divergence on higher timeframes
+            divergence_score = 0
+            divergence_weight_sum = 0
+            
+            for tf in timeframes:
+                if tf in rsi_analysis['timeframes']:
+                    tf_data = rsi_analysis['timeframes'][tf]
+                    tf_weight = self._get_timeframe_weight(tf)
+                    divergence_weight_sum += tf_weight
+                    
+                    if tf_data.get('bullish_divergence') or tf_data.get('bearish_divergence'):
+                        divergence_score += tf_weight * 2  # Double weight for divergence
+            
+            if divergence_weight_sum > 0:
+                divergence_normalized = min(20, (divergence_score / divergence_weight_sum) * 20)
+                signal['strength_score'] += int(divergence_normalized)
+            
             if rsi_analysis['bullish_divergence_count'] > 0:
                 signal['reasons'].append('Bullish RSI divergence detected')
             if rsi_analysis['bearish_divergence_count'] > 0:
@@ -390,7 +555,7 @@ class MultiTimeframeConfluence:
         final_signal = self.generate_confluence_signal(ema_alignment, macd_confluence, rsi_analysis)
         
         # Display results
-        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        current_timestamp = int(datetime.now().timestamp() * 1000)
         
         # EMA Alignment
         ema_status = "✅ All Bullish" if ema_alignment['all_bullish'] else "❌ All Bearish" if ema_alignment['all_bearish'] else f"⚠️  Mixed ({ema_alignment['bullish_count']}/{len(valid_results)} Bullish)"
@@ -401,13 +566,23 @@ class MultiTimeframeConfluence:
         # RSI Divergence
         rsi_status = "⚠️  Divergence Detected" if rsi_analysis['divergence_confirmed'] else "➖ No Divergence"
         
-        print(f"[{current_time}] EMA: {ema_status} | MACD: {macd_status} | RSI Div: {rsi_status}")
+        # Format metrics for output
+        metrics = {
+            "EMA": ema_status,
+            "MACD": macd_status,
+            "RSI_DIV": rsi_status
+        }
         
-        # Final Signal
-        signal_emoji = "📈" if final_signal['trend'] == 'BULLISH' else "📉" if final_signal['trend'] == 'BEARISH' else "➖"
+        print(OutputFormatter.format_analysis_output(
+            timestamp=current_timestamp,
+            metrics=metrics,
+            signal=final_signal['action'],
+            trend=final_signal['trend']
+        ))
+        
+        # Additional confidence info
         confidence_emoji = "🔥" if final_signal['confidence'] == 'HIGH' else "⚡" if final_signal['confidence'] == 'MEDIUM' else "⚠️" if final_signal['confidence'] == 'LOW' else "❓"
-        
-        print(f"Signal: {final_signal['action']} | {signal_emoji} {final_signal['trend']} | {confidence_emoji} {final_signal['confidence']} ({final_signal['strength_score']}/100)")
+        print(f"Confidence: {confidence_emoji} {final_signal['confidence']} ({final_signal['strength_score']}/100)")
         
         # Detailed breakdown per timeframe
         for result in valid_results:

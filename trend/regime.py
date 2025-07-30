@@ -238,7 +238,8 @@ class MarketRegimeStrategy:
     
     def calculate_bb_width(self, prices: List[float], period: int = 20, multiplier: float = 2.0) -> List[float]:
         """
-        Calculate Bollinger Band width as volatility measure.
+        Calculate standard Bollinger Band width.
+        Formula: (Upper Band - Lower Band) / Middle Band
         
         Args:
             prices: List of closing prices
@@ -246,7 +247,7 @@ class MarketRegimeStrategy:
             multiplier: BB multiplier (default 2.0)
             
         Returns:
-            List of BB width values
+            List of BB width values (normalized by middle band)
         """
         sma_values = self.calculate_sma(prices, period)
         if not sma_values:
@@ -256,6 +257,7 @@ class MarketRegimeStrategy:
         if not std_values:
             return []
         
+        # Standard formula: (Upper - Lower) / Middle = (2 * multiplier * std) / sma
         bb_width = [(2 * multiplier * std) / sma for std, sma in zip(std_values, sma_values)]
         return bb_width
     
@@ -284,63 +286,53 @@ class MarketRegimeStrategy:
     def classify_regime(self, adx: float, ema9: float, ema21: float, atr_pct: float, 
                        bb_width: float, bb_avg: float) -> Tuple[str, str, int]:
         """
-        Classify market regime based on technical indicators.
+        Classify market regime using standard Wilder's ADX methodology with volatility filters.
+        Based on Wilder's original ADX interpretation and modern volatility analysis.
         
         Args:
-            adx: ADX value
+            adx: ADX value (0-100)
             ema9: EMA 9 value
             ema21: EMA 21 value
             atr_pct: ATR as percentage of close
-            bb_width: Bollinger Band width
+            bb_width: Bollinger Band width (normalized)
             bb_avg: Average BB width over period
             
         Returns:
-            Tuple of (regime, direction, strength_score)
+            Tuple of (regime, direction, adx_value)
         """
-        # Trend strength score (0-100)
-        strength_score = 0
+        # Standard Wilder's ADX thresholds
+        # ADX > 40: Very strong trend
+        # ADX 25-40: Strong trend
+        # ADX 20-25: Weak trend
+        # ADX < 20: No trend (ranging)
         
-        # ADX contribution (40% of score)
-        if adx > 25:
-            strength_score += 40
-        elif adx > 20:
-            strength_score += 25
-        else:
-            strength_score += 10
+        # Determine trend direction
+        direction = "↑" if ema9 > ema21 else "↓"
         
-        # EMA separation contribution (30% of score)
-        ema_diff_pct = abs(ema9 - ema21) / ema21 * 100
-        if ema_diff_pct > 2.0:
-            strength_score += 30
-        elif ema_diff_pct > 1.0:
-            strength_score += 20
-        else:
-            strength_score += 5
+        # Volatility filter using BB width
+        low_volatility = bb_width < bb_avg * 0.75
+        high_volatility = bb_width > bb_avg * 1.25
         
-        # ATR contribution (20% of score)
-        if atr_pct > 2.0:
-            strength_score += 20
-        elif atr_pct > 1.5:
-            strength_score += 15
-        else:
-            strength_score += 5
-        
-        # BB width contribution (10% of score)
-        if bb_width > bb_avg * 1.2:
-            strength_score += 10
-        elif bb_width > bb_avg:
-            strength_score += 5
-        
-        # Determine regime and direction
-        if strength_score >= 60 and adx > 25:
-            if ema9 > ema21:
-                return "TRENDING", "↑", strength_score
+        # Standard ADX-based regime classification
+        if adx >= 40:
+            regime = "VERY_STRONG_TREND"
+        elif adx >= 25:
+            # Strong trend, but check for low volatility (potential false signals)
+            if low_volatility and atr_pct < 1.0:
+                regime = "WEAK_TREND"  # ADX high but low volatility = weakening trend
             else:
-                return "TRENDING", "↓", strength_score
-        elif strength_score < 40 and adx < 20 and bb_width < bb_avg * 0.8:
-            return "RANGING", "⏸️", strength_score
+                regime = "STRONG_TREND"
+        elif adx >= 20:
+            regime = "WEAK_TREND"
         else:
-            return "NEUTRAL", "❓", strength_score
+            # ADX < 20: Ranging market
+            if high_volatility:
+                regime = "VOLATILE_RANGE"  # High volatility but no trend
+            else:
+                regime = "RANGING"
+            direction = "⏸️"  # No clear direction in ranging market
+        
+        return regime, direction, int(adx)
     
     def analyze(self, symbol: str, timeframe: str, limit: int) -> None:
         """
@@ -383,76 +375,70 @@ class MarketRegimeStrategy:
         signals = []
         today = datetime.now().date()
         
-        # Find the minimum length to work with
-        min_len = min(len(adx_values), len(atr_values), len(bb_width))
-        ema9_offset = len(closes) - len(ema9)
-        ema21_offset = len(closes) - len(ema21)
+        # Align all indicators to the same length (use the shortest)
+        # All indicators should end at the same time point
+        min_len = min(len(adx_values), len(atr_values), len(bb_width), len(ema9), len(ema21))
         
+        # Start from the latest data points working backwards
         for i in range(min_len):
-            # Calculate corresponding indices
+            # Use indices from the end of each array
+            adx_idx = len(adx_values) - min_len + i
+            atr_idx = len(atr_values) - min_len + i  
+            bb_idx = len(bb_width) - min_len + i
+            ema9_idx = len(ema9) - min_len + i
+            ema21_idx = len(ema21) - min_len + i
             close_idx = len(closes) - min_len + i
-            ema9_idx = close_idx - ema9_offset
-            ema21_idx = close_idx - ema21_offset
             
-            if (close_idx < len(closes) and close_idx < len(timestamps) and
-                ema9_idx >= 0 and ema9_idx < len(ema9) and
-                ema21_idx >= 0 and ema21_idx < len(ema21)):
-                
-                # Calculate ATR percentage
-                atr_pct = (atr_values[i] / closes[close_idx]) * 100
-                
-                # Classify regime
-                regime, direction, strength = self.classify_regime(
-                    adx_values[i], ema9[ema9_idx], ema21[ema21_idx], 
-                    atr_pct, bb_width[i], bb_avg
-                )
-                
-                signal = {
-                    'timestamp': timestamps[close_idx],
-                    'close': closes[close_idx],
-                    'adx': adx_values[i],
-                    'atr_pct': atr_pct,
-                    'ema9': ema9[ema9_idx],
-                    'ema21': ema21[ema21_idx],
-                    'bb_width': bb_width[i],
-                    'regime': regime,
-                    'direction': direction,
-                    'strength': strength
-                }
-                
-                # Check if signal is from today
-                dt = datetime.fromtimestamp(signal['timestamp'] / 1000)
-                if dt.date() == today:
-                    signals.append((signal, dt))
+            # Calculate ATR percentage
+            atr_pct = (atr_values[atr_idx] / closes[close_idx]) * 100
+            
+            # Classify regime
+            regime, direction, adx_strength = self.classify_regime(
+                adx_values[adx_idx], ema9[ema9_idx], ema21[ema21_idx], 
+                atr_pct, bb_width[bb_idx], bb_avg
+            )
+            
+            signal = {
+                'timestamp': timestamps[close_idx],
+                'close': closes[close_idx],
+                'adx': adx_values[adx_idx],
+                'atr_pct': atr_pct,
+                'ema9': ema9[ema9_idx],
+                'ema21': ema21[ema21_idx],
+                'bb_width': bb_width[bb_idx],
+                'regime': regime,
+                'direction': direction,
+                'strength': adx_strength
+            }
+            
+            # Check if signal is from today
+            dt = datetime.fromtimestamp(signal['timestamp'] / 1000)
+            if dt.date() == today:
+                signals.append((signal, dt))
         
         # Display results
         if not signals:
             print(f"No signals found for today ({today})")
             # Show latest available signal
             if min_len > 0:
-                # Get the last available data point
-                close_idx = len(closes) - 1
-                ema9_idx = len(ema9) - 1
-                ema21_idx = len(ema21) - 1
-                atr_idx = len(atr_values) - 1
-                adx_idx = len(adx_values) - 1
-                bb_idx = len(bb_width) - 1
+                # Get the last available data point (all aligned)
+                last_idx = -1
+                close_idx = len(closes) + last_idx
                 
-                atr_pct = (atr_values[atr_idx] / closes[close_idx]) * 100
-                regime, direction, strength = self.classify_regime(
-                    adx_values[adx_idx], ema9[ema9_idx], ema21[ema21_idx], 
-                    atr_pct, bb_width[bb_idx], bb_avg
+                atr_pct = (atr_values[last_idx] / closes[close_idx]) * 100
+                regime, direction, adx_strength = self.classify_regime(
+                    adx_values[last_idx], ema9[last_idx], ema21[last_idx], 
+                    atr_pct, bb_width[last_idx], bb_avg
                 )
                 
                 dt = datetime.fromtimestamp(timestamps[close_idx] / 1000)
                 print(f"\nLatest regime analysis:")
                 self._print_regime_signal(
-                    adx_values[adx_idx], atr_pct, ema9[ema9_idx] > ema21[ema21_idx],
-                    bb_width[bb_idx] > bb_avg, regime, direction, strength, dt
+                    adx_values[last_idx], atr_pct, ema9[last_idx] > ema21[last_idx],
+                    bb_width[last_idx] > bb_avg, regime, direction, adx_strength, dt
                 )
         else:
             for signal, dt in signals:
-                ema_angle = "Positive" if signal['ema9'] > signal['ema21'] else "Negative"
                 bb_expanding = signal['bb_width'] > bb_avg
                 
                 self._print_regime_signal(
@@ -461,33 +447,29 @@ class MarketRegimeStrategy:
                 )
     
     def _print_regime_signal(self, adx: float, atr_pct: float, ema_positive: bool, 
-                           bb_expanding: bool, regime: str, direction: str, strength: int, dt: datetime) -> None:
-        """Print formatted regime signal output."""
-        ema_angle = "Positive" if ema_positive else "Negative"
+                           bb_expanding: bool, regime: str, direction: str, adx_strength: int, dt: datetime) -> None:
+        """Print formatted regime signal output using standard ADX interpretation."""
+        ema_trend = "Bullish" if ema_positive else "Bearish"
         bb_status = "Expanding" if bb_expanding else "Contracting"
         
-        # Determine trend emoji based on regime and direction
-        if regime == "TRENDING" and direction == "↑":
-            trend_emoji = "📈"
-            trend_desc = "Strong Bullish Trend"
-        elif regime == "TRENDING" and direction == "↓":
-            trend_emoji = "📉"
-            trend_desc = "Strong Bearish Trend"
-        elif regime == "RANGING":
-            trend_emoji = "⏸️"
-            trend_desc = "Range-bound Market"
-        else:
-            trend_emoji = "❓"
-            trend_desc = "Neutral/Mixed Signals"
+        # Standard regime descriptions based on Wilder's ADX
+        regime_map = {
+            "VERY_STRONG_TREND": ("🔥", "Very Strong Trend"),
+            "STRONG_TREND": ("📈" if ema_positive else "📉", "Strong Trend"),
+            "WEAK_TREND": ("📋", "Weak Trend"),
+            "RANGING": ("⏸️", "Sideways/Range"),
+            "VOLATILE_RANGE": ("🌊", "Volatile Range")
+        }
+        
+        trend_emoji, _ = regime_map.get(regime, ("❓", "Unknown"))
         
         print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
               f"ADX: {adx:.1f} | "
-              f"ATR%: {atr_pct:.1f}% | "
-              f"EMA Angle: {ema_angle} | "
-              f"BB Width: {bb_status} | "
-              f"Signal: {regime} {direction} | "
-              f"{trend_emoji} {trend_desc} | "
-              f"Strength: {strength}/100")
+              f"ATR: {atr_pct:.1f}% | "
+              f"EMA: {ema_trend} | "
+              f"Volatility: {bb_status} | "
+              f"{trend_emoji} {regime.replace('_', ' ')} {direction} | "
+              f"ADX Score: {adx_strength}")
 
 
 def parse_command(command: str) -> Tuple[str, str, int]:

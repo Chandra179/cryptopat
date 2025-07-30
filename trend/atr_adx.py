@@ -4,7 +4,7 @@ Measures volatility and trend strength for cryptocurrency trend analysis.
 """
 
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Tuple, Dict
 from data import get_data_collector
 
@@ -183,7 +183,7 @@ class ATR_ADXStrategy:
     
     def generate_signals(self, atr_values: List[float], adx_values: List[float], 
                         plus_di: List[float], minus_di: List[float],
-                        closes: List[float], timestamps: List[int]) -> List[Dict]:
+                        closes: List[float], timestamps: List[int], period: int = 14) -> List[Dict]:
         """
         Generate ATR+ADX trading signals.
         
@@ -194,32 +194,52 @@ class ATR_ADXStrategy:
             minus_di: -DI values
             closes: Closing prices
             timestamps: Timestamp values
+            period: Period used for calculations (for proper alignment)
             
         Returns:
             List of signal dictionaries
         """
         signals = []
         
-        # Ensure we have valid data arrays
-        min_length = min(len(adx_values), len(atr_values), len(plus_di), len(minus_di))
+        # Calculate the offset needed to align all indicators
+        # ATR starts at index 'period' (14 by default)
+        # ADX starts at index 'period' + smoothing period (28 by default)
+        adx_offset = period * 2  # 28 for default period of 14
         
-        for i in range(1, min_length):
-            # Calculate indices for original data arrays, accounting for ATR/ADX offset
-            data_idx = len(closes) - len(adx_values) + i
+        # Ensure we have enough data
+        if len(closes) < adx_offset or len(adx_values) == 0:
+            return signals
+        
+        # Generate signals starting from where we have all indicators
+        for i in range(1, len(adx_values)):
+            # Calculate the corresponding index in the original data
+            data_idx = adx_offset + i
             
-            # Ensure data_idx is within bounds
+            # Ensure we don't go out of bounds
             if data_idx >= len(closes) or data_idx >= len(timestamps):
-                continue
+                break
+                
+            # Get ATR value (ATR array is longer than ADX array)
+            atr_idx = period + i  # ATR starts at period offset
+            if atr_idx >= len(atr_values):
+                atr_idx = len(atr_values) - 1
+                
+            # Calculate volatility percentile for ATR threshold
+            current_atr = atr_values[atr_idx]
+            recent_atr_values = atr_values[max(0, atr_idx-20):atr_idx+1]
+            avg_atr = sum(recent_atr_values) / len(recent_atr_values) if recent_atr_values else current_atr
+            high_volatility = current_atr > avg_atr * 1.2  # 20% above average
                 
             signal = {
                 'timestamp': timestamps[data_idx],
                 'close': closes[data_idx],
-                'atr': atr_values[min(i, len(atr_values)-1)],
+                'atr': current_atr,
                 'adx': adx_values[i],
-                'plus_di': plus_di[min(i, len(plus_di)-1)],
-                'minus_di': minus_di[min(i, len(minus_di)-1)],
+                'plus_di': plus_di[i] if i < len(plus_di) else 0,
+                'minus_di': minus_di[i] if i < len(minus_di) else 0,
                 'signal': 'HOLD',
                 'trend_strength': 'WEAK',
+                'volatility': 'HIGH' if high_volatility else 'NORMAL',
                 'description': ''
             }
             
@@ -231,30 +251,54 @@ class ATR_ADXStrategy:
             else:
                 signal['trend_strength'] = 'WEAK'
             
-            # Generate signals based on DI crossovers and ADX strength
-            prev_plus_di = plus_di[max(0, i-1)]
-            prev_minus_di = minus_di[max(0, i-1)]
-            
-            # BUY signal: ADX > 25 and +DI crosses above -DI
-            if (signal['adx'] > 25 and 
-                prev_plus_di <= prev_minus_di and 
-                signal['plus_di'] > signal['minus_di']):
-                signal['signal'] = 'BUY'
-                signal['description'] = 'Strong Trend Confirmed'
-            
-            # SELL signal: ADX > 25 and -DI crosses above +DI
-            elif (signal['adx'] > 25 and 
-                  prev_plus_di >= prev_minus_di and 
-                  signal['plus_di'] < signal['minus_di']):
-                signal['signal'] = 'SELL'
-                signal['description'] = 'Strong Trend Confirmed'
-            
-            # Weak trend warning
-            elif signal['adx'] < 25:
-                signal['description'] = 'Weak Trend - Avoid New Positions'
-            
-            else:
-                signal['description'] = 'No Clear Signal'
+            # Generate signals based on DI crossovers, ADX strength, and ATR
+            if i > 0:  # Need previous values for crossover detection
+                prev_plus_di = plus_di[i-1] if i-1 < len(plus_di) else 0
+                prev_minus_di = minus_di[i-1] if i-1 < len(minus_di) else 0
+                
+                # BUY signal: Strong trend + bullish crossover + sufficient volatility
+                if (signal['adx'] > 25 and 
+                    prev_plus_di <= prev_minus_di and 
+                    signal['plus_di'] > signal['minus_di'] and
+                    high_volatility):
+                    signal['signal'] = 'BUY'
+                    signal['description'] = 'Bullish Trend Confirmed - High Volatility'
+                
+                # Strong BUY without high volatility requirement
+                elif (signal['adx'] > 30 and 
+                      prev_plus_di <= prev_minus_di and 
+                      signal['plus_di'] > signal['minus_di']):
+                    signal['signal'] = 'BUY'
+                    signal['description'] = 'Strong Bullish Trend Confirmed'
+                
+                # SELL signal: Strong trend + bearish crossover + sufficient volatility
+                elif (signal['adx'] > 25 and 
+                      prev_plus_di >= prev_minus_di and 
+                      signal['plus_di'] < signal['minus_di'] and
+                      high_volatility):
+                    signal['signal'] = 'SELL'
+                    signal['description'] = 'Bearish Trend Confirmed - High Volatility'
+                
+                # Strong SELL without high volatility requirement
+                elif (signal['adx'] > 30 and 
+                      prev_plus_di >= prev_minus_di and 
+                      signal['plus_di'] < signal['minus_di']):
+                    signal['signal'] = 'SELL'
+                    signal['description'] = 'Strong Bearish Trend Confirmed'
+                
+                # Weak trend warning
+                elif signal['adx'] < 20:
+                    signal['description'] = 'Weak Trend - Avoid New Positions'
+                
+                # Moderate trend
+                elif signal['adx'] < 25:
+                    if signal['plus_di'] > signal['minus_di']:
+                        signal['description'] = 'Moderate Bullish Trend'
+                    else:
+                        signal['description'] = 'Moderate Bearish Trend'
+                
+                else:
+                    signal['description'] = 'Strong Trend - No Clear Direction'
             
             signals.append(signal)
         
@@ -278,7 +322,6 @@ class ATR_ADXStrategy:
         
         # Extract OHLCV components
         timestamps = [candle[0] for candle in ohlcv_data]
-        opens = [candle[1] for candle in ohlcv_data]
         highs = [candle[2] for candle in ohlcv_data]
         lows = [candle[3] for candle in ohlcv_data]
         closes = [candle[4] for candle in ohlcv_data]
@@ -295,14 +338,14 @@ class ATR_ADXStrategy:
             return
         
         # Generate signals
-        signals = self.generate_signals(atr_values, adx_values, plus_di, minus_di, closes, timestamps)
+        signals = self.generate_signals(atr_values, adx_values, plus_di, minus_di, closes, timestamps, 14)
         
-        # Filter for today's signals
-        today = datetime.now().date()
+        # Filter for today's signals (using UTC timezone)
+        today = datetime.now(timezone.utc).date()
         today_signals = []
         
         for signal in signals:
-            dt = datetime.fromtimestamp(signal['timestamp'] / 1000)
+            dt = datetime.fromtimestamp(signal['timestamp'] / 1000, tz=timezone.utc)
             if dt.date() == today:
                 today_signals.append((signal, dt))
         
@@ -311,9 +354,7 @@ class ATR_ADXStrategy:
             # Show latest signal for reference
             if signals:
                 latest_signal = signals[-1]
-                dt = datetime.fromtimestamp(latest_signal['timestamp'] / 1000)
-                signal_icon = self._get_signal_icon(latest_signal['signal'])
-                trend_icon = self._get_trend_icon(latest_signal['trend_strength'])
+                dt = datetime.fromtimestamp(latest_signal['timestamp'] / 1000, tz=timezone.utc)
                 
                 print(f"\nLatest signal:")
                 # Get appropriate trend emoji for latest signal
@@ -324,11 +365,14 @@ class ATR_ADXStrategy:
                 else:
                     trend_emoji = '➖'
                 
-                print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
-                      f"ATR: {latest_signal['atr']:.0f} | "
-                      f"ADX: {latest_signal['adx']:.0f} | "
-                      f"+DI: {latest_signal['plus_di']:.0f} | "
-                      f"-DI: {latest_signal['minus_di']:.0f} | "
+                volatility_emoji = '🔥' if latest_signal.get('volatility') == 'HIGH' else '📊'
+                
+                print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')} UTC] "
+                      f"ATR: {latest_signal['atr']:.2f} | "
+                      f"ADX: {latest_signal['adx']:.1f} | "
+                      f"+DI: {latest_signal['plus_di']:.1f} | "
+                      f"-DI: {latest_signal['minus_di']:.1f} | "
+                      f"Vol: {latest_signal.get('volatility', 'NORMAL')} {volatility_emoji} | "
                       f"Signal: {latest_signal['signal']} | "
                       f"{trend_emoji} {latest_signal['description']}")
         else:
@@ -341,11 +385,14 @@ class ATR_ADXStrategy:
                 else:
                     trend_emoji = '➖'
                 
-                print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')}] "
-                      f"ATR: {signal['atr']:.0f} | "
-                      f"ADX: {signal['adx']:.0f} | "
-                      f"+DI: {signal['plus_di']:.0f} | "
-                      f"-DI: {signal['minus_di']:.0f} | "
+                volatility_emoji = '🔥' if signal.get('volatility') == 'HIGH' else '📊'
+                
+                print(f"[{dt.strftime('%Y-%m-%d %H:%M:%S')} UTC] "
+                      f"ATR: {signal['atr']:.2f} | "
+                      f"ADX: {signal['adx']:.1f} | "
+                      f"+DI: {signal['plus_di']:.1f} | "
+                      f"-DI: {signal['minus_di']:.1f} | "
+                      f"Vol: {signal.get('volatility', 'NORMAL')} {volatility_emoji} | "
                       f"Signal: {signal['signal']} | "
                       f"{trend_emoji} {signal['description']}")
     

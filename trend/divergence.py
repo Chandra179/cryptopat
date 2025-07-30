@@ -22,13 +22,13 @@ class DivergenceDetector:
         self.macd_strategy = MACDStrategy()
         self.obv_strategy = OBVStrategy()
     
-    def find_swing_highs_lows(self, values: List[float], window: int = 5) -> Tuple[List[int], List[int]]:
+    def find_swing_highs_lows(self, values: List[float], lookback: int = 2) -> Tuple[List[int], List[int]]:
         """
-        Find swing highs and lows in a series of values.
+        Find swing highs and lows using standard pivot point method.
         
         Args:
             values: List of values to analyze
-            window: Lookback/lookahead window for swing detection
+            lookback: Number of periods to look back/forward (default 2)
             
         Returns:
             Tuple of (swing_high_indices, swing_low_indices)
@@ -36,19 +36,19 @@ class DivergenceDetector:
         swing_highs = []
         swing_lows = []
         
-        for i in range(window, len(values) - window):
-            # Check for swing high
+        for i in range(lookback, len(values) - lookback):
+            # Check for swing high - current value is highest in lookback window
             is_high = True
-            for j in range(i - window, i + window + 1):
+            for j in range(i - lookback, i + lookback + 1):
                 if j != i and values[j] >= values[i]:
                     is_high = False
                     break
             if is_high:
                 swing_highs.append(i)
             
-            # Check for swing low
+            # Check for swing low - current value is lowest in lookback window  
             is_low = True
-            for j in range(i - window, i + window + 1):
+            for j in range(i - lookback, i + lookback + 1):
                 if j != i and values[j] <= values[i]:
                     is_low = False
                     break
@@ -59,86 +59,87 @@ class DivergenceDetector:
     
     def detect_rsi_divergence(self, closes: List[float], rsi_values: List[float]) -> List[Dict]:
         """
-        Detect RSI divergences.
+        Detect RSI divergences with proper index alignment.
         
         Args:
             closes: Closing prices
-            rsi_values: RSI values
+            rsi_values: RSI values (already aligned with closes from index 14 onwards)
             
         Returns:
             List of divergence dictionaries
         """
         divergences = []
         
-        # Find swing highs and lows for both price and RSI
-        price_highs, price_lows = self.find_swing_highs_lows(closes[15:])  # RSI starts at index 15
-        rsi_highs, rsi_lows = self.find_swing_highs_lows(rsi_values)
+        # RSI calculation starts from index 13 (0-based, needs 14 values: 0-13)
+        rsi_start_idx = 13
         
-        # Adjust price indices to match RSI indices
-        price_highs = [i for i in price_highs]
-        price_lows = [i for i in price_lows]
+        # Validate data lengths
+        if len(closes) < rsi_start_idx + 1 or len(rsi_values) == 0:
+            return divergences
+        
+        # RSI values should align with closes starting from rsi_start_idx
+        expected_rsi_length = len(closes) - rsi_start_idx
+        if len(rsi_values) != expected_rsi_length:
+            # Take the minimum length to avoid index errors
+            min_length = min(len(rsi_values), expected_rsi_length)
+            aligned_closes = closes[rsi_start_idx:rsi_start_idx + min_length]
+            aligned_rsi = rsi_values[:min_length]
+        else:
+            aligned_closes = closes[rsi_start_idx:]
+            aligned_rsi = rsi_values
+        
+        if len(aligned_closes) != len(aligned_rsi) or len(aligned_closes) < 10:
+            return divergences
+        
+        # Find swing highs and lows for both aligned price and RSI
+        price_highs, price_lows = self.find_swing_highs_lows(aligned_closes)
+        rsi_highs, rsi_lows = self.find_swing_highs_lows(aligned_rsi)
         
         # Detect bearish divergence (price higher high, RSI lower high)
-        for i in range(1, len(price_highs)):
-            for j in range(1, len(rsi_highs)):
-                price_idx1, price_idx2 = price_highs[i-1], price_highs[i]
-                rsi_idx1, rsi_idx2 = rsi_highs[j-1], rsi_highs[j]
-                
-                # Check if indices are close enough to be considered related
-                if abs(price_idx2 - rsi_idx2) <= 3 and abs(price_idx1 - rsi_idx1) <= 3:
-                    price1, price2 = closes[price_idx1 + 15], closes[price_idx2 + 15]
-                    rsi1, rsi2 = rsi_values[rsi_idx1], rsi_values[rsi_idx2]
-                    
-                    if price2 > price1 and rsi2 < rsi1:  # Higher high in price, lower high in RSI
-                        strength = self.calculate_divergence_strength(
-                            (price2 - price1) / price1, (rsi1 - rsi2) / rsi1
-                        )
-                        
-                        divergences.append({
-                            'type': 'bearish',
-                            'indicator': 'RSI',
-                            'price_points': (price1, price2),
-                            'indicator_points': (rsi1, rsi2),
-                            'indices': (price_idx1 + 15, price_idx2 + 15),
-                            'strength': strength,
-                            'signal': 'SELL'
-                        })
+        bearish_pairs = self._find_matching_swing_pairs(price_highs, rsi_highs)
+        for (price_idx1, price_idx2), (rsi_idx1, rsi_idx2) in bearish_pairs:
+            price1, price2 = aligned_closes[price_idx1], aligned_closes[price_idx2]
+            rsi1, rsi2 = aligned_rsi[rsi_idx1], aligned_rsi[rsi_idx2]
+            
+            # Standard bearish divergence: Higher High in price, Lower High in RSI
+            if price2 > price1 and rsi2 < rsi1:
+                divergences.append({
+                    'type': 'bearish',
+                    'indicator': 'RSI',
+                    'price_points': (price1, price2),
+                    'indicator_points': (rsi1, rsi2),
+                    'indices': (price_idx1 + rsi_start_idx, price_idx2 + rsi_start_idx),
+                    'strength': 'Valid',
+                    'signal': 'SELL'
+                })
         
         # Detect bullish divergence (price lower low, RSI higher low)
-        for i in range(1, len(price_lows)):
-            for j in range(1, len(rsi_lows)):
-                price_idx1, price_idx2 = price_lows[i-1], price_lows[i]
-                rsi_idx1, rsi_idx2 = rsi_lows[j-1], rsi_lows[j]
-                
-                # Check if indices are close enough to be considered related
-                if abs(price_idx2 - rsi_idx2) <= 3 and abs(price_idx1 - rsi_idx1) <= 3:
-                    price1, price2 = closes[price_idx1 + 15], closes[price_idx2 + 15]
-                    rsi1, rsi2 = rsi_values[rsi_idx1], rsi_values[rsi_idx2]
-                    
-                    if price2 < price1 and rsi2 > rsi1:  # Lower low in price, higher low in RSI
-                        strength = self.calculate_divergence_strength(
-                            (price1 - price2) / price1, (rsi2 - rsi1) / rsi1
-                        )
-                        
-                        divergences.append({
-                            'type': 'bullish',
-                            'indicator': 'RSI',
-                            'price_points': (price1, price2),
-                            'indicator_points': (rsi1, rsi2),
-                            'indices': (price_idx1 + 15, price_idx2 + 15),
-                            'strength': strength,
-                            'signal': 'BUY'
-                        })
+        bullish_pairs = self._find_matching_swing_pairs(price_lows, rsi_lows)
+        for (price_idx1, price_idx2), (rsi_idx1, rsi_idx2) in bullish_pairs:
+            price1, price2 = aligned_closes[price_idx1], aligned_closes[price_idx2]
+            rsi1, rsi2 = aligned_rsi[rsi_idx1], aligned_rsi[rsi_idx2]
+            
+            # Standard bullish divergence: Lower Low in price, Higher Low in RSI
+            if price2 < price1 and rsi2 > rsi1:
+                divergences.append({
+                    'type': 'bullish',
+                    'indicator': 'RSI',
+                    'price_points': (price1, price2),
+                    'indicator_points': (rsi1, rsi2),
+                    'indices': (price_idx1 + rsi_start_idx, price_idx2 + rsi_start_idx),
+                    'strength': 'Valid',
+                    'signal': 'BUY'
+                })
         
         return divergences
     
     def detect_macd_divergence(self, closes: List[float], macd_line: List[float]) -> List[Dict]:
         """
-        Detect MACD divergences.
+        Detect MACD divergences with proper index alignment.
         
         Args:
             closes: Closing prices
-            macd_line: MACD line values
+            macd_line: MACD line values (already aligned with closes from index 25 onwards)
             
         Returns:
             List of divergence dictionaries
@@ -148,66 +149,66 @@ class DivergenceDetector:
         if not macd_line:
             return divergences
         
-        # MACD starts much later due to EMA calculations, need to align properly
-        macd_start_idx = 50  # Approximate start index for MACD in price array
-        aligned_closes = closes[macd_start_idx:macd_start_idx + len(macd_line)]
+        # MACD calculation requires 26 periods for EMA26, so starts at index 25 (0-based)
+        macd_start_idx = 25
         
-        if len(aligned_closes) != len(macd_line):
+        # Validate data lengths
+        if len(closes) < macd_start_idx + 1 or len(macd_line) == 0:
+            return divergences
+        
+        # MACD values should align with closes starting from macd_start_idx
+        expected_macd_length = len(closes) - macd_start_idx
+        if len(macd_line) != expected_macd_length:
+            # Take the minimum length to avoid index errors
+            min_length = min(len(macd_line), expected_macd_length)
+            aligned_closes = closes[macd_start_idx:macd_start_idx + min_length]
+            aligned_macd = macd_line[:min_length]
+        else:
+            aligned_closes = closes[macd_start_idx:]
+            aligned_macd = macd_line
+        
+        if len(aligned_closes) != len(aligned_macd) or len(aligned_closes) < 10:
             return divergences
         
         # Find swing highs and lows
         price_highs, price_lows = self.find_swing_highs_lows(aligned_closes)
-        macd_highs, macd_lows = self.find_swing_highs_lows(macd_line)
+        macd_highs, macd_lows = self.find_swing_highs_lows(aligned_macd)
         
         # Detect bearish divergence (price higher high, MACD lower high)
-        for i in range(1, len(price_highs)):
-            for j in range(1, len(macd_highs)):
-                price_idx1, price_idx2 = price_highs[i-1], price_highs[i]
-                macd_idx1, macd_idx2 = macd_highs[j-1], macd_highs[j]
-                
-                if abs(price_idx2 - macd_idx2) <= 3 and abs(price_idx1 - macd_idx1) <= 3:
-                    price1, price2 = aligned_closes[price_idx1], aligned_closes[price_idx2]
-                    macd1, macd2 = macd_line[macd_idx1], macd_line[macd_idx2]
-                    
-                    if price2 > price1 and macd2 < macd1:
-                        strength = self.calculate_divergence_strength(
-                            (price2 - price1) / price1, abs(macd1 - macd2) / abs(macd1) if macd1 != 0 else 0
-                        )
-                        
-                        divergences.append({
-                            'type': 'bearish',
-                            'indicator': 'MACD',
-                            'price_points': (price1, price2),
-                            'indicator_points': (macd1, macd2),
-                            'indices': (price_idx1 + macd_start_idx, price_idx2 + macd_start_idx),
-                            'strength': strength,
-                            'signal': 'SELL'
-                        })
+        bearish_pairs = self._find_matching_swing_pairs(price_highs, macd_highs)
+        for (price_idx1, price_idx2), (macd_idx1, macd_idx2) in bearish_pairs:
+            price1, price2 = aligned_closes[price_idx1], aligned_closes[price_idx2]
+            macd1, macd2 = aligned_macd[macd_idx1], aligned_macd[macd_idx2]
+            
+            # Standard bearish divergence: Higher High in price, Lower High in MACD
+            if price2 > price1 and macd2 < macd1:
+                divergences.append({
+                    'type': 'bearish',
+                    'indicator': 'MACD',
+                    'price_points': (price1, price2),
+                    'indicator_points': (macd1, macd2),
+                    'indices': (price_idx1 + macd_start_idx, price_idx2 + macd_start_idx),
+                    'strength': 'Valid',
+                    'signal': 'SELL'
+                })
         
         # Detect bullish divergence (price lower low, MACD higher low)
-        for i in range(1, len(price_lows)):
-            for j in range(1, len(macd_lows)):
-                price_idx1, price_idx2 = price_lows[i-1], price_lows[i]
-                macd_idx1, macd_idx2 = macd_lows[j-1], macd_lows[j]
-                
-                if abs(price_idx2 - macd_idx2) <= 3 and abs(price_idx1 - macd_idx1) <= 3:
-                    price1, price2 = aligned_closes[price_idx1], aligned_closes[price_idx2]
-                    macd1, macd2 = macd_line[macd_idx1], macd_line[macd_idx2]
-                    
-                    if price2 < price1 and macd2 > macd1:
-                        strength = self.calculate_divergence_strength(
-                            (price1 - price2) / price1, abs(macd2 - macd1) / abs(macd1) if macd1 != 0 else 0
-                        )
-                        
-                        divergences.append({
-                            'type': 'bullish',
-                            'indicator': 'MACD',
-                            'price_points': (price1, price2),
-                            'indicator_points': (macd1, macd2),
-                            'indices': (price_idx1 + macd_start_idx, price_idx2 + macd_start_idx),
-                            'strength': strength,
-                            'signal': 'BUY'
-                        })
+        bullish_pairs = self._find_matching_swing_pairs(price_lows, macd_lows)
+        for (price_idx1, price_idx2), (macd_idx1, macd_idx2) in bullish_pairs:
+            price1, price2 = aligned_closes[price_idx1], aligned_closes[price_idx2]
+            macd1, macd2 = aligned_macd[macd_idx1], aligned_macd[macd_idx2]
+            
+            # Standard bullish divergence: Lower Low in price, Higher Low in MACD
+            if price2 < price1 and macd2 > macd1:
+                divergences.append({
+                    'type': 'bullish',
+                    'indicator': 'MACD',
+                    'price_points': (price1, price2),
+                    'indicator_points': (macd1, macd2),
+                    'indices': (price_idx1 + macd_start_idx, price_idx2 + macd_start_idx),
+                    'strength': 'Valid',
+                    'signal': 'BUY'
+                })
         
         return divergences
     
@@ -232,77 +233,82 @@ class DivergenceDetector:
         obv_highs, obv_lows = self.find_swing_highs_lows(obv_values)
         
         # Detect bearish divergence (price higher high, OBV lower high)
-        for i in range(1, len(price_highs)):
-            for j in range(1, len(obv_highs)):
-                price_idx1, price_idx2 = price_highs[i-1], price_highs[i]
-                obv_idx1, obv_idx2 = obv_highs[j-1], obv_highs[j]
-                
-                if abs(price_idx2 - obv_idx2) <= 3 and abs(price_idx1 - obv_idx1) <= 3:
-                    price1, price2 = closes[price_idx1], closes[price_idx2]
-                    obv1, obv2 = obv_values[obv_idx1], obv_values[obv_idx2]
-                    
-                    if price2 > price1 and obv2 < obv1:
-                        strength = self.calculate_divergence_strength(
-                            (price2 - price1) / price1, abs(obv1 - obv2) / abs(obv1) if obv1 != 0 else 0
-                        )
-                        
-                        divergences.append({
-                            'type': 'bearish',
-                            'indicator': 'OBV',
-                            'price_points': (price1, price2),
-                            'indicator_points': (obv1, obv2),
-                            'indices': (price_idx1, price_idx2),
-                            'strength': strength,
-                            'signal': 'SELL'
-                        })
+        bearish_pairs = self._find_matching_swing_pairs(price_highs, obv_highs)
+        for (price_idx1, price_idx2), (obv_idx1, obv_idx2) in bearish_pairs:
+            price1, price2 = closes[price_idx1], closes[price_idx2]
+            obv1, obv2 = obv_values[obv_idx1], obv_values[obv_idx2]
+            
+            # Standard bearish divergence: Higher High in price, Lower High in OBV
+            if price2 > price1 and obv2 < obv1:
+                divergences.append({
+                    'type': 'bearish',
+                    'indicator': 'OBV',
+                    'price_points': (price1, price2),
+                    'indicator_points': (obv1, obv2),
+                    'indices': (price_idx1, price_idx2),
+                    'strength': 'Valid',
+                    'signal': 'SELL'
+                })
         
         # Detect bullish divergence (price lower low, OBV higher low)
-        for i in range(1, len(price_lows)):
-            for j in range(1, len(obv_lows)):
-                price_idx1, price_idx2 = price_lows[i-1], price_lows[i]
-                obv_idx1, obv_idx2 = obv_lows[j-1], obv_lows[j]
-                
-                if abs(price_idx2 - obv_idx2) <= 3 and abs(price_idx1 - obv_idx1) <= 3:
-                    price1, price2 = closes[price_idx1], closes[price_idx2]
-                    obv1, obv2 = obv_values[obv_idx1], obv_values[obv_idx2]
-                    
-                    if price2 < price1 and obv2 > obv1:
-                        strength = self.calculate_divergence_strength(
-                            (price1 - price2) / price1, abs(obv2 - obv1) / abs(obv1) if obv1 != 0 else 0
-                        )
-                        
-                        divergences.append({
-                            'type': 'bullish',
-                            'indicator': 'OBV',
-                            'price_points': (price1, price2),
-                            'indicator_points': (obv1, obv2),
-                            'indices': (price_idx1, price_idx2),
-                            'strength': strength,
-                            'signal': 'BUY'
-                        })
+        bullish_pairs = self._find_matching_swing_pairs(price_lows, obv_lows)
+        for (price_idx1, price_idx2), (obv_idx1, obv_idx2) in bullish_pairs:
+            price1, price2 = closes[price_idx1], closes[price_idx2]
+            obv1, obv2 = obv_values[obv_idx1], obv_values[obv_idx2]
+            
+            # Standard bullish divergence: Lower Low in price, Higher Low in OBV
+            if price2 < price1 and obv2 > obv1:
+                divergences.append({
+                    'type': 'bullish',
+                    'indicator': 'OBV',
+                    'price_points': (price1, price2),
+                    'indicator_points': (obv1, obv2),
+                    'indices': (price_idx1, price_idx2),
+                    'strength': 'Valid',
+                    'signal': 'BUY'
+                })
         
         return divergences
     
-    def calculate_divergence_strength(self, price_change_pct: float, indicator_change_pct: float) -> str:
+    def _find_matching_swing_pairs(self, price_swings: List[int], indicator_swings: List[int]) -> List[Tuple[Tuple[int, int], Tuple[int, int]]]:
         """
-        Calculate divergence strength based on price and indicator changes.
+        Find matching swing pairs between price and indicator using standard time alignment.
         
         Args:
-            price_change_pct: Percentage change in price
-            indicator_change_pct: Percentage change in indicator
+            price_swings: List of price swing indices
+            indicator_swings: List of indicator swing indices
             
         Returns:
-            Divergence strength ('Weak', 'Moderate', 'Strong')
+            List of matching swing pairs: ((price_idx1, price_idx2), (ind_idx1, ind_idx2))
         """
-        # Simple strength calculation based on magnitude of changes
-        combined_strength = price_change_pct + indicator_change_pct
+        matching_pairs = []
         
-        if combined_strength > 0.15:  # 15% combined change
-            return 'Strong'
-        elif combined_strength > 0.08:  # 8% combined change
-            return 'Moderate'
-        else:
-            return 'Weak'
+        if len(price_swings) < 2 or len(indicator_swings) < 2:
+            return matching_pairs
+        
+        # Standard tolerance: exact match or ±1-2 candles
+        max_tolerance = 2
+        
+        # For each consecutive pair of price swings
+        for i in range(len(price_swings) - 1):
+            price_idx1, price_idx2 = price_swings[i], price_swings[i + 1]
+            
+            # Find exact or near-exact matching indicator swing pair
+            for j in range(len(indicator_swings) - 1):
+                ind_idx1, ind_idx2 = indicator_swings[j], indicator_swings[j + 1]
+                
+                # Check for close time alignment (standard approach)
+                alignment1 = abs(price_idx1 - ind_idx1)
+                alignment2 = abs(price_idx2 - ind_idx2)
+                
+                if alignment1 <= max_tolerance and alignment2 <= max_tolerance:
+                    # Ensure proper chronological order
+                    if price_idx1 < price_idx2 and ind_idx1 < ind_idx2:
+                        matching_pairs.append(((price_idx1, price_idx2), (ind_idx1, ind_idx2)))
+                        break  # Take first good match (most aligned)
+        
+        return matching_pairs
+    
     
     def analyze(self, symbol: str, timeframe: str, limit: int) -> None:
         """
@@ -325,10 +331,24 @@ class DivergenceDetector:
         closes = [candle[4] for candle in ohlcv_data]
         volumes = [candle[5] for candle in ohlcv_data]
         
-        # Calculate indicators
-        rsi_values = self.rsi_strategy.calculate_rsi(closes)
-        macd_line, _, _ = self.macd_strategy.calculate_macd(closes)
-        obv_values = self.obv_strategy.calculate_obv(closes, volumes)
+        # Calculate indicators with proper error handling
+        rsi_values = []
+        try:
+            rsi_values = self.rsi_strategy.calculate_rsi(closes)
+        except Exception as e:
+            print(f"Warning: RSI calculation failed: {e}")
+        
+        macd_line = []
+        try:
+            macd_line, _, _ = self.macd_strategy.calculate_macd(closes)
+        except Exception as e:
+            print(f"Warning: MACD calculation failed: {e}")
+        
+        obv_values = []
+        try:
+            obv_values = self.obv_strategy.calculate_obv(closes, volumes)
+        except Exception as e:
+            print(f"Warning: OBV calculation failed: {e}")
         
         # Detect divergences
         all_divergences = []
@@ -355,8 +375,8 @@ class DivergenceDetector:
             timestamp_idx = div['indices'][1]
             if timestamp_idx < len(timestamps):
                 dt = datetime.fromtimestamp(timestamps[timestamp_idx] / 1000)
-                # Show divergences from last 7 days
-                if (datetime.now() - dt).days <= 7:
+                # Show divergences from last 14 days (more flexible)
+                if (datetime.now() - dt).days <= 14:
                     recent_divergences.append((div, dt))
         
         if not recent_divergences:
@@ -389,25 +409,25 @@ class DivergenceDetector:
         price1, price2 = div['price_points']
         ind1, ind2 = div['indicator_points']
         
-        # Format indicator and price values
+        # Format indicator and price values with swing point labels
         if indicator == 'RSI':
-            metric1 = f"RSI_PREV: {ind1:.1f}"
-            metric2 = f"RSI_CURR: {ind2:.1f}"
+            metric1 = f"RSI_1ST: {ind1:.1f}"
+            metric2 = f"RSI_2ND: {ind2:.1f}"
             trend_emoji = "📈" if div_type == 'Bullish' else "📉"
             trend_label = "Bullish Divergence" if div_type == 'Bullish' else "Bearish Divergence"
         elif indicator == 'MACD':
-            metric1 = f"MACD_PREV: {ind1:.3f}"
-            metric2 = f"MACD_CURR: {ind2:.3f}"
+            metric1 = f"MACD_1ST: {ind1:.3f}"
+            metric2 = f"MACD_2ND: {ind2:.3f}"
             trend_emoji = "📈" if div_type == 'Bullish' else "📉"
             trend_label = "Bullish Divergence" if div_type == 'Bullish' else "Bearish Divergence"
         else:  # OBV
-            metric1 = f"OBV_PREV: {ind1:.0f}"
-            metric2 = f"OBV_CURR: {ind2:.0f}"
+            metric1 = f"OBV_1ST: {ind1:.0f}"
+            metric2 = f"OBV_2ND: {ind2:.0f}"
             trend_emoji = "📈" if div_type == 'Bullish' else "📉"
             trend_label = "Bullish Divergence" if div_type == 'Bullish' else "Bearish Divergence"
         
-        price_prev = f"PRICE_PREV: {price1:.4f}"
-        price_curr = f"PRICE_CURR: {price2:.4f}"
+        price_prev = f"PRICE_1ST: {price1:.4f}"
+        price_curr = f"PRICE_2ND: {price2:.4f}"
         strength_metric = f"STRENGTH: {strength}"
         
         prefix_str = f"{prefix}: " if prefix else ""
