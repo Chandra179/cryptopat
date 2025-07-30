@@ -21,100 +21,173 @@ class WyckoffAnalyzer:
         self.collector = get_data_collector()
         self.min_range_periods = 20  # Minimum periods for range detection
         self.volume_ma_period = 20   # Volume moving average period
+        self.atr_period = 14  # Average True Range for context
+        self.volume_lookback = 50  # Lookback for volume comparison
         
     def detect_ranges(self, highs: List[float], lows: List[float], 
+                     closes: List[float], volumes: List[float],
                      lookback: int = 15) -> List[Dict]:
         """
-        Detect trading ranges where price is consolidating.
+        Detect trading ranges using market structure and relative analysis.
         
         Args:
             highs: List of high prices
-            lows: List of low prices  
+            lows: List of low prices
+            closes: List of close prices
+            volumes: List of volumes
             lookback: Period for range validation
             
         Returns:
             List of range dictionaries with start/end indices and levels
         """
         ranges = []
-        tolerance = 0.03  # 3% tolerance for range boundaries
+        atr_values = self._calculate_atr(highs, lows, closes)
         
-        for i in range(lookback, len(highs) - self.min_range_periods):
+        for i in range(lookback * 2, len(highs) - self.min_range_periods):
+            # Use ATR for dynamic tolerance instead of fixed percentage
+            current_atr = atr_values[i]
+            tolerance = current_atr / closes[i]  # ATR as percentage of price
+            
             # Get recent highs and lows
             recent_highs = highs[i-lookback:i+self.min_range_periods]
             recent_lows = lows[i-lookback:i+self.min_range_periods]
+            recent_closes = closes[i-lookback:i+self.min_range_periods]
             
             range_high = max(recent_highs)
             range_low = min(recent_lows)
             range_size = range_high - range_low
             
-            # Check if price is ranging (multiple touches of boundaries)
-            high_touches = sum(1 for h in recent_highs if abs(h - range_high) / range_high <= tolerance)
-            low_touches = sum(1 for l in recent_lows if abs(l - range_low) / range_low <= tolerance)
+            # Check for range characteristics: multiple tests with similar closes
+            high_tests = []
+            low_tests = []
             
-            # Valid range needs multiple boundary touches
-            if high_touches >= 2 and low_touches >= 2:
+            for j, (h, l, c) in enumerate(zip(recent_highs, recent_lows, recent_closes)):
+                if abs(h - range_high) <= tolerance * closes[i+j-lookback]:
+                    high_tests.append(j)
+                if abs(l - range_low) <= tolerance * closes[i+j-lookback]:
+                    low_tests.append(j)
+            
+            # Range quality: multiple tests with weakening momentum
+            if len(high_tests) >= 2 and len(low_tests) >= 2:
+                # Check if range shows consolidation character
+                range_volatility = statistics.variance(recent_closes) / (closes[i] ** 2)
+                
                 ranges.append({
                     'start_index': i,
                     'end_index': i + self.min_range_periods,
                     'high': range_high,
                     'low': range_low,
                     'range_size': range_size,
-                    'high_touches': high_touches,
-                    'low_touches': low_touches
+                    'high_tests': len(high_tests),
+                    'low_tests': len(low_tests),
+                    'volatility': range_volatility,
+                    'atr_ratio': range_size / current_atr
                 })
         
         return ranges
     
     def detect_phase(self, price_data: List[float], volume_data: List[float],
-                    range_info: Dict, start_idx: int, end_idx: int) -> str:
+                    highs: List[float], lows: List[float], start_idx: int, end_idx: int) -> Dict:
         """
-        Determine Wyckoff phase based on price action and volume characteristics.
+        Determine Wyckoff phase using market structure and volume character analysis.
         
         Args:
             price_data: Close prices
             volume_data: Volume data
-            range_info: Range boundary information
+            highs: High prices
+            lows: Low prices
             start_idx: Start index of phase
             end_idx: End index of phase
             
         Returns:
-            Phase name: 'Accumulation', 'Markup', 'Distribution', 'Markdown'
+            Dictionary with phase information
         """
-        phase_prices = price_data[start_idx:end_idx]
-        phase_volumes = volume_data[start_idx:end_idx]
-        
-        if len(phase_prices) < 10:
-            return 'Unknown'
+        if end_idx - start_idx < 10:
+            return {'phase': 'Unknown', 'confidence': 0}
             
-        # Calculate trend and volatility metrics
-        price_trend = (phase_prices[-1] - phase_prices[0]) / phase_prices[0]
-        avg_volume = statistics.mean(phase_volumes)
-        volume_trend = (statistics.mean(phase_volumes[-5:]) - 
-                       statistics.mean(phase_volumes[:5])) / statistics.mean(phase_volumes[:5])
+        # Analyze volume character
+        volume_analysis = self._analyze_volume_character(volume_data, price_data, start_idx, end_idx)
         
-        # Range-bound phases (Accumulation/Distribution)
-        if abs(price_trend) < 0.05:  # Less than 5% movement
-            if volume_trend > 0.1:  # Increasing volume
-                return 'Accumulation'
-            elif volume_trend < -0.1:  # Decreasing volume  
-                return 'Distribution'
+        # Calculate market structure metrics
+        phase_highs = highs[start_idx:end_idx]
+        phase_lows = lows[start_idx:end_idx]
+        phase_closes = price_data[start_idx:end_idx]
+        
+        # Price structure analysis
+        higher_highs = sum(1 for i in range(1, len(phase_highs)) if phase_highs[i] > phase_highs[i-1])
+        lower_lows = sum(1 for i in range(1, len(phase_lows)) if phase_lows[i] < phase_lows[i-1])
+        
+        # Range analysis
+        price_range = max(phase_highs) - min(phase_lows)
+        range_ratio = price_range / phase_closes[0] if phase_closes[0] > 0 else 0
+        
+        # Time and development analysis
+        phase_duration = end_idx - start_idx
+        price_progress = (phase_closes[-1] - phase_closes[0]) / phase_closes[0] if phase_closes[0] > 0 else 0
+        
+        # Determine phase based on Wyckoff principles
+        phase, confidence = self._classify_wyckoff_phase(
+            volume_analysis, price_progress, range_ratio, phase_duration,
+            higher_highs, lower_lows, len(phase_closes)
+        )
+        
+        return {
+            'phase': phase,
+            'confidence': confidence,
+            'volume_character': volume_analysis['character'],
+            'price_progress': price_progress,
+            'range_ratio': range_ratio,
+            'duration': phase_duration
+        }
+    
+    def _classify_wyckoff_phase(self, volume_analysis: Dict, price_progress: float,
+                              range_ratio: float, duration: int, higher_highs: int,
+                              lower_lows: int, total_periods: int) -> Tuple[str, int]:
+        """Classify phase using Wyckoff methodology."""
+        vol_char = volume_analysis['character']
+        vol_ratio = volume_analysis.get('volume_ratio', 1)
+        
+        # Accumulation: Sideways + Absorption + Time
+        if (abs(price_progress) < 0.08 and  # Sideways movement
+            vol_char in ['absorption', 'lack_of_interest'] and
+            duration >= 15):  # Sufficient time
+            confidence = 70
+            if vol_char == 'absorption' and vol_ratio > 1.2:
+                confidence = 85
+            return 'Accumulation', confidence
+        
+        # Distribution: Sideways + High Volume Early + Declining Later
+        elif (abs(price_progress) < 0.08 and
+              vol_char in ['participation', 'normal'] and
+              duration >= 15 and
+              volume_analysis.get('volume_trend', 0) < -0.1):
+            return 'Distribution', 75
+        
+        # Markup: Uptrend + Declining Volume (Natural)
+        elif (price_progress > 0.08 and
+              higher_highs > lower_lows and
+              vol_char in ['lack_of_interest', 'normal']):
+            confidence = 65
+            if volume_analysis.get('volume_trend', 0) < -0.15:
+                confidence = 80  # Natural markup
+            return 'Markup', confidence
+        
+        # Markdown: Downtrend + Volume Character
+        elif (price_progress < -0.08 and
+              lower_lows > higher_highs):
+            if vol_char == 'participation':
+                return 'Markdown', 75  # Panic selling
             else:
-                return 'Consolidation'
+                return 'Markdown', 60  # Orderly decline
         
-        # Trending phases (Markup/Markdown)
-        elif price_trend > 0.05:  # Uptrend
-            if volume_trend < -0.1:  # Decreasing volume on uptrend
-                return 'Markup'
-            else:
-                return 'Early_Markup'
+        # Re-accumulation/Re-distribution (shorter duration)
+        elif abs(price_progress) < 0.05 and duration < 15:
+            if vol_char == 'absorption':
+                return 'Re_accumulation', 60
+            elif vol_char == 'participation':
+                return 'Re_distribution', 60
         
-        elif price_trend < -0.05:  # Downtrend
-            if volume_trend < -0.1:  # Decreasing volume on downtrend
-                return 'Markdown'
-            else:
-                return 'Early_Markdown'
-        
-        return 'Transition'
+        return 'Transition', 40
     
     def detect_wyckoff_events(self, opens: List[float], highs: List[float],
                              lows: List[float], closes: List[float], 
@@ -234,6 +307,78 @@ class WyckoffAnalyzer:
             vol_ma.append(statistics.mean(volumes[start_idx:i+1]))
         return vol_ma
     
+    def _calculate_atr(self, highs: List[float], lows: List[float], closes: List[float]) -> List[float]:
+        """Calculate Average True Range for context-aware analysis."""
+        atr_values = []
+        tr_values = []
+        
+        for i in range(len(highs)):
+            if i == 0:
+                tr = highs[i] - lows[i]
+            else:
+                tr = max(
+                    highs[i] - lows[i],
+                    abs(highs[i] - closes[i-1]),
+                    abs(lows[i] - closes[i-1])
+                )
+            tr_values.append(tr)
+            
+            # Calculate ATR
+            start_idx = max(0, i - self.atr_period + 1)
+            atr_values.append(statistics.mean(tr_values[start_idx:i+1]))
+        
+        return atr_values
+    
+    def _analyze_volume_character(self, volumes: List[float], prices: List[float], 
+                                start_idx: int, end_idx: int) -> Dict:
+        """Analyze volume character using Wyckoff principles."""
+        period_volumes = volumes[start_idx:end_idx]
+        period_prices = prices[start_idx:end_idx]
+        
+        if len(period_volumes) < 5:
+            return {'character': 'insufficient_data'}
+        
+        # Compare to historical volume at similar price levels
+        current_price_avg = statistics.mean(period_prices)
+        historical_volumes = []
+        
+        # Look back for similar price levels
+        price_tolerance = 0.05  # 5% price similarity
+        for i in range(max(0, start_idx - self.volume_lookback), start_idx):
+            if abs(prices[i] - current_price_avg) / current_price_avg <= price_tolerance:
+                historical_volumes.append(volumes[i])
+        
+        if not historical_volumes:
+            return {'character': 'no_historical_context'}
+        
+        # Analyze volume patterns
+        current_avg_volume = statistics.mean(period_volumes)
+        historical_avg_volume = statistics.mean(historical_volumes)
+        volume_ratio = current_avg_volume / historical_avg_volume if historical_avg_volume > 0 else 1
+        
+        # Volume trend within period
+        early_volume = statistics.mean(period_volumes[:len(period_volumes)//3])
+        late_volume = statistics.mean(period_volumes[-len(period_volumes)//3:])
+        volume_trend = (late_volume - early_volume) / early_volume if early_volume > 0 else 0
+        
+        # Determine character
+        if volume_ratio > 1.5:  # Significantly higher than historical
+            if volume_trend < -0.2:  # Diminishing
+                character = 'absorption'  # Professional absorption
+            else:
+                character = 'participation'  # Broad participation
+        elif volume_ratio < 0.7:  # Lower than historical
+            character = 'lack_of_interest'
+        else:
+            character = 'normal'
+        
+        return {
+            'character': character,
+            'volume_ratio': volume_ratio,
+            'volume_trend': volume_trend,
+            'relative_volume': current_avg_volume / statistics.mean(volumes[:end_idx]) if end_idx > 0 else 1
+        }
+    
     def _is_retest_of_low(self, closes: List[float], lows: List[float], 
                          current_idx: int, lookback: int) -> bool:
         """Check if current price is retesting a previous low."""
@@ -252,13 +397,24 @@ class WyckoffAnalyzer:
         if current_idx < lookback + 2:
             return False
             
-        # Find recent support level
+        # Find recent support level (multiple touches)
         recent_lows = lows[current_idx-lookback:current_idx-2]
         support_level = min(recent_lows)
         
+        # Count touches of support
+        tolerance = 0.02  # 2% tolerance
+        support_touches = sum(1 for low in recent_lows 
+                            if abs(low - support_level) / support_level <= tolerance)
+        
+        # Must be established support (multiple touches)
+        if support_touches < 2:
+            return False
+            
         # Check if broke below support but closed back above
-        return (lows[current_idx] < support_level * 0.99 and  # Broke support
-                closes[current_idx] > support_level * 1.01)    # Closed back above
+        broke_support = lows[current_idx] < support_level * (1 - tolerance)
+        closed_above = closes[current_idx] > support_level * (1 + tolerance/2)
+        
+        return broke_support and closed_above
     
     def _is_false_breakout(self, highs: List[float], lows: List[float],
                           closes: List[float], current_idx: int, lookback: int) -> bool:
@@ -266,13 +422,24 @@ class WyckoffAnalyzer:
         if current_idx < lookback + 2:
             return False
             
-        # Find recent resistance level  
+        # Find recent resistance level (multiple touches)
         recent_highs = highs[current_idx-lookback:current_idx-2]
         resistance_level = max(recent_highs)
         
+        # Count touches of resistance
+        tolerance = 0.02  # 2% tolerance
+        resistance_touches = sum(1 for high in recent_highs 
+                               if abs(high - resistance_level) / resistance_level <= tolerance)
+        
+        # Must be established resistance (multiple touches)
+        if resistance_touches < 2:
+            return False
+            
         # Check if broke above resistance but closed back below
-        return (highs[current_idx] > resistance_level * 1.01 and  # Broke resistance
-                closes[current_idx] < resistance_level * 0.99)    # Closed back below
+        broke_resistance = highs[current_idx] > resistance_level * (1 + tolerance)
+        closed_below = closes[current_idx] < resistance_level * (1 - tolerance/2)
+        
+        return broke_resistance and closed_below
     
     def _is_last_retest(self, closes: List[float], highs: List[float],
                        lows: List[float], current_idx: int, lookback: int) -> bool:
@@ -280,20 +447,32 @@ class WyckoffAnalyzer:
         if current_idx < lookback:
             return False
             
-        # Look for previous similar retests and check if this is weaker
+        # Find key levels being retested
         recent_range = lookback // 2
-        recent_volumes_available = current_idx >= recent_range
-        
-        if not recent_volumes_available:
-            return False
-            
-        # Simple check: lower volume and price holding key level
         prev_high = max(highs[current_idx-recent_range:current_idx])
         prev_low = min(lows[current_idx-recent_range:current_idx])
         
-        # Price holding within recent range suggests last retest
-        return (prev_low <= closes[current_idx] <= prev_high and
-                abs(closes[current_idx] - prev_low) / prev_low <= 0.05)
+        # Current price should be near a key level
+        near_support = abs(closes[current_idx] - prev_low) / prev_low <= 0.03
+        near_resistance = abs(closes[current_idx] - prev_high) / prev_high <= 0.03
+        
+        if not (near_support or near_resistance):
+            return False
+            
+        # Look for diminishing momentum (smaller ranges, less volatility)
+        recent_ranges = [highs[i] - lows[i] for i in range(current_idx-5, current_idx+1)]
+        earlier_ranges = [highs[i] - lows[i] for i in range(current_idx-15, current_idx-10)]
+        
+        if len(recent_ranges) < 3 or len(earlier_ranges) < 3:
+            return False
+            
+        recent_avg_range = statistics.mean(recent_ranges)
+        earlier_avg_range = statistics.mean(earlier_ranges) 
+        
+        # Diminishing volatility suggests last retest
+        diminishing_ranges = recent_avg_range < earlier_avg_range * 0.8
+        
+        return (near_support or near_resistance) and diminishing_ranges
     
     def effort_vs_result_analysis(self, prices: List[float], volumes: List[float],
                                  window: int = 10) -> List[Dict]:
@@ -418,8 +597,10 @@ class WyckoffAnalyzer:
                 elif absorption_signals and signal['signal'] == 'SELL':
                     signal['confidence'] = min(95, signal['confidence'] + 10)
             
-            # Only add meaningful signals
-            if signal['signal'] != 'NONE' or signal['events']:
+            # Only add meaningful signals (with events or strong phase confidence)
+            if (signal['signal'] != 'NONE' or 
+                signal['events'] or 
+                signal.get('phase_confidence', 0) > 70):
                 signals.append(signal)
         
         return signals
@@ -457,7 +638,7 @@ class WyckoffAnalyzer:
         results = {'ranges': [], 'phases': [], 'events': [], 'evr_signals': [], 'signals': []}
         
         # Detect trading ranges first
-        ranges = self.detect_ranges(highs, lows)
+        ranges = self.detect_ranges(highs, lows, closes, volumes)
         results['ranges'] = ranges
         
         # Detect phases within ranges and trends
@@ -467,14 +648,15 @@ class WyckoffAnalyzer:
             if end_idx - i < 20:  # Skip too small segments
                 continue
                 
-            range_info = {'high': max(highs[i:end_idx]), 'low': min(lows[i:end_idx])}
-            phase = self.detect_phase(closes, volumes, range_info, i, end_idx)
+            phase_info = self.detect_phase(closes, volumes, highs, lows, i, end_idx)
             
             phases.append({
                 'start_index': i,
                 'end_index': end_idx,
-                'phase': phase,
-                'price_range': range_info
+                'phase': phase_info['phase'],
+                'confidence': phase_info['confidence'],
+                'volume_character': phase_info['volume_character'],
+                'price_progress': phase_info['price_progress']
             })
         
         results['phases'] = phases

@@ -27,6 +27,7 @@ from cli.pattern.flag_handler import handle_flag_command, parse_flag_args, get_f
 from cli.pattern.wedge_handler import handle_wedge_command, parse_wedge_args, get_wedge_help
 from cli.smc_handler import SMCHandler
 from cli.wyckoff_handler import WyckoffHandler
+from cli.elliott_fibonacci_handler import handle_elliott_fibonacci_command
 
 
 class InteractiveCLI:
@@ -142,6 +143,10 @@ class InteractiveCLI:
         print(get_wedge_help())
         print()
         print(get_all_patterns_help())
+        print()
+        print("  elliott_fibonacci s=SOL/USDT t=4h l=150 zz=4")
+        print("    - Elliott Wave + Fibonacci analysis")
+        print("    - s=symbol, t=timeframe, l=limit, zz=zigzag_threshold")
         print("\n  help - Show this help message")
         print("  exit - Exit the application")
     
@@ -422,6 +427,11 @@ class InteractiveCLI:
         # Handle wyckoff command
         if command.startswith('wyckoff'):
             self.wyckoff_handler.handle(command)
+            return True
+        
+        # Handle elliott_fibonacci command
+        if command.startswith('elliott_fibonacci'):
+            handle_elliott_fibonacci_command(command)
             return True
         
         # Unknown command

@@ -1,6 +1,6 @@
-multi_tf s=XRP/USDT t1=1d t2=4h t3=1h indicators=ema9/21,macd,rsi14 l=200
 all_trend s=XRP/USDT t=4h l=200
-python -m trend.stat_pattern_validation s=BTC/USDT t=4h l=1000 tp=2.0 sl=1.0
+multi_tf s=XRP/USDT t1=1d t2=4h t3=1h indicators=ema9/21,macd,rsi14 l=200
 wyckoff s=BTC/USDT t=4h l=600 detect=events+phases
+elliott_fibonacci s=XRP/USDT t=4h l=150 zz=4
 
-create fibonnaci structure rules and formula like this:
+python -m trend.stat_pattern_validation s=BTC/USDT t=4h l=1000 tp=2.0 sl=1.0

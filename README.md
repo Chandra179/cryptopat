@@ -66,3 +66,42 @@ A Python-based system for detecting chart patterns in cryptocurrency data using 
 [TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
 ### CLI
 Make sure to add new handler to the cli. /cli/ema_9_21_handler.py
+
+
+## Phase 2: Elliott Wave + Fibonacci Confluence
+1. Create file: .../trend/elliott_fibonacci.py
+2. Use High, Low, Close from OHLCV data (`collector.py → fetch_ohlcv_data`)
+3. Elliott Wave Cardinal Rules:
+    - ✅ Wave 3 cannot be the shortest
+    - ✅ Wave 2 cannot retrace more than 100% of Wave 1
+    - ✅ Wave 4 cannot overlap Wave 1 (except diagonals)
+4. Standard Fibonacci Ratios:
+    - ✅ Wave 2: 50%-78.6% retracement (0.5-0.786)
+    - ✅ Wave 3: 1.618× Wave 1 extension (most common)
+    - ✅ Wave 4: 23.6%-38.2% retracement (0.236-0.382)
+    - ✅ Wave 5: 0.618× Wave 1 or equal to Wave 1
+    - ✅ Wave C: 1.0-1.618× Wave A extension
+5. Advanced Features:
+    - ✅ ZigZag detection for swing point identification
+    - ✅ Confidence scoring based on Fibonacci confluence
+    - ✅ Pattern validation with Elliott Wave rules
+    - ✅ Target projections for incomplete waves
+### Input in terminal
+> elliott_fibonacci s=SOL/USDT t=4h l=150 zz=4
+- s = symbol
+- t = timeframe
+- l = candle limit
+- zz = ZigZag threshold or fractal depth
+### Output example in terminal
+[ELLIOTT + FIBONACCI STRUCTURE]
+- Pattern: Impulse Wave (5-wave)
+- Wave 1: 42.00 → 50.00
+- Wave 2: 50.00 → 46.50 (0.618 retracement)
+- Wave 3: 46.50 → 61.80 (1.618 extension of W1)
+- Wave 4: 61.80 → 58.80 (0.382 retracement)
+- Wave 5: Projected to 66.00 (0.618 of Wave 1)
+- Status: Wave 5 in progress
+- Confluence: Strong — multiple Fib + structure alignment
+### CLI
+Add a new handler:
+- `/cli/elliott_fibonacci_handler.py`
