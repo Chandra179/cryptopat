@@ -26,6 +26,7 @@ from cli.pattern.triangle_handler import handle_triangle_command, parse_triangle
 from cli.pattern.flag_handler import handle_flag_command, parse_flag_args, get_flag_help
 from cli.pattern.wedge_handler import handle_wedge_command, parse_wedge_args, get_wedge_help
 from cli.smc_handler import SMCHandler
+from cli.wyckoff_handler import WyckoffHandler
 
 
 class InteractiveCLI:
@@ -44,6 +45,7 @@ class InteractiveCLI:
         self.regime_handler = RegimeHandler()
         self.multi_tf_handler = MultiTFHandler()
         self.smc_handler = SMCHandler()
+        self.wyckoff_handler = WyckoffHandler()
         self._setup_readline()
     
     def _setup_readline(self):
@@ -120,6 +122,8 @@ class InteractiveCLI:
         self.multi_tf_handler.print_help()
         print()
         self.smc_handler.print_help()
+        print()
+        self.wyckoff_handler.print_help()
         print()
         self.all_trend_handler.print_help()
         print()
@@ -413,6 +417,11 @@ class InteractiveCLI:
             args = parse_all_patterns_args(command_parts)
             result = handle_all_patterns_command(args)
             print(result)
+            return True
+        
+        # Handle wyckoff command
+        if command.startswith('wyckoff'):
+            self.wyckoff_handler.handle(command)
             return True
         
         # Unknown command

@@ -3,6 +3,9 @@
 ## Overview
 A Python-based system for detecting chart patterns in cryptocurrency data using historical price, volume, and order book information. No frontend - pure data analysis and pattern detection.
 
+## Current implementation 
+
+
 ## CCXT Public API Data Available
 ### OHCLV Open, High, Low, Close, Volume candlestick data
 #### Timeframe
