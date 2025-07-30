@@ -47,13 +47,14 @@ def find_swing_highs_lows(prices: pd.Series, window: int = 5) -> Tuple[List[int]
     return swing_highs, swing_lows
 
 
-def detect_inverse_head_and_shoulders(prices: pd.Series, timestamps: pd.Series, tolerance: float = 0.03) -> Optional[Dict]:
+def detect_inverse_head_and_shoulders(prices: pd.Series, timestamps: pd.Series, volumes: pd.Series, tolerance: float = 0.03) -> Optional[Dict]:
     """
     Detect Inverse Head and Shoulders pattern
     
     Args:
         prices: Close price series
         timestamps: Timestamp series
+        volumes: Volume series
         tolerance: Tolerance for shoulder height similarity (3% default)
         
     Returns:
@@ -93,20 +94,49 @@ def detect_inverse_head_and_shoulders(prices: pd.Series, timestamps: pd.Series, 
         if not left_peak_candidates or not right_peak_candidates:
             continue
             
-        left_peak_idx = left_peak_candidates[-1]  # Closest to head
-        right_peak_idx = right_peak_candidates[0]  # Closest to head
+        # Select most significant peaks (highest prices)
+        left_peak_idx = max(left_peak_candidates, key=lambda x: prices.iloc[x])
+        right_peak_idx = max(right_peak_candidates, key=lambda x: prices.iloc[x])
         
         left_peak_price = prices.iloc[left_peak_idx]
         right_peak_price = prices.iloc[right_peak_idx]
-        neckline_level = (left_peak_price + right_peak_price) / 2
         
-        # Check if pattern is confirmed (price broke above neckline)
+        # Calculate neckline using proper trendline (slope between peaks)
+        if left_peak_idx != right_peak_idx:
+            slope = (right_peak_price - left_peak_price) / (right_peak_idx - left_peak_idx)
+            # Calculate neckline level at current timestamp
+            current_idx = len(prices) - 1
+            neckline_level = left_peak_price + slope * (current_idx - left_peak_idx)
+        else:
+            neckline_level = left_peak_price
+        
+        # Check if pattern is confirmed (price broke above neckline with volume)
         current_price = prices.iloc[-1]
-        confirmed = current_price > neckline_level
+        price_confirmed = current_price > neckline_level
         
+        # Volume confirmation: recent volume > average volume of pattern period
+        pattern_start_idx = left_shoulder_idx
+        pattern_volumes = volumes.iloc[pattern_start_idx:]
+        avg_pattern_volume = pattern_volumes.mean()
+        recent_volume = volumes.iloc[-5:].mean()  # Last 5 candles average
+        volume_confirmed = recent_volume > avg_pattern_volume * 1.2  # 20% above average
+        
+        confirmed = price_confirmed and volume_confirmed
+        
+        # Validate time proportions (each component should be reasonable length)
+        left_section_length = head_idx - left_shoulder_idx
+        right_section_length = right_shoulder_idx - head_idx
+        time_ratio = min(left_section_length, right_section_length) / max(left_section_length, right_section_length)
+        time_proportion_valid = time_ratio > 0.3  # Sections shouldn't be too unbalanced
+        
+        if not time_proportion_valid:
+            continue
+            
         # Calculate pattern confidence based on various factors
         head_depth = (min(left_shoulder_price, right_shoulder_price) - head_price) / head_price
-        confidence = min(100, int(head_depth * 100 + (1 - shoulder_diff) * 50))
+        volume_factor = 1.2 if volume_confirmed else 0.8
+        time_factor = time_ratio
+        confidence = min(100, int(head_depth * 100 * volume_factor * time_factor + (1 - shoulder_diff) * 50))
         
         return {
             'pattern': 'Inverse Head and Shoulders',
@@ -128,6 +158,8 @@ def detect_inverse_head_and_shoulders(prices: pd.Series, timestamps: pd.Series, 
             'neckline': round(neckline_level, 4),
             'current_price': round(current_price, 4),
             'confirmed': confirmed,
+            'price_confirmed': price_confirmed,
+            'volume_confirmed': volume_confirmed,
             'signal': 'BUY' if confirmed else 'PENDING',
             'confidence': confidence,
             'target_price': round(neckline_level + (neckline_level - head_price), 4)  # Pattern target
@@ -164,7 +196,7 @@ def analyze_inverse_head_and_shoulders(symbol: str = "SOL/USDT", timeframe: str 
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         
         # Detect pattern
-        pattern = detect_inverse_head_and_shoulders(df['close'], df['timestamp'])
+        pattern = detect_inverse_head_and_shoulders(df['close'], df['timestamp'], df['volume'])
         
         result = {
             'symbol': symbol,

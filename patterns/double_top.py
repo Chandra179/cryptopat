@@ -20,16 +20,18 @@ logger = logging.getLogger(__name__)
 class DoubleTopDetector:
     """Double Top pattern detection and analysis."""
     
-    def __init__(self, tolerance_pct: float = 2.0, min_valley_depth_pct: float = 3.0):
+    def __init__(self, tolerance_pct: float = 3.0, min_valley_depth_pct: float = 5.0, min_time_separation: int = 10):
         """
         Initialize Double Top detector.
         
         Args:
             tolerance_pct: Tolerance for considering two highs as equal (in %)
             min_valley_depth_pct: Minimum depth of intervening valley below highs (in %)
+            min_time_separation: Minimum candles between peaks for valid pattern
         """
         self.tolerance_pct = tolerance_pct
         self.min_valley_depth_pct = min_valley_depth_pct
+        self.min_time_separation = min_time_separation
         self.data_collector = get_data_collector()
     
     def detect_pattern(self, symbol: str, timeframe: str = '4h', limit: int = 200) -> Dict:
@@ -171,11 +173,34 @@ class DoubleTopDetector:
                 price_diff_pct = abs(high1_price - high2_price) / max(high1_price, high2_price) * 100
                 
                 if price_diff_pct <= self.tolerance_pct:
+                    # Check chronological order (high2 must come after high1)
+                    if high2_idx <= high1_idx:
+                        continue
+                    
+                    # Check minimum time separation between peaks
+                    if high2_idx - high1_idx < self.min_time_separation:
+                        continue
+                    
                     # Check if valley is deep enough below the highs
                     max_high = max(high1_price, high2_price)
                     valley_depth_pct = (max_high - valley_price) / max_high * 100
                     
                     if valley_depth_pct >= self.min_valley_depth_pct:
+                        # Check for uptrend context (prior trend should be up)
+                        trend_valid = self._validate_uptrend_context(closes, high1_idx)
+                        
+                        if not trend_valid:
+                            continue
+                        # Calculate price target using standard formula
+                        pattern_height = max_high - valley_price
+                        target_price = valley_price - pattern_height
+                        
+                        # Calculate confidence score
+                        confidence = self._calculate_confidence(
+                            price_diff_pct, valley_depth_pct, vol1, vol2, 
+                            high2_idx - high1_idx, len(closes)
+                        )
+                        
                         # Valid double top pattern found
                         pattern_result.update({
                             "pattern_detected": True,
@@ -188,7 +213,10 @@ class DoubleTopDetector:
                             "high2_price": high2_price,
                             "high2_index": high2_idx,
                             "high2_timestamp": datetime.fromtimestamp(timestamps[high2_idx] / 1000),
-                            "neckline": valley_price
+                            "neckline": valley_price,
+                            "target_price": target_price,
+                            "pattern_height": pattern_height,
+                            "confidence": confidence
                         })
                         
                         # Check volume confirmation (lower volume on second high)
@@ -221,6 +249,82 @@ class DoubleTopDetector:
         
         return pattern_result
     
+    def _validate_uptrend_context(self, closes: np.ndarray, high1_idx: int) -> bool:
+        """
+        Validate that the pattern occurs in an uptrend context.
+        
+        Args:
+            closes: Array of closing prices
+            high1_idx: Index of first high
+        
+        Returns:
+            True if prior trend is upward
+        """
+        # Look at trend before first high (minimum 20 candles)
+        lookback = min(20, high1_idx)
+        if lookback < 10:
+            return True  # Not enough data, assume valid
+        
+        start_idx = high1_idx - lookback
+        trend_start = closes[start_idx]
+        trend_end = closes[high1_idx]
+        
+        # Calculate trend slope - should be positive for uptrend
+        trend_change_pct = (trend_end - trend_start) / trend_start * 100
+        return trend_change_pct > 5.0  # At least 5% upward movement
+    
+    def _calculate_confidence(self, price_diff_pct: float, valley_depth_pct: float, 
+                            vol1: float, vol2: float, time_separation: int, 
+                            total_candles: int) -> int:
+        """
+        Calculate confidence score for the double top pattern.
+        
+        Args:
+            price_diff_pct: Percentage difference between peaks
+            valley_depth_pct: Depth of valley as percentage
+            vol1: Volume at first peak
+            vol2: Volume at second peak
+            time_separation: Candles between peaks
+            total_candles: Total candles in dataset
+        
+        Returns:
+            Confidence score (0-100)
+        """
+        confidence = 50  # Base confidence
+        
+        # Peak similarity (closer peaks = higher confidence)
+        if price_diff_pct <= 1.0:
+            confidence += 20
+        elif price_diff_pct <= 2.0:
+            confidence += 10
+        
+        # Valley depth (deeper valley = higher confidence)
+        if valley_depth_pct >= 10.0:
+            confidence += 15
+        elif valley_depth_pct >= 7.0:
+            confidence += 10
+        elif valley_depth_pct >= 5.0:
+            confidence += 5
+        
+        # Volume confirmation (decreasing volume = higher confidence)
+        volume_ratio = vol2 / vol1 if vol1 > 0 else 1.0
+        if volume_ratio <= 0.7:
+            confidence += 15
+        elif volume_ratio <= 0.9:
+            confidence += 10
+        elif volume_ratio <= 1.0:
+            confidence += 5
+        
+        # Time separation (optimal range gives higher confidence)
+        optimal_separation = total_candles * 0.2  # 20% of total timeframe
+        separation_ratio = time_separation / optimal_separation if optimal_separation > 0 else 1.0
+        if 0.5 <= separation_ratio <= 2.0:
+            confidence += 10
+        elif 0.3 <= separation_ratio <= 3.0:
+            confidence += 5
+        
+        return min(100, max(0, confidence))
+    
     def format_analysis(self, symbol: str, timeframe: str, pattern_data: Dict) -> str:
         """
         Format pattern analysis for terminal output.
@@ -245,7 +349,7 @@ class DoubleTopDetector:
         signal_emoji = {"BUY": "🚀", "SELL": "📉", "NONE": "⏳"}
         signal = pattern_data['signal']
         neckline = pattern_data['neckline']
-        target = pattern_data.get('target_price', '—')  
+        target = f"{pattern_data.get('target_price', 0):.2f}" if pattern_data.get('target_price') else '—'
         confidence = pattern_data.get('confidence', '—')
         
         output = f"{symbol} ({timeframe}) - Double Top\n"

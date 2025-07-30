@@ -78,7 +78,7 @@ class SMCStrategy:
             List of liquidity zone dictionaries
         """
         liquidity_zones = []
-        tolerance = 0.002  # 0.2% tolerance for "equal" levels
+        tolerance = 0.005  # 0.5% tolerance for "equal" levels (better for crypto volatility)
         
         # Find equal highs (buy-side liquidity)
         for i in range(len(swing_highs)):
@@ -119,64 +119,69 @@ class SMCStrategy:
         return liquidity_zones
     
     def detect_order_blocks(self, opens: List[float], highs: List[float], 
-                           lows: List[float], closes: List[float], 
-                           volumes: List[float]) -> List[dict]:
+                           lows: List[float], closes: List[float]) -> List[dict]:
         """
-        Detect order blocks (last bullish/bearish candle before strong move).
+        Detect order blocks using standard SMC methodology.
+        Order block = last opposing candle before structure break.
         
         Args:
             opens: List of open prices
             highs: List of high prices
             lows: List of low prices
             closes: List of close prices
-            volumes: List of volume values
             
         Returns:
             List of order block dictionaries
         """
         order_blocks = []
         
-        for i in range(1, len(closes) - 1):
-            # Calculate body size and volume metrics
-            body_size = abs(closes[i] - opens[i])
-            avg_body = sum(abs(closes[j] - opens[j]) for j in range(max(0, i-10), i)) / min(i, 10)
+        for i in range(1, len(closes) - 3):  # Need at least 3 candles ahead
+            current_candle_bullish = closes[i] > opens[i]
+            current_candle_bearish = closes[i] < opens[i]
             
-            # Check if this is a large-bodied candle
-            if body_size < avg_body * 1.5:
+            # Skip doji candles (very small body)
+            body_size = abs(closes[i] - opens[i])
+            if body_size < (highs[i] - lows[i]) * 0.3:  # Body < 30% of total range
                 continue
             
-            # Check for volume surge
-            avg_volume = sum(volumes[max(0, i-10):i]) / min(i, 10) if i > 0 else volumes[i]
-            volume_surge = volumes[i] > avg_volume * 1.3
+            # Look ahead for structure break (impulse move)
+            strong_bearish_move = False
+            strong_bullish_move = False
             
-            # Look for strong move after this candle
-            next_candle_move = abs(closes[i+1] - opens[i+1])
-            strong_move = next_candle_move > avg_body * 1.2
+            # Check next 3 candles for impulse
+            for j in range(i + 1, min(i + 4, len(closes))):
+                # Bearish impulse: closes below current low
+                if closes[j] < lows[i]:
+                    strong_bearish_move = True
+                    break
+                # Bullish impulse: closes above current high  
+                if closes[j] > highs[i]:
+                    strong_bullish_move = True
+                    break
             
-            if strong_move and volume_surge:
-                # Determine if bullish or bearish order block
-                if closes[i] > opens[i] and closes[i+1] > closes[i]:  # Bullish OB
-                    order_blocks.append({
-                        'index': i,
-                        'type': 'bullish_ob',
-                        'high': highs[i],
-                        'low': lows[i],
-                        'open': opens[i],
-                        'close': closes[i],
-                        'volume_surge': volume_surge,
-                        'body_size': body_size
-                    })
-                elif closes[i] < opens[i] and closes[i+1] < closes[i]:  # Bearish OB
-                    order_blocks.append({
-                        'index': i,
-                        'type': 'bearish_ob',
-                        'high': highs[i],
-                        'low': lows[i],
-                        'open': opens[i],
-                        'close': closes[i],
-                        'volume_surge': volume_surge,
-                        'body_size': body_size
-                    })
+            # Bullish Order Block: Last bearish candle before bullish impulse
+            if current_candle_bearish and strong_bullish_move:
+                order_blocks.append({
+                    'index': i,
+                    'type': 'bullish_ob',
+                    'high': highs[i],
+                    'low': lows[i], 
+                    'open': opens[i],
+                    'close': closes[i],
+                    'body_size': body_size
+                })
+            
+            # Bearish Order Block: Last bullish candle before bearish impulse
+            elif current_candle_bullish and strong_bearish_move:
+                order_blocks.append({
+                    'index': i,
+                    'type': 'bearish_ob',
+                    'high': highs[i],
+                    'low': lows[i],
+                    'open': opens[i], 
+                    'close': closes[i],
+                    'body_size': body_size
+                })
         
         return order_blocks
     
@@ -234,7 +239,8 @@ class SMCStrategy:
     def detect_choch(self, swing_highs: List[dict], swing_lows: List[dict], 
                      closes: List[float]) -> List[dict]:
         """
-        Detect Change of Character (CHOCH) - early reversal signals.
+        Detect Change of Character (CHOCH) using standard SMC methodology.
+        CHOCH = break of most recent swing in opposite direction to trend.
         
         Args:
             swing_highs: List of swing high points
@@ -250,46 +256,59 @@ class SMCStrategy:
         all_swings = swing_highs + swing_lows
         all_swings.sort(key=lambda x: x['index'])
         
-        for i in range(len(all_swings) - 1):
+        # Determine trend by comparing recent swings
+        if len(all_swings) < 4:
+            return choch_events
+        
+        for i in range(2, len(all_swings)):  # Need at least 2 previous swings
             current_swing = all_swings[i]
+            prev_swing = all_swings[i-1]
             
-            # Look for minor swing breaks that indicate character change
-            if current_swing['type'] == 'swing_high':
-                # Look for break below recent minor low
-                for j in range(current_swing['index'] + 1, min(current_swing['index'] + 20, len(closes))):
-                    # Find recent minor lows
-                    recent_lows = [s for s in all_swings if s['type'] == 'swing_low' 
-                                  and s['index'] > current_swing['index'] - 10 
-                                  and s['index'] < current_swing['index']]
-                    
-                    if recent_lows:
-                        minor_low = min(recent_lows, key=lambda x: x['price'])['price']
-                        if closes[j] < minor_low:
+            # Skip if swings are same type
+            if current_swing['type'] == prev_swing['type']:
+                continue
+                
+            # Determine if this creates a CHOCH
+            if current_swing['type'] == 'swing_high' and prev_swing['type'] == 'swing_low':
+                # Bearish CHOCH: New swing high is lower than previous swing high
+                prev_high = None
+                for j in range(i-1, -1, -1):
+                    if all_swings[j]['type'] == 'swing_high':
+                        prev_high = all_swings[j]
+                        break
+                
+                if prev_high and current_swing['price'] < prev_high['price']:
+                    # Look for close below the swing low that preceded this high
+                    target_low = prev_swing['price']
+                    for k in range(current_swing['index'] + 1, min(current_swing['index'] + 10, len(closes))):
+                        if closes[k] < target_low:
                             choch_events.append({
-                                'index': j,
+                                'index': k,
                                 'type': 'bearish_choch',
-                                'broken_level': minor_low,
-                                'break_price': closes[j],
+                                'broken_level': target_low,
+                                'break_price': closes[k],
                                 'swing_index': current_swing['index']
                             })
                             break
             
-            elif current_swing['type'] == 'swing_low':
-                # Look for break above recent minor high
-                for j in range(current_swing['index'] + 1, min(current_swing['index'] + 20, len(closes))):
-                    # Find recent minor highs
-                    recent_highs = [s for s in all_swings if s['type'] == 'swing_high' 
-                                   and s['index'] > current_swing['index'] - 10 
-                                   and s['index'] < current_swing['index']]
-                    
-                    if recent_highs:
-                        minor_high = max(recent_highs, key=lambda x: x['price'])['price']
-                        if closes[j] > minor_high:
+            elif current_swing['type'] == 'swing_low' and prev_swing['type'] == 'swing_high':
+                # Bullish CHOCH: New swing low is higher than previous swing low  
+                prev_low = None
+                for j in range(i-1, -1, -1):
+                    if all_swings[j]['type'] == 'swing_low':
+                        prev_low = all_swings[j]
+                        break
+                
+                if prev_low and current_swing['price'] > prev_low['price']:
+                    # Look for close above the swing high that preceded this low
+                    target_high = prev_swing['price']
+                    for k in range(current_swing['index'] + 1, min(current_swing['index'] + 10, len(closes))):
+                        if closes[k] > target_high:
                             choch_events.append({
-                                'index': j,
+                                'index': k,
                                 'type': 'bullish_choch',
-                                'broken_level': minor_high,
-                                'break_price': closes[j],
+                                'broken_level': target_high,
+                                'break_price': closes[k],
                                 'swing_index': current_swing['index']
                             })
                             break
@@ -359,28 +378,62 @@ class SMCStrategy:
                     signal['liquidity_sweep'] = True
                     signal['sweep_type'] = lz['type']
             
-            # Generate trading signals based on confluence
-            if signal['choch'] and signal['ob_hit']:
-                if (signal.get('choch_type') == 'bullish_choch' and 
-                    signal.get('ob_type') == 'bullish_ob'):
+            # Generate individual component signals (standard SMC approach)
+            confidence = 0
+            
+            # BOS signals (strong momentum)
+            if signal['bos']:
+                if signal.get('bos_type') == 'bullish_bos':
                     signal['signal'] = 'BUY'
                     signal['trend'] = 'BULLISH'
-                    signal['confidence'] = 75
-                    
-                    if signal['liquidity_sweep']:
-                        signal['confidence'] = 90
-                
-                elif (signal.get('choch_type') == 'bearish_choch' and 
-                      signal.get('ob_type') == 'bearish_ob'):
+                    confidence = 60
+                elif signal.get('bos_type') == 'bearish_bos':
                     signal['signal'] = 'SELL'
-                    signal['trend'] = 'BEARISH' 
-                    signal['confidence'] = 75
-                    
-                    if signal['liquidity_sweep']:
-                        signal['confidence'] = 90
+                    signal['trend'] = 'BEARISH'
+                    confidence = 60
             
-            # Add signal if it has trading value
-            if signal['signal'] != 'NONE' or signal['bos'] or signal['choch']:
+            # CHOCH signals (early reversal)
+            elif signal['choch']:
+                if signal.get('choch_type') == 'bullish_choch':
+                    signal['signal'] = 'BUY'
+                    signal['trend'] = 'BULLISH'
+                    confidence = 50
+                elif signal.get('choch_type') == 'bearish_choch':
+                    signal['signal'] = 'SELL'
+                    signal['trend'] = 'BEARISH'
+                    confidence = 50
+            
+            # Order Block retest signals
+            elif signal['ob_hit']:
+                if signal.get('ob_type') == 'bullish_ob':
+                    signal['signal'] = 'BUY'
+                    signal['trend'] = 'BULLISH'
+                    confidence = 45
+                elif signal.get('ob_type') == 'bearish_ob':
+                    signal['signal'] = 'SELL'
+                    signal['trend'] = 'BEARISH'
+                    confidence = 45
+            
+            # Liquidity sweep signals
+            elif signal['liquidity_sweep']:
+                if signal.get('sweep_type') == 'sell_side_liquidity':
+                    signal['signal'] = 'BUY'  # Sweep below = bullish
+                    signal['trend'] = 'BULLISH'
+                    confidence = 40
+                elif signal.get('sweep_type') == 'buy_side_liquidity':
+                    signal['signal'] = 'SELL'  # Sweep above = bearish
+                    signal['trend'] = 'BEARISH'
+                    confidence = 40
+            
+            # Confluence bonuses
+            confluence_count = sum([signal['bos'], signal['choch'], signal['ob_hit'], signal['liquidity_sweep']])
+            if confluence_count >= 2:
+                confidence += 20  # Bonus for multiple confirmations
+            
+            signal['confidence'] = confidence
+            
+            # Add signal if it has any SMC component
+            if signal['signal'] != 'NONE' or signal['bos'] or signal['choch'] or signal['ob_hit'] or signal['liquidity_sweep']:
                 signals.append(signal)
         
         return signals
@@ -414,12 +467,11 @@ class SMCStrategy:
         highs = [candle[2] for candle in ohlcv_data]
         lows = [candle[3] for candle in ohlcv_data]
         closes = [candle[4] for candle in ohlcv_data]
-        volumes = [candle[5] for candle in ohlcv_data]
         
         # Detect SMC components
         swing_highs, swing_lows = self.find_swing_points(highs, lows)
         liquidity_zones = self.detect_liquidity_zones(swing_highs, swing_lows, highs, lows)
-        order_blocks = self.detect_order_blocks(opens, highs, lows, closes, volumes)
+        order_blocks = self.detect_order_blocks(opens, highs, lows, closes)
         bos_events = self.detect_bos(swing_highs, swing_lows, closes)
         choch_events = self.detect_choch(swing_highs, swing_lows, closes)
         

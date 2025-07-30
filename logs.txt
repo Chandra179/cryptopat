@@ -1,1 +1,1 @@
-is rsi_14.py calculation is following standard formula that most of people used, think deeply
+is double_bottom.py calculation is following standard formula that most of people used, think deeply

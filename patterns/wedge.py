@@ -84,13 +84,14 @@ def find_wedge_points(highs: pd.Series, lows: pd.Series, window: int = 4) -> Tup
     return swing_highs, swing_lows
 
 
-def detect_wedge_pattern(df: pd.DataFrame, min_touches: int = 3) -> Optional[Dict]:
+def detect_wedge_pattern(df: pd.DataFrame, min_touches: int = 3, check_volume: bool = True) -> Optional[Dict]:
     """
     Detect Wedge patterns in OHLCV data
     
     Args:
         df: DataFrame with OHLCV data
         min_touches: Minimum touches required for valid trendline
+        check_volume: Whether to validate decreasing volume pattern
         
     Returns:
         Dictionary with pattern details or None if not found
@@ -133,20 +134,23 @@ def detect_wedge_pattern(df: pd.DataFrame, min_touches: int = 3) -> Optional[Dic
             if slope_diff < 0.0001:  # Lines too parallel
                 continue
             
-            # For proper wedge, support line should be less steep than resistance
-            # (i.e., they should converge, not diverge)
-            if resistance_slope > 0:  # Rising wedge
-                if support_slope >= resistance_slope:  # Support steeper than resistance
+            # For proper wedge, lines must converge
+            # Rising wedge: support steeper than resistance (both positive slopes)
+            # Falling wedge: support less steep than resistance (both negative slopes)
+            if resistance_slope > 0 and support_slope > 0:  # Rising wedge
+                if support_slope <= resistance_slope:  # Support not steep enough for convergence
                     continue
                 wedge_type = "Rising Wedge"
                 bias = "BEARISH"
                 expected_breakout = "Downward"
-            else:  # Falling wedge
-                if support_slope <= resistance_slope:  # Support less steep than resistance
+            elif resistance_slope < 0 and support_slope < 0:  # Falling wedge
+                if support_slope >= resistance_slope:  # Support too steep for convergence
                     continue
                 wedge_type = "Falling Wedge"
                 bias = "BULLISH" 
                 expected_breakout = "Upward"
+            else:
+                continue  # Mixed directions not a valid wedge
             
             # Calculate current trendline levels
             current_idx = len(df) - 1
@@ -200,6 +204,13 @@ def detect_wedge_pattern(df: pd.DataFrame, min_touches: int = 3) -> Optional[Dic
             elif wedge_type == "Falling Wedge" and resistance_slope < 0 and support_slope < 0:
                 confidence += 15
             
+            # Volume analysis for additional confidence
+            if check_volume and len(df) >= 20:
+                recent_volume = df['volume'].tail(10).mean()
+                earlier_volume = df['volume'].tail(20).head(10).mean()
+                if recent_volume < earlier_volume:  # Decreasing volume pattern
+                    confidence += 10
+            
             # Add confidence for breakout
             if breakout == expected_breakout:
                 confidence += 20
@@ -209,6 +220,11 @@ def detect_wedge_pattern(df: pd.DataFrame, min_touches: int = 3) -> Optional[Dic
             # Pattern is more reliable if it's not too narrow
             if pattern_height > df['close'].iloc[-1] * 0.02:  # At least 2% height
                 confidence += 10
+            
+            # Better convergence angle gives higher confidence
+            convergence_angle = abs(resistance_slope - support_slope)
+            if 0.0005 < convergence_angle < 0.01:  # Sweet spot for convergence
+                confidence += 5
                 
             confidence = max(20, min(95, confidence))
             

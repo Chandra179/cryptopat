@@ -21,16 +21,17 @@ from typing import Dict, List, Optional, Tuple
 from data import get_data_collector
 
 
-def find_swing_highs_lows(prices: pd.Series, window: int = 5) -> Tuple[List[int], List[int]]:
+def find_swing_highs_lows(prices: pd.Series, volumes: pd.Series, window: int = 5) -> Tuple[List[Dict], List[Dict]]:
     """
-    Find swing highs and lows in price data
+    Find swing highs and lows in price data with volume confirmation
     
     Args:
         prices: Price series (typically Close prices)
+        volumes: Volume series for confirmation
         window: Lookback/lookahead window for swing detection
         
     Returns:
-        Tuple of (swing_high_indices, swing_low_indices)
+        Tuple of (swing_high_data, swing_low_data) with price, volume, and index info
     """
     swing_highs = []
     swing_lows = []
@@ -39,17 +40,97 @@ def find_swing_highs_lows(prices: pd.Series, window: int = 5) -> Tuple[List[int]
         # Check for swing high
         is_high = all(prices.iloc[i] >= prices.iloc[j] for j in range(i - window, i + window + 1) if j != i)
         if is_high:
-            swing_highs.append(i)
+            swing_highs.append({
+                'index': i,
+                'price': prices.iloc[i],
+                'volume': volumes.iloc[i],
+                'significance': prices.iloc[i] / prices.iloc[max(0, i-20):i+21].mean()  # Relative prominence
+            })
             
         # Check for swing low
         is_low = all(prices.iloc[i] <= prices.iloc[j] for j in range(i - window, i + window + 1) if j != i)
         if is_low:
-            swing_lows.append(i)
+            swing_lows.append({
+                'index': i,
+                'price': prices.iloc[i], 
+                'volume': volumes.iloc[i],
+                'significance': prices.iloc[max(0, i-20):i+21].mean() / prices.iloc[i]  # Relative depth
+            })
     
     return swing_highs, swing_lows
 
 
-def detect_head_and_shoulders(prices: pd.Series, timestamps: pd.Series, tolerance: float = 0.03) -> Optional[Dict]:
+def calculate_neckline_slope(left_valley: Dict, right_valley: Dict) -> Tuple[float, float]:
+    """
+    Calculate neckline slope and level at any given point
+    
+    Args:
+        left_valley: Left valley data with index and price
+        right_valley: Right valley data with index and price
+        
+    Returns:
+        Tuple of (slope, intercept) for neckline equation
+    """
+    x1, y1 = left_valley['index'], left_valley['price']
+    x2, y2 = right_valley['index'], right_valley['price']
+    
+    if x2 == x1:
+        return 0, y1  # Horizontal line
+    
+    slope = (y2 - y1) / (x2 - x1)
+    intercept = y1 - slope * x1
+    
+    return slope, intercept
+
+
+def get_neckline_level(slope: float, intercept: float, index: int) -> float:
+    """
+    Get neckline level at specific index using trend line equation
+    
+    Args:
+        slope: Neckline slope
+        intercept: Neckline intercept
+        index: Index to calculate level for
+        
+    Returns:
+        Neckline level at given index
+    """
+    return slope * index + intercept
+
+
+def validate_volume_pattern(left_shoulder_vol: float, head_vol: float, right_shoulder_vol: float, 
+                          left_valley_vol: float, right_valley_vol: float) -> float:
+    """
+    Validate volume pattern for Head and Shoulders (decreasing volume during formation)
+    
+    Args:
+        left_shoulder_vol: Volume at left shoulder
+        head_vol: Volume at head
+        right_shoulder_vol: Volume at right shoulder
+        left_valley_vol: Volume at left valley
+        right_valley_vol: Volume at right valley
+        
+    Returns:
+        Volume score (0-1, higher is better)
+    """
+    # Classic H&S shows decreasing volume from left shoulder to right shoulder
+    volume_decline_score = 0
+    if head_vol < left_shoulder_vol and right_shoulder_vol < head_vol:
+        volume_decline_score += 0.5
+    if right_shoulder_vol < left_shoulder_vol:
+        volume_decline_score += 0.3
+        
+    # Valley volumes should be lower (selling exhaustion)
+    valley_score = 0
+    avg_shoulder_vol = (left_shoulder_vol + head_vol + right_shoulder_vol) / 3
+    avg_valley_vol = (left_valley_vol + right_valley_vol) / 2
+    if avg_valley_vol < avg_shoulder_vol:
+        valley_score = 0.2
+        
+    return min(1.0, volume_decline_score + valley_score)
+
+
+def detect_head_and_shoulders(prices: pd.Series, volumes: pd.Series, timestamps: pd.Series, tolerance: float = 0.03) -> Optional[Dict]:
     """
     Detect Head and Shoulders pattern
     
@@ -64,75 +145,116 @@ def detect_head_and_shoulders(prices: pd.Series, timestamps: pd.Series, toleranc
     if len(prices) < 80:
         return None
         
-    swing_highs, swing_lows = find_swing_highs_lows(prices)
+    swing_highs, swing_lows = find_swing_highs_lows(prices, volumes)
     
     if len(swing_highs) < 3 or len(swing_lows) < 2:
         return None
     
     # Look for potential H&S patterns in recent swing highs
     for i in range(len(swing_highs) - 2):
-        left_shoulder_idx = swing_highs[i]
-        head_idx = swing_highs[i + 1] 
-        right_shoulder_idx = swing_highs[i + 2]
-        
-        left_shoulder_price = prices.iloc[left_shoulder_idx]
-        head_price = prices.iloc[head_idx]
-        right_shoulder_price = prices.iloc[right_shoulder_idx]
+        left_shoulder = swing_highs[i]
+        head = swing_highs[i + 1] 
+        right_shoulder = swing_highs[i + 2]
         
         # Head must be higher than both shoulders
-        if head_price <= left_shoulder_price or head_price <= right_shoulder_price:
+        if head['price'] <= left_shoulder['price'] or head['price'] <= right_shoulder['price']:
             continue
             
         # Shoulders should be near-equal height (within tolerance)
-        shoulder_diff = abs(left_shoulder_price - right_shoulder_price) / left_shoulder_price
+        shoulder_diff = abs(left_shoulder['price'] - right_shoulder['price']) / left_shoulder['price']
         if shoulder_diff > tolerance:
             continue
             
-        # Find valleys between shoulders and head for neckline
-        left_valley_candidates = [idx for idx in swing_lows if left_shoulder_idx < idx < head_idx]
-        right_valley_candidates = [idx for idx in swing_lows if head_idx < idx < right_shoulder_idx]
+        # Time symmetry check - shoulders should be roughly equidistant from head
+        left_time_dist = head['index'] - left_shoulder['index']
+        right_time_dist = right_shoulder['index'] - head['index']
+        time_symmetry = min(left_time_dist, right_time_dist) / max(left_time_dist, right_time_dist)
+        if time_symmetry < 0.5:  # Allow up to 2:1 time ratio
+            continue
+            
+        # Find most significant valleys between shoulders and head for neckline
+        left_valley_candidates = [v for v in swing_lows if left_shoulder['index'] < v['index'] < head['index']]
+        right_valley_candidates = [v for v in swing_lows if head['index'] < v['index'] < right_shoulder['index']]
         
         if not left_valley_candidates or not right_valley_candidates:
             continue
             
-        left_valley_idx = left_valley_candidates[-1]  # Closest to head
-        right_valley_idx = right_valley_candidates[0]  # Closest to head
+        # Select most significant valleys (deepest relative to surrounding prices)
+        left_valley = max(left_valley_candidates, key=lambda x: x['significance'])
+        right_valley = max(right_valley_candidates, key=lambda x: x['significance'])
         
-        left_valley_price = prices.iloc[left_valley_idx]
-        right_valley_price = prices.iloc[right_valley_idx]
-        neckline_level = (left_valley_price + right_valley_price) / 2
+        # Calculate proper neckline using trend line
+        neckline_slope, neckline_intercept = calculate_neckline_slope(left_valley, right_valley)
+        current_neckline_level = get_neckline_level(neckline_slope, neckline_intercept, len(prices) - 1)
         
         # Check if pattern is confirmed (price broke below neckline)
         current_price = prices.iloc[-1]
-        confirmed = current_price < neckline_level
+        confirmed = current_price < current_neckline_level
         
-        # Calculate pattern confidence based on various factors
-        head_prominence = (head_price - max(left_shoulder_price, right_shoulder_price)) / head_price
-        confidence = min(100, int(head_prominence * 100 + (1 - shoulder_diff) * 50))
+        # Volume pattern validation
+        volume_score = validate_volume_pattern(
+            left_shoulder['volume'], head['volume'], right_shoulder['volume'],
+            left_valley['volume'], right_valley['volume']
+        )
+        
+        # Calculate comprehensive pattern confidence
+        head_prominence = (head['price'] - max(left_shoulder['price'], right_shoulder['price'])) / head['price']
+        shoulder_symmetry_score = 1 - shoulder_diff
+        
+        confidence_factors = {
+            'head_prominence': head_prominence * 30,
+            'shoulder_symmetry': shoulder_symmetry_score * 25,
+            'time_symmetry': time_symmetry * 20,
+            'volume_pattern': volume_score * 25
+        }
+        
+        confidence = min(100, int(sum(confidence_factors.values())))
+        
+        # Calculate target using proper neckline level at head position
+        head_neckline_level = get_neckline_level(neckline_slope, neckline_intercept, head['index'])
+        target_distance = head['price'] - head_neckline_level
+        target_price = current_neckline_level - target_distance
         
         return {
             'pattern': 'Head and Shoulders',
             'left_shoulder': {
-                'price': round(left_shoulder_price, 4),
-                'timestamp': timestamps.iloc[left_shoulder_idx],
-                'index': left_shoulder_idx
+                'price': round(left_shoulder['price'], 4),
+                'timestamp': timestamps.iloc[left_shoulder['index']],
+                'index': left_shoulder['index'],
+                'volume': round(left_shoulder['volume'], 2)
             },
             'head': {
-                'price': round(head_price, 4), 
-                'timestamp': timestamps.iloc[head_idx],
-                'index': head_idx
+                'price': round(head['price'], 4), 
+                'timestamp': timestamps.iloc[head['index']],
+                'index': head['index'],
+                'volume': round(head['volume'], 2)
             },
             'right_shoulder': {
-                'price': round(right_shoulder_price, 4),
-                'timestamp': timestamps.iloc[right_shoulder_idx], 
-                'index': right_shoulder_idx
+                'price': round(right_shoulder['price'], 4),
+                'timestamp': timestamps.iloc[right_shoulder['index']], 
+                'index': right_shoulder['index'],
+                'volume': round(right_shoulder['volume'], 2)
             },
-            'neckline': round(neckline_level, 4),
+            'left_valley': {
+                'price': round(left_valley['price'], 4),
+                'timestamp': timestamps.iloc[left_valley['index']],
+                'index': left_valley['index']
+            },
+            'right_valley': {
+                'price': round(right_valley['price'], 4),
+                'timestamp': timestamps.iloc[right_valley['index']],
+                'index': right_valley['index']
+            },
+            'neckline': round(current_neckline_level, 4),
+            'neckline_slope': round(neckline_slope, 6),
             'current_price': round(current_price, 4),
             'confirmed': confirmed,
             'signal': 'SELL' if confirmed else 'PENDING',
             'confidence': confidence,
-            'target_price': round(neckline_level - (head_price - neckline_level), 4)  # Pattern target
+            'confidence_breakdown': confidence_factors,
+            'volume_score': round(volume_score, 2),
+            'time_symmetry': round(time_symmetry, 2),
+            'target_price': round(target_price, 4)
         }
     
     return None
@@ -165,14 +287,15 @@ def analyze_head_and_shoulders(symbol: str = "BTC/USDT", timeframe: str = "4h", 
         df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         
-        # Detect pattern
-        pattern = detect_head_and_shoulders(df['close'], df['timestamp'])
+        # Detect pattern with volume analysis
+        pattern = detect_head_and_shoulders(df['close'], df['volume'], df['timestamp'])
         
         result = {
             'symbol': symbol,
             'timeframe': timeframe,
             'total_candles': len(df),
             'current_price': round(df['close'].iloc[-1], 4),
+            'current_volume': round(df['volume'].iloc[-1], 2),
             'current_time': df['timestamp'].iloc[-1].strftime('%Y-%m-%d %H:%M:%S'),
             'pattern_detected': pattern is not None
         }
@@ -215,7 +338,12 @@ def format_head_and_shoulders_output(analysis: Dict) -> str:
     
     output = f"{symbol_clean} ({analysis['timeframe']}) - Head & Shoulders\n"
     output += f"Price: {analysis['current_price']} | Signal: {signal} {signal_emoji} | Neckline: {analysis['neckline']}\n"
-    output += f"Target: {target} | Confidence: {analysis['confidence']}%"
+    output += f"Target: {target} | Confidence: {analysis['confidence']}%\n"
+    
+    # Add detailed breakdown if pattern detected
+    if 'confidence_breakdown' in analysis:
+        output += f"Volume Score: {analysis['volume_score']} | Time Symmetry: {analysis['time_symmetry']}\n"
+        output += f"Neckline Slope: {analysis['neckline_slope']}"
     
     return output
 

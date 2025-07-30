@@ -140,12 +140,12 @@ class SupertrendStrategy:
             else:
                 if i == 0:
                     # Initial trend determination
-                    if closes[i] > final_upper_bands[i]:
-                        supertrend_values.append(final_lower_bands[i])
-                        trend_directions.append("BULLISH")
-                    else:
+                    if closes[i] <= final_lower_bands[i]:
                         supertrend_values.append(final_upper_bands[i])
                         trend_directions.append("BEARISH")
+                    else:
+                        supertrend_values.append(final_lower_bands[i])
+                        trend_directions.append("BULLISH")
                 else:
                     prev_trend = trend_directions[i-1]
                     
