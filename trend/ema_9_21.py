@@ -6,6 +6,7 @@ Uses exponential moving averages to detect bullish and bearish trend signals.
 import sys
 from datetime import datetime
 from typing import List, Tuple
+import pandas as pd
 from data import get_data_collector
 
 
@@ -17,30 +18,24 @@ class EMA9_21Strategy:
     
     def calculate_ema(self, prices: List[float], period: int) -> List[float]:
         """
-        Calculate Exponential Moving Average.
+        Calculate Exponential Moving Average using pandas for accuracy.
         
         Args:
             prices: List of closing prices
             period: EMA period (9 or 21)
             
         Returns:
-            List of EMA values
+            List of EMA values, same length as prices with NaN for initial values
         """
         if len(prices) < period:
-            return []
+            return [None] * len(prices)
         
-        # EMA multiplier
-        multiplier = 2 / (period + 1)
+        # Use pandas for accurate EMA calculation
+        df = pd.DataFrame({'price': prices})
+        ema_series = df['price'].ewm(span=period, adjust=False).mean()
         
-        # Initialize with SMA for first value
-        sma = sum(prices[:period]) / period
-        ema_values = [sma]
-        
-        # Calculate EMA for remaining values
-        for i in range(period, len(prices)):
-            ema = (prices[i] * multiplier) + (ema_values[-1] * (1 - multiplier))
-            ema_values.append(ema)
-        
+        # Convert to list and replace NaN with None for consistency
+        ema_values = ema_series.tolist()
         return ema_values
     
     def detect_volume_spike(self, volumes: List[float], window: int = 10) -> List[bool]:
@@ -77,8 +72,8 @@ class EMA9_21Strategy:
         Detect EMA crossovers and generate signals.
         
         Args:
-            ema9: EMA 9 values
-            ema21: EMA 21 values  
+            ema9: EMA 9 values (aligned with data indices)
+            ema21: EMA 21 values (aligned with data indices)
             closes: Closing prices
             volumes: Volume values
             
@@ -88,36 +83,41 @@ class EMA9_21Strategy:
         signals = []
         volume_spikes = self.detect_volume_spike(volumes)
         
-        for i in range(1, len(ema21)):  # Use ema21 length since it's shorter
-            close_idx = i + 20  # EMA21 starts at index 20 (21st element)
+        # Start from index 21 where both EMAs are valid (EMA21 needs 21 data points)
+        for i in range(20, len(closes)):  # EMA21 starts at index 20 (21st element)
+            # Skip if either EMA has NaN values (pandas may have NaN for early values)
+            if pd.isna(ema9[i]) or pd.isna(ema21[i]):
+                continue
+                
             signal = {
-                'index': i,
-                'close': closes[close_idx],
-                'ema9': ema9[i + 12],  # EMA9 starts at index 8, offset by 12 more
+                'data_index': i,
+                'close': closes[i],
+                'ema9': ema9[i],
                 'ema21': ema21[i],
-                'volume_spike': volume_spikes[close_idx] if close_idx < len(volume_spikes) else False,
+                'volume_spike': volume_spikes[i] if i < len(volume_spikes) else False,
                 'signal': 'NONE',
                 'trend': 'NEUTRAL',
                 'confirmed': False
             }
             
-            # Previous values
-            prev_ema9 = ema9[i + 11]  # Previous EMA9 value
-            prev_ema21 = ema21[i-1]
-            
-            # Bullish crossover: EMA9 crosses above EMA21
-            if prev_ema9 <= prev_ema21 and signal['ema9'] > ema21[i]:
-                if closes[close_idx] > signal['ema9'] and closes[close_idx] > ema21[i]:
-                    signal['signal'] = 'BUY'
-                    signal['trend'] = 'BULLISH'
-                    signal['confirmed'] = volume_spikes[close_idx] if close_idx < len(volume_spikes) else False
-            
-            # Bearish crossover: EMA9 crosses below EMA21  
-            elif prev_ema9 >= prev_ema21 and signal['ema9'] < ema21[i]:
-                if closes[close_idx] < signal['ema9'] and closes[close_idx] < ema21[i]:
-                    signal['signal'] = 'SELL'
-                    signal['trend'] = 'BEARISH'
-                    signal['confirmed'] = volume_spikes[close_idx] if close_idx < len(volume_spikes) else False
+            # Previous values (ensure they exist and are not NaN)
+            if i > 20 and not pd.isna(ema9[i-1]) and not pd.isna(ema21[i-1]):
+                prev_ema9 = ema9[i-1]
+                prev_ema21 = ema21[i-1]
+                
+                # Bullish crossover: EMA9 crosses above EMA21
+                if prev_ema9 <= prev_ema21 and ema9[i] > ema21[i]:
+                    if closes[i] > ema9[i] and closes[i] > ema21[i]:
+                        signal['signal'] = 'BUY'
+                        signal['trend'] = 'BULLISH'
+                        signal['confirmed'] = volume_spikes[i] if i < len(volume_spikes) else False
+                
+                # Bearish crossover: EMA9 crosses below EMA21  
+                elif prev_ema9 >= prev_ema21 and ema9[i] < ema21[i]:
+                    if closes[i] < ema9[i] and closes[i] < ema21[i]:
+                        signal['signal'] = 'SELL'
+                        signal['trend'] = 'BEARISH'
+                        signal['confirmed'] = volume_spikes[i] if i < len(volume_spikes) else False
             
             signals.append(signal)
         
@@ -159,7 +159,7 @@ class EMA9_21Strategy:
         today_signals = []
         
         for signal in signals:
-            timestamp_idx = signal['index'] + 20
+            timestamp_idx = signal['data_index']
             if timestamp_idx < len(timestamps):
                 dt = datetime.fromtimestamp(timestamps[timestamp_idx] / 1000)
                 if dt.date() == today:
@@ -170,7 +170,7 @@ class EMA9_21Strategy:
             # Show latest signal for reference
             if signals:
                 latest_signal = signals[-1]
-                timestamp_idx = latest_signal['index'] + 20
+                timestamp_idx = latest_signal['data_index']
                 if timestamp_idx < len(timestamps):
                     dt = datetime.fromtimestamp(timestamps[timestamp_idx] / 1000)
                     

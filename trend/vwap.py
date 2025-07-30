@@ -147,7 +147,7 @@ def run_vwap_analysis(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: in
         df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         
         # Convert timestamp to readable format
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Asia/Jakarta')
         
         # Find anchor index if anchor timestamp is provided
         anchor_index = None
