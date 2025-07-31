@@ -28,6 +28,7 @@ from cli.pattern.wedge_handler import handle_wedge_command, parse_wedge_args, ge
 from cli.smc_handler import SMCHandler
 from cli.wyckoff_handler import WyckoffHandler
 from cli.elliott_wave_handler import ElliottWaveHandler
+from cli.shark_pattern_handler import handle_shark_pattern_command, parse_shark_pattern_args, get_shark_pattern_help
 
 class InteractiveCLI:
     """Interactive command-line interface for CryptoPat."""
@@ -145,6 +146,8 @@ class InteractiveCLI:
         print(get_wedge_help())
         print()
         print(get_all_patterns_help())
+        print()
+        print(get_shark_pattern_help())
     
     def handle_ema_9_21(self, command: str) -> bool:
         """
@@ -440,6 +443,14 @@ class InteractiveCLI:
         # Handle elliott wave command
         if command.startswith('elliott'):
             self.handle_elliott_wave(command)
+            return True
+        
+        # Handle shark pattern command
+        if command.startswith('shark_pattern'):
+            command_parts = command.split()
+            args = parse_shark_pattern_args(command_parts)
+            result = handle_shark_pattern_command(args)
+            print(result)
             return True
         
         # Unknown command

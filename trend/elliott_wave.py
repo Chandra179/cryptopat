@@ -13,11 +13,13 @@ import pandas as pd
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from datetime import datetime
 import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data import get_data_collector
+from trend.output_formatter import OutputFormatter
 
 class WaveType(Enum):
     IMPULSE = "Impulse Wave"
@@ -349,68 +351,254 @@ class ElliottWaveAnalyzer:
             print(f"Traceback: {traceback.format_exc()}")
             return None
     
-    def format_analysis_output(self, pattern: ElliottWavePattern) -> str:
-        """Format Elliott Wave analysis results for terminal output"""
+    def calculate_pattern_confidence(self, pattern: ElliottWavePattern) -> int:
+        """Calculate confidence score (0-100) based on pattern quality"""
+        if not pattern:
+            return 0
+            
+        confidence = 0
+        max_score = 100
+        
+        # Base score for having a pattern
+        confidence += 20
+        
+        # Validation rules compliance (40 points max)
+        if pattern.validation_results:
+            valid_rules = sum(1 for valid in pattern.validation_results.values() if valid)
+            total_rules = len(pattern.validation_results)
+            if total_rules > 0:
+                confidence += int((valid_rules / total_rules) * 40)
+        
+        # Fibonacci ratio quality (25 points max)
+        if pattern.fibonacci_ratios:
+            fib_score = 0
+            ideal_ratios = [0.618, 1.0, 1.618, 2.618]
+            
+            for ratio_key, ratio_val in pattern.fibonacci_ratios.items():
+                if 'retrace' not in ratio_key.lower():  # Skip retracement ratios
+                    # Check how close to ideal Fibonacci ratios
+                    min_diff = min(abs(ratio_val - ideal) for ideal in ideal_ratios)
+                    if min_diff < 0.1:
+                        fib_score += 10
+                    elif min_diff < 0.3:
+                        fib_score += 5
+            
+            confidence += min(fib_score, 25)
+        
+        # Wave structure quality (15 points max)
+        if len(pattern.waves) >= 3:
+            # Check for alternation in corrective waves
+            if pattern.pattern_type == WaveType.CORRECTIVE and len(pattern.waves) >= 3:
+                confidence += 8
+            elif pattern.pattern_type == WaveType.IMPULSE and len(pattern.waves) >= 5:
+                confidence += 15
+        
+        return min(confidence, max_score)
+    
+    def get_validation_details(self, pattern: ElliottWavePattern) -> str:
+        """Get detailed validation failure explanations"""
+        if not pattern or not pattern.validation_results:
+            return "No validation data available"
+            
+        details = []
+        
+        for rule, is_valid in pattern.validation_results.items():
+            if not is_valid:
+                if rule == "wave3_not_shortest":
+                    details.append("Wave 3 is shortest (violates core rule)")
+                elif rule == "wave2_retrace_valid":
+                    details.append("Wave 2 retraces >100% of Wave 1")
+                elif rule == "no_wave4_overlap":
+                    details.append("Wave 4 overlaps with Wave 1 territory")
+                elif rule == "waveB_retrace_valid":
+                    details.append("Wave B retraces >100% of Wave A")
+                elif rule == "waveC_ratio_valid":
+                    details.append("Wave C/A ratio outside reasonable range")
+                elif rule == "insufficient_waves":
+                    details.append("Insufficient waves for pattern type")
+        
+        return "; ".join(details) if details else "All rules validated"
+    
+    def get_wave_structure_summary(self, pattern: ElliottWavePattern) -> Dict[str, str]:
+        """Get detailed wave structure information"""
+        if not pattern or not pattern.waves:
+            return {}
+            
+        structure = {}
+        
+        # Overall pattern move
+        start_price = pattern.waves[0].start_point.price
+        end_price = pattern.waves[-1].end_point.price
+        total_move = ((end_price - start_price) / start_price) * 100
+        structure["TOTAL_MOVE"] = f"{total_move:+.1f}%"
+        
+        # Largest wave
+        largest_wave = max(pattern.waves, key=lambda w: abs(w.percentage_change))
+        structure["LARGEST_WAVE"] = f"W{largest_wave.number} ({largest_wave.percentage_change:+.1f}%)"
+        
+        # Price levels
+        highest_price = max(max(w.start_point.price, w.end_point.price) for w in pattern.waves)
+        lowest_price = min(min(w.start_point.price, w.end_point.price) for w in pattern.waves)
+        structure["RANGE"] = f"{lowest_price:.2f}-{highest_price:.2f}"
+        
+        return structure
+    
+    def get_prediction_targets(self, pattern: ElliottWavePattern) -> Dict[str, str]:
+        """Calculate potential target levels based on Elliott Wave theory"""
+        if not pattern or not pattern.waves:
+            return {}
+            
+        targets = {}
+        current_price = pattern.waves[-1].end_point.price
+        
+        if pattern.pattern_type == WaveType.IMPULSE and len(pattern.waves) >= 5:
+            # Pattern completed, look for corrective phase
+            wave1_length = abs(pattern.waves[0].price_change)
+            
+            # Common retracement levels for correction
+            if pattern.trend_direction == TrendDirection.BULLISH:
+                # Expect bearish correction
+                correction_38 = current_price - (wave1_length * 0.382)
+                correction_62 = current_price - (wave1_length * 0.618)
+                targets["CORRECTION_38"] = f"{correction_38:.2f}"
+                targets["CORRECTION_62"] = f"{correction_62:.2f}"
+            else:
+                # Expect bullish correction
+                correction_38 = current_price + (wave1_length * 0.382)
+                correction_62 = current_price + (wave1_length * 0.618)
+                targets["CORRECTION_38"] = f"{correction_38:.2f}"
+                targets["CORRECTION_62"] = f"{correction_62:.2f}"
+                
+        elif pattern.pattern_type == WaveType.CORRECTIVE and len(pattern.waves) >= 3:
+            # Corrective pattern completing, look for next impulse
+            waveA_length = abs(pattern.waves[0].price_change)
+            
+            if pattern.trend_direction == TrendDirection.BEARISH:
+                # Expect bullish impulse after bearish correction
+                target_100 = current_price + waveA_length
+                target_162 = current_price + (waveA_length * 1.618)
+                targets["IMPULSE_100"] = f"{target_100:.2f}"
+                targets["IMPULSE_162"] = f"{target_162:.2f}"
+            else:
+                # Expect bearish impulse after bullish correction
+                target_100 = current_price - waveA_length
+                target_162 = current_price - (waveA_length * 1.618)
+                targets["IMPULSE_100"] = f"{target_100:.2f}"
+                targets["IMPULSE_162"] = f"{target_162:.2f}"
+        
+        return targets
+    
+    def format_analysis_output(self, pattern: ElliottWavePattern, timestamp: int) -> str:
+        """Format Elliott Wave analysis results with the new template format"""
         if not pattern:
             return "No Elliott Wave pattern detected"
-            
-        output = []
-        output.append("[ELLIOTT WAVE STRUCTURE]")
-        output.append(f"Symbol: {pattern.symbol} | TF: {pattern.timeframe} | Pattern: {pattern.pattern_type.value} ({pattern.trend_direction.value})")
         
-        # Core rules validation
+        # Calculate confidence score
+        confidence = self.calculate_pattern_confidence(pattern)
+        
+        # Get current price from latest wave
+        current_price = pattern.waves[-1].end_point.price if pattern.waves else None
+        
+        # Header line
+        output = f"Symbol: {pattern.symbol} | Timeframe: {pattern.timeframe.upper()}\n"
+        
+        # Pattern type with trend direction
+        pattern_display = f"{pattern.pattern_type.value} ({pattern.trend_direction.value})"
+        output += f"Pattern Type: {pattern_display}\n"
+        
+        # Wave count display
+        if pattern.pattern_type == WaveType.IMPULSE and len(pattern.waves) >= 5:
+            output += "Wave Count: 1 → 2 → 3 → 4 → 5\n"
+        elif pattern.pattern_type == WaveType.CORRECTIVE and len(pattern.waves) >= 3:
+            output += "Wave Count: A → B → C\n"
+        else:
+            wave_nums = " → ".join(str(i+1) for i in range(len(pattern.waves)))
+            output += f"Wave Count: {wave_nums}\n"
+        
+        # Status validation
         status = "✅ VALID" if pattern.is_valid else "❌ INVALID"
-        rule_details = []
-        if "wave3_not_shortest" in pattern.validation_results:
-            rule_details.append("Wave 3 longest" if pattern.validation_results["wave3_not_shortest"] else "Wave 3 shortest")
-        if "no_wave4_overlap" in pattern.validation_results:
-            rule_details.append("no overlaps" if pattern.validation_results["no_wave4_overlap"] else "overlap detected")
-            
-        output.append(f"Core Rules: {status} ({', '.join(rule_details)})")
+        output += f"Status: {status}\n"
         
-        # Wave details
-        output.append("Waves:")
-        for i, wave in enumerate(pattern.waves):
-            if pattern.pattern_type == WaveType.IMPULSE:
-                wave_label = str(i + 1)
-            else:  # Corrective
-                wave_labels = ['A', 'B', 'C']
-                wave_label = wave_labels[i] if i < len(wave_labels) else str(i + 1)
-                
-            start_price = wave.start_point.price
-            end_price = wave.end_point.price
-            points = abs(wave.price_change)
-            
-            # Add retracement info
-            retrace_info = ""
-            validation_icon = "✅"
-            
-            if pattern.pattern_type == WaveType.IMPULSE:
-                if (i + 1) == 2 and "wave2_retrace" in pattern.fibonacci_ratios:
-                    retrace_pct = pattern.fibonacci_ratios["wave2_retrace"] * 100
-                    retrace_info = f" ({retrace_pct:.1f}% retrace)"
-                    validation_icon = "✅" if retrace_pct <= 100 else "❌"
-                elif (i + 1) == 4 and "wave4_retrace" in pattern.fibonacci_ratios:
-                    retrace_pct = pattern.fibonacci_ratios["wave4_retrace"] * 100
-                    retrace_info = f" ({retrace_pct:.1f}% retrace)"
-                    validation_icon = "✅" if retrace_pct <= 100 else "❌"
-            else:  # Corrective
-                if wave_label == 'B' and "waveB_retrace" in pattern.fibonacci_ratios:
-                    retrace_pct = pattern.fibonacci_ratios["waveB_retrace"] * 100
-                    retrace_info = f" ({retrace_pct:.1f}% retrace)"
-                    validation_icon = "✅" if retrace_pct <= 100 else "❌"
-            
-            output.append(f"{wave_label}: {start_price:.2f} → {end_price:.2f} ({points:.0f}pts){retrace_info} {validation_icon}")
+        # Rule checks
+        output += "Rule Checks:\n"
+        if pattern.validation_results:
+            for rule, is_valid in pattern.validation_results.items():
+                check_mark = "✅" if is_valid else "❌"
+                if rule == "wave3_not_shortest":
+                    output += f"- Wave 3 not shortest: {check_mark}\n"
+                elif rule == "no_wave4_overlap":
+                    output += f"- Wave 4 does not overlap Wave 1: {check_mark}\n"
+                elif rule == "wave2_retrace_valid":
+                    retrace_pct = pattern.fibonacci_ratios.get('wave2_retrace', 0) * 100
+                    output += f"- Wave 2 retracement: {retrace_pct:.1f}% {check_mark}\n"
+                elif rule == "waveB_retrace_valid":
+                    retrace_pct = pattern.fibonacci_ratios.get('waveB_retrace', 0) * 100
+                    output += f"- Wave B retracement: {retrace_pct:.1f}% {check_mark}\n"
         
-        # Fibonacci ratios
+        # Add wave extension info if available
         if pattern.fibonacci_ratios:
-            output.append("Fibonacci Ratios:")
-            for ratio_name, ratio_value in pattern.fibonacci_ratios.items():
-                if "retrace" not in ratio_name.lower():
-                    formatted_name = ratio_name.replace('_', ' ').replace('wave', 'Wave').replace('to', 'to')
-                    output.append(f"  {formatted_name}: {ratio_value:.3f}")
+            if "wave3_to_wave1" in pattern.fibonacci_ratios:
+                w3_ratio = pattern.fibonacci_ratios["wave3_to_wave1"]
+                check_mark = "✅" if w3_ratio > 1.0 else "❌"
+                output += f"- Wave 3 extension: {w3_ratio:.2f}x of Wave 1 {check_mark}\n"
+            if "waveC_to_waveA" in pattern.fibonacci_ratios:
+                wc_ratio = pattern.fibonacci_ratios["waveC_to_waveA"]
+                check_mark = "✅" if 0.8 <= wc_ratio <= 2.0 else "❌"
+                output += f"- Wave C extension: {wc_ratio:.2f}x of Wave A {check_mark}\n"
         
-        return "\n".join(output)
+        output += "\n"
+        
+        # Current status and projections
+        if pattern.pattern_type == WaveType.IMPULSE:
+            if len(pattern.waves) >= 5:
+                output += "🎯 Current: Wave 5 completed\n"
+                # Calculate wave 5 target based on fibonacci
+                if len(pattern.waves) >= 5:
+                    wave5_end = pattern.waves[4].end_point.price
+                    output += f"🔮 Projection: Wave 5 Target = {wave5_end:.3f}\n"
+            else:
+                current_wave = len(pattern.waves)
+                output += f"🎯 Current: Wave {current_wave} in progress\n"
+                # Calculate next wave target
+                if current_wave < 5 and len(pattern.waves) >= 1:
+                    # Simple projection based on previous wave
+                    next_target = current_price * 1.05 if pattern.trend_direction == TrendDirection.BULLISH else current_price * 0.95
+                    output += f"🔮 Projection: Wave {current_wave + 1} Target = {next_target:.3f}\n"
+        else:  # Corrective
+            if len(pattern.waves) >= 3:
+                output += "🎯 Current: Wave C completed\n"
+                wave_c_end = pattern.waves[2].end_point.price
+                output += f"🔮 Projection: Wave C Target = {wave_c_end:.3f}\n"
+            else:
+                current_wave_letter = chr(ord('A') + len(pattern.waves) - 1)
+                output += f"🎯 Current: Wave {current_wave_letter} in progress\n"
+        
+        # Entry zone (use last significant low/high)
+        if pattern.waves and len(pattern.waves) >= 2:
+            if pattern.trend_direction == TrendDirection.BULLISH:
+                entry_level = min(w.start_point.price for w in pattern.waves[-2:])
+                output += f"📍 Entry Zone: After Wave {len(pattern.waves)-1} low confirmed ({entry_level:.3f})\n"
+            else:
+                entry_level = max(w.start_point.price for w in pattern.waves[-2:])
+                output += f"📍 Entry Zone: After Wave {len(pattern.waves)-1} high confirmed ({entry_level:.3f})\n"
+        
+        # Signal and confidence
+        if confidence >= 70:
+            if pattern.pattern_type == WaveType.IMPULSE:
+                signal = "BUY" if pattern.trend_direction == TrendDirection.BULLISH else "SELL"
+            else:  # Corrective - expect reversal
+                signal = "SELL" if pattern.trend_direction == TrendDirection.BULLISH else "BUY"
+            conf_level = "HIGH"
+        elif confidence >= 50:
+            signal = "BUY" if pattern.trend_direction == TrendDirection.BULLISH else "SELL"
+            conf_level = "MEDIUM"
+        else:
+            signal = "HOLD"
+            conf_level = "LOW"
+        
+        output += f"🚦 Signal: {signal} | Confidence: {conf_level}"
+        
+        return output
     
     def analyze(self, symbol: str, timeframe: str, limit: int = 150, zigzag_threshold: float = 5.0):
         """
@@ -424,7 +612,14 @@ class ElliottWaveAnalyzer:
         """
         pattern = self.analyze_elliott_wave(symbol, timeframe, limit, zigzag_threshold)
         if pattern:
-            print(self.format_analysis_output(pattern))
+            # Get current timestamp from the last data point
+            try:
+                ohlcv_data = self.data_collector.fetch_ohlcv_data(symbol, timeframe, 1)
+                current_timestamp = ohlcv_data[0][0] if ohlcv_data else int(datetime.now().timestamp() * 1000)
+            except:
+                current_timestamp = int(datetime.now().timestamp() * 1000)
+                
+            print(self.format_analysis_output(pattern, current_timestamp))
         else:
             print(f"No valid Elliott Wave pattern found for {symbol} on {timeframe}")
 
@@ -487,7 +682,14 @@ def main():
     pattern = analyzer.analyze_elliott_wave(args.symbol, args.timeframe, args.limit, args.zigzag)
     
     if pattern:
-        print(analyzer.format_analysis_output(pattern))
+        # Get current timestamp for output
+        try:
+            ohlcv_data = analyzer.data_collector.fetch_ohlcv_data(args.symbol, args.timeframe, 1)
+            current_timestamp = ohlcv_data[0][0] if ohlcv_data else int(datetime.now().timestamp() * 1000)
+        except:
+            current_timestamp = int(datetime.now().timestamp() * 1000)
+            
+        print(analyzer.format_analysis_output(pattern, current_timestamp))
     else:
         print(f"No valid Elliott Wave pattern found for {args.symbol} on {args.timeframe}")
 
