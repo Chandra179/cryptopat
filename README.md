@@ -68,40 +68,52 @@ A Python-based system for detecting chart patterns in cryptocurrency data using 
 Make sure to add new handler to the cli. /cli/ema_9_21_handler.py
 
 
-## Phase 2: Elliott Wave + Fibonacci Confluence
-1. Create file: .../trend/elliott_fibonacci.py
-2. Use High, Low, Close from OHLCV data (`collector.py → fetch_ohlcv_data`)
-3. Elliott Wave Cardinal Rules:
-    - ✅ Wave 3 cannot be the shortest
-    - ✅ Wave 2 cannot retrace more than 100% of Wave 1
-    - ✅ Wave 4 cannot overlap Wave 1 (except diagonals)
-4. Standard Fibonacci Ratios:
-    - ✅ Wave 2: 50%-78.6% retracement (0.5-0.786)
-    - ✅ Wave 3: 1.618× Wave 1 extension (most common)
-    - ✅ Wave 4: 23.6%-38.2% retracement (0.236-0.382)
-    - ✅ Wave 5: 0.618× Wave 1 or equal to Wave 1
-    - ✅ Wave C: 1.0-1.618× Wave A extension
-5. Advanced Features:
-    - ✅ ZigZag detection for swing point identification
-    - ✅ Confidence scoring based on Fibonacci confluence
-    - ✅ Pattern validation with Elliott Wave rules
-    - ✅ Target projections for incomplete waves
+## Phase 2: Elliott Wave Rules
+1. Create file: `/trend/elliott_wave.py`  
+2. Use High, Low, Close from OHLCV data (`collector.py → fetch_ohlcv_data`)  
+3. Detect significant swings using ZigZag threshold within `l` candles for pattern identification  
+4. **Core Elliott Wave Rules** (Industry Standard):
+   - **Wave 3 is NEVER the shortest** of waves 1, 3, and 5
+   - **Wave 2 cannot retrace more than 100%** of Wave 1
+   - **Wave 4 cannot overlap** into Wave 1 price territory (except in diagonal triangles)
+5. **Impulse wave rules (Waves 1–5)**:
+   - **Wave 2** retraces **38.2–78.6%** of Wave 1 (most common: 50-61.8%)
+   - **Wave 3** typically **1.618×** Wave 1 or **2.618×** Wave 1 (extended wave)
+   - **Wave 4** retraces **23.6–50%** of Wave 3 (alternation with Wave 2)
+   - **Wave 5** = **0.618×**, **1.0×**, or **1.618×** Wave 1 (truncation possible)
+6. **Corrective wave rules (Waves A–B–C)**:
+   - **Wave B** retraces **38.2–78.6%** of Wave A (rarely exceeds 100%)
+   - **Wave C** = **1.0×**, **1.618×**, or **2.618×** Wave A length
+7. **Wave relationships & alternation**:
+   - **Alternation principle**: Wave 2 vs Wave 4 differ in complexity/time
+   - **Extension rule**: One of waves 1, 3, or 5 extends (typically Wave 3)
+   - **Time relationships**: Wave patterns often show Fibonacci time ratios
+8. **Confirmation criteria**:
+   - All core rules satisfied + valid swing structure
+   - Volume confirmation (Wave 3 highest, Wave 5 divergence possible)
+   - Fibonacci confluence at key reversal points
+   - RSI divergence at Wave 5 completion (optional)  
+
 ### Input in terminal
-> elliott_fibonacci s=SOL/USDT t=4h l=150 zz=4
-- s = symbol
-- t = timeframe
-- l = candle limit
-- zz = ZigZag threshold or fractal depth
+> elliott_wave s=BTC/USDT t=1h/4h/1d l=150 zz=5  
+- **s** = symbol  
+- **t** = timeframe  
+- **l** = candle limit  
+- **zz** = ZigZag threshold (%) for swing detection  
 ### Output example in terminal
-[ELLIOTT + FIBONACCI STRUCTURE]
-- Pattern: Impulse Wave (5-wave)
-- Wave 1: 42.00 → 50.00
-- Wave 2: 50.00 → 46.50 (0.618 retracement)
-- Wave 3: 46.50 → 61.80 (1.618 extension of W1)
-- Wave 4: 61.80 → 58.80 (0.382 retracement)
-- Wave 5: Projected to 66.00 (0.618 of Wave 1)
-- Status: Wave 5 in progress
-- Confluence: Strong — multiple Fib + structure alignment
+[ELLIOTT WAVE STRUCTURE]
+Symbol: BTC/USDT | TF: 4h | Pattern: Impulse Wave (Bullish)
+Core Rules: ✅ VALID (Wave 3 longest, no overlaps)
+Waves:
+1: 30000 → 31200 (1200pts)
+2: 31200 → 30500 (58.3% retrace) ✅
+3: 30500 → 33000 (2500pts, 2.08× W1) ✅ EXTENDED
+4: 33000 → 32400 (24% retrace) ✅ ALT
+5: 32400 → 34000 (1600pts, 1.33× W1) ✅
+Alternation: Wave 2 sharp, Wave 4 sideways ✅
+Volume: W3 highest, W5 divergence ⚠️
+Signal: Wave 5 completion ↗️ → ABC correction expected
+🎯 Target Zone: 35000-35500 (1.618-2.618× W1 from W4 low)
+⚠️ Watch for: RSI divergence, volume decline
 ### CLI
-Add a new handler:
-- `/cli/elliott_fibonacci_handler.py`
+Make sure to add new handler: `/cli/elliott_wave_handler.py`

@@ -27,8 +27,7 @@ from cli.pattern.flag_handler import handle_flag_command, parse_flag_args, get_f
 from cli.pattern.wedge_handler import handle_wedge_command, parse_wedge_args, get_wedge_help
 from cli.smc_handler import SMCHandler
 from cli.wyckoff_handler import WyckoffHandler
-from cli.elliott_fibonacci_handler import handle_elliott_fibonacci_command
-
+from cli.elliott_wave_handler import ElliottWaveHandler
 
 class InteractiveCLI:
     """Interactive command-line interface for CryptoPat."""
@@ -47,6 +46,7 @@ class InteractiveCLI:
         self.multi_tf_handler = MultiTFHandler()
         self.smc_handler = SMCHandler()
         self.wyckoff_handler = WyckoffHandler()
+        self.elliott_wave_handler = ElliottWaveHandler()
         self._setup_readline()
     
     def _setup_readline(self):
@@ -126,6 +126,8 @@ class InteractiveCLI:
         print()
         self.wyckoff_handler.print_help()
         print()
+        self.elliott_wave_handler.print_help()
+        print()
         self.all_trend_handler.print_help()
         print()
         print(get_double_bottom_help())
@@ -143,12 +145,6 @@ class InteractiveCLI:
         print(get_wedge_help())
         print()
         print(get_all_patterns_help())
-        print()
-        print("  elliott_fibonacci s=SOL/USDT t=4h l=150 zz=4")
-        print("    - Elliott Wave + Fibonacci analysis")
-        print("    - s=symbol, t=timeframe, l=limit, zz=zigzag_threshold")
-        print("\n  help - Show this help message")
-        print("  exit - Exit the application")
     
     def handle_ema_9_21(self, command: str) -> bool:
         """
@@ -281,6 +277,18 @@ class InteractiveCLI:
             True if command was handled successfully, False otherwise
         """
         return self.smc_handler.handle(command)
+    
+    def handle_elliott_wave(self, command: str) -> bool:
+        """
+        Handle Elliott Wave analysis command.
+        
+        Args:
+            command: The command string
+            
+        Returns:
+            True if command was handled successfully, False otherwise
+        """
+        return self.elliott_wave_handler.handle(command)
     
     def process_command(self, command: str) -> bool:
         """
@@ -429,9 +437,9 @@ class InteractiveCLI:
             self.wyckoff_handler.handle(command)
             return True
         
-        # Handle elliott_fibonacci command
-        if command.startswith('elliott_fibonacci'):
-            handle_elliott_fibonacci_command(command)
+        # Handle elliott wave command
+        if command.startswith('elliott'):
+            self.handle_elliott_wave(command)
             return True
         
         # Unknown command
