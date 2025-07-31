@@ -6,9 +6,6 @@ Handles OHLCV data, order books, and ticker information using CCXT library.
 import ccxt
 import logging
 from typing import List, Dict, Optional
-import pandas as pd
-from datetime import datetime
-import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -67,7 +64,7 @@ class DataCollector(DataCollectorSingleton):
     def fetch_ohlcv_data(self, symbol: str, timeframe: str = '1d', 
                         limit: int = 999, since: Optional[int] = None) -> List[List]:
         """
-        Fetch OHLCV (candlestick) data for a symbol and export to fetch_data.csv.
+        Fetch OHLCV (candlestick) data for a symbol.
         
         Args:
             symbol: Trading pair symbol (e.g., 'BTC/USDT')
@@ -87,43 +84,12 @@ class DataCollector(DataCollectorSingleton):
             ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, since, limit)
             logger.info(f"Retrieved {len(ohlcv)} candles for {symbol}")
             
-            # Export to CSV
-            if ohlcv:
-                self._export_ohlcv_to_csv(ohlcv)
-            
             return ohlcv
             
         except Exception as e:
             logger.error(f"Error fetching OHLCV for {symbol}: {e}")
             raise RuntimeError(f"Failed to fetch OHLCV data for {symbol}: {e}")
     
-    def _export_ohlcv_to_csv(self, ohlcv_data: List[List]) -> None:
-        """
-        Export OHLCV data to fetch_data.csv with datetime formatting.
-        
-        Args:
-            ohlcv_data: List of OHLCV data [[timestamp, open, high, low, close, volume], ...]
-        """
-        try:
-            # Create DataFrame
-            df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            
-            # Convert timestamp to datetime in Asia/Jakarta timezone
-            df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Asia/Jakarta')
-            
-            # Reorder columns to match your format
-            df = df[['datetime', 'timestamp', 'open', 'high', 'low', 'close', 'volume']]
-            
-            # Ensure csv_exports directory exists
-            os.makedirs('data/csv_exports', exist_ok=True)
-            
-            # Export to CSV
-            csv_path = 'fetch_data.csv'
-            df.to_csv(csv_path, index=False)
-            logger.info(f"OHLCV data exported to {csv_path}")
-            
-        except Exception as e:
-            logger.error(f"Error exporting OHLCV data to CSV: {e}")
     
     def fetch_order_book(self, symbol: str, limit: int = 100) -> Dict:
         """
@@ -166,7 +132,7 @@ class DataCollector(DataCollectorSingleton):
     
     def fetch_recent_trades(self, symbol: str, limit: int = 500) -> List[Dict]:
         """
-        Fetch recent trades for CVD calculation and export to fetch_trades.csv.
+        Fetch recent trades for CVD calculation.
         
         Args:
             symbol: Trading pair symbol
@@ -180,44 +146,12 @@ class DataCollector(DataCollectorSingleton):
             trades = self.exchange.fetch_trades(symbol, limit=limit)
             logger.info(f"Retrieved {len(trades)} trades for {symbol}")
             
-            # Export to CSV
-            if trades:
-                self._export_trades_to_csv(trades)
-            
             return trades
             
         except Exception as e:
             logger.error(f"Error fetching trades for {symbol}: {e}")
             raise RuntimeError(f"Failed to fetch trades for {symbol}: {e}")
     
-    def _export_trades_to_csv(self, trades_data: List[Dict]) -> None:
-        """
-        Export trades data to fetch_trades.csv with datetime formatting.
-        
-        Args:
-            trades_data: List of trade dictionaries
-        """
-        try:
-            # Create DataFrame from trades data
-            df = pd.DataFrame(trades_data)
-            
-            # Convert timestamp to datetime in Asia/Jakarta timezone
-            df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Asia/Jakarta')
-            
-            # Reorder columns to put datetime first
-            columns = ['datetime'] + [col for col in df.columns if col != 'datetime']
-            df = df[columns]
-            
-            # Ensure csv_exports directory exists
-            os.makedirs('data/csv_exports', exist_ok=True)
-            
-            # Export to CSV
-            csv_path = 'fetch_trades.csv'
-            df.to_csv(csv_path, index=False)
-            logger.info(f"Trades data exported to {csv_path}")
-            
-        except Exception as e:
-            logger.error(f"Error exporting trades data to CSV: {e}")
     
     def get_market_info(self, symbol: str) -> Dict:
         """

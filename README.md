@@ -68,29 +68,97 @@ A Python-based system for detecting chart patterns in cryptocurrency data using 
 Make sure to add new handler to the cli. /cli/ema_9_21_handler.py
 
 
-## Phase 27: Cumulative Volume Delta (CVD)
-1. Create file `/orderflow/cvd.py`
-2. Use **tick-by-tick trade data** (Via `collector.py → fetch_ticker`)
-3. Require at least 200–500 recent trades for accuracy
-4. Separate trade flow into:
-   - **Aggressive Buys** (market orders lifting the ask)
-   - **Aggressive Sells** (market orders hitting the bid)
-5. CVD = Σ(Buy Volume) − Σ(Sell Volume) over time
-6. Interpret signals:
-   - **Bullish Bias**: CVD rising while price consolidates → absorption by buyers
-   - **Bearish Bias**: CVD falling while price holds → stealth selling
-   - **Divergence**: CVD and price diverge → signal of potential reversal
-7. Optional: Plot CVD curve to visualize volume flow behavior
-### Input in terminal
-> cvd s=XRP/USDT t=4h l=300
-- s = symbol (required)
-- t = timeframe for segmentation (1m/5m/1h etc.)
-- l = trade limit (default = 300 latest ticks)
-### Output example in terminal
-[2025-07-31 14:00] XRP/USDT | TF: 4H  
-Price: 0.6428 | ΔCVD: -45.3K | ΔCVD/min: -5.3K | Volume: 223K  
-Dominant Flow: 🔻 Aggressive Sellers (66%)  
-Divergence: ✅ Bearish Divergence (Price ↑, CVD ↓)  
-Bias: 📉 Short Setup | Confidence: HIGH  
-### CLI
-Add handler to `/cli/cvd_handler.py`
+## Phase 2: Advanced Order Book Heatmap & Market Microstructure Analysis
+1. Create file `/orderflow/orderbook_heatmap.py`
+2. Use **real-time Level 2 (L2) market depth data** (via `collector.py → fetch_orderbook_stream`)
+3. **Enhanced Data Collection:**
+   - Capture snapshots of top 20–50 bid/ask levels **every 100–500ms** for high-frequency analysis
+   - Correlate with **Time & Sales execution data** for order flow validation
+   - Track **order additions, cancellations, and modifications** (if supported by exchange)
+   - Store order book imbalance ratios at each snapshot
+4. **Industry-Standard Market Microstructure Analytics:**
+   - **Volume-Weighted Average Price (VWAP)** integration for institutional reference levels
+   - **Cumulative Volume Delta (CVD)** tracking buyer vs seller aggression
+   - **Order Flow Imbalance (OFI)** calculation: `(Bid_Volume - Ask_Volume) / (Bid_Volume + Ask_Volume)`
+   - **Liquidity depth metrics**: Average depth, depth volatility, liquidity concentration
+   - **Market maker vs taker classification** using trade direction inference
+5. Store historical depth as **multi-dimensional time-series matrix:**
+   - Rows = timestamps (100-500ms intervals)
+   - Columns = normalized price levels (% from mid-price)
+   - Values = [quantity, order_count, avg_order_size, time_in_book]
+   - Additional layers: CVD, OFI, VWAP deviation, liquidity scores
+6. **Advanced Signal Detection:**
+   - **Institutional Liquidity Patterns:**
+     - **Iceberg Orders**: Detect hidden liquidity through order refill patterns
+     - **Algorithmic Spoofing**: Statistical detection of fake walls (rapid place/cancel cycles)
+     - **Liquidity Hunting**: Track price movements toward large orders
+     - **Hidden Liquidity**: Identify dark pool activity through execution vs visible depth mismatches
+   - **Market Regime Classification:**
+     - **Normal Trading**: Balanced order flow, stable spreads
+     - **Stress Conditions**: Widening spreads, liquidity gaps, unusual imbalances
+     - **Manipulation Detection**: Coordinated spoofing, wash trading patterns
+   - **Predictive Signals:**
+     - **Absorption vs Rejection**: How price reacts when hitting liquidity walls
+     - **Liquidity Magnets**: Large orders attracting price movement
+     - **Support/Resistance Validation**: Order flow confirmation of technical levels
+7. **Professional Visualization & Analytics:**
+   - Multi-layer heatmap with configurable depth and time horizons
+   - Real-time CVD and OFI overlay on price chart
+   - Statistical significance testing for detected patterns
+   - Confidence intervals for liquidity wall predictions
+   - Anomaly detection alerts for unusual order flow behavior
+
+### Enhanced Input Parameters
+> orderbook_heatmap s=XRP/USDT t=250ms d=1200 depth=30 analytics=full vwap=true
+- `s` = symbol (required)
+- `t` = snapshot interval (100ms, 250ms, 500ms, 1s)
+- `d` = duration (number of snapshots or time period: 300s, 5m, 1h)
+- `depth` = order book depth levels to analyze (10-50, default: 20)
+- `analytics` = analysis level (basic, standard, full, institutional)
+- `vwap` = enable VWAP tracking and deviation analysis
+- `cvd` = track Cumulative Volume Delta
+- `ofi` = calculate Order Flow Imbalance
+- `spoof` = enable spoofing detection algorithms
+- `regime` = market regime classification
+- `alerts` = real-time anomaly detection thresholds
+
+### Enhanced Output with Professional Metrics
+```
+[2025-07-31 14:00:15.250] XRP/USDT | 250ms Snapshots | Depth: 30 levels
+═══════════════════════════════════════════════════════════════════════════════
+💹 MARKET DATA
+Price: 0.6428 (+0.0003, +0.05%) | Mid: 0.64275 | Spread: 0.0005 (0.08%)
+Best Bid: 0.6425 (1,847 XRP, 3 orders) | Best Ask: 0.6430 (2,103 XRP, 5 orders)
+VWAP: 0.6422 (-0.0006 from current) | Volume Profile: Heavy @ 0.6420-0.6430
+
+📊 ORDER FLOW ANALYTICS
+CVD (5m): +245.2K XRP (Buyer Aggression) | OFI: +0.34 (Bid Heavy)
+Imbalance Ratio: 67% Bids / 33% Asks | Liquidity Score: 8.7/10 (Excellent)
+Market Regime: NORMAL_TRENDING | Volatility: LOW (0.12%)
+
+🔍 INSTITUTIONAL LIQUIDITY ZONES
+• MAJOR SUPPORT WALL @ 0.6400 (15.7K XRP, 12 orders) - 92% confidence
+  └─ Depth Quality: HIGH | Time in Book: 4m 23s | Iceberg Detected: NO
+• RESISTANCE CLUSTER @ 0.6450-0.6455 (23.1K XRP, 18 orders)
+  └─ Depth Quality: MEDIUM | Absorption Rate: 45% | Spoof Risk: LOW
+
+⚠️  REAL-TIME ALERTS
+• SPOOF DETECTED @ 0.6435: 6.5K wall vanished in 1.2s (High Confidence: 87%)
+• ICEBERG ACTIVITY @ 0.6428: 500 XRP orders refilling every 15s
+• WHALES ACCUMULATING: 3 large buyers absorbed 12K at 0.6425 support
+
+🎯 TRADING SIGNALS
+Primary Bias: 📈 BULLISH (Strength: 7.2/10)
+└─ Rationale: Price climbing into resistance + Strong bid support + Positive CVD
+Signal: WATCH 0.6450 breakout | Stop: Below 0.6400 | Target: 0.6480-0.6500
+Confidence: 74% | Risk/Reward: 1:2.8 | Expected Move: +1.2% / -0.7%
+
+📈 MICROSTRUCTURE HEALTH
+Spread Stability: GOOD (σ=0.0002) | Order Arrival Rate: 47/min
+Market Impact Cost: 0.03% (1K trade) | Liquidity Replenishment: 23s avg
+Algo Activity Level: MODERATE (34% of volume) | Market Maker Presence: ACTIVE
+═══════════════════════════════════════════════════════════════════════════════
+```
+
+### CLI Integration
+add Handler: `/cli/orderbook_heatmap_handler.py`

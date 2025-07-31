@@ -4,7 +4,7 @@ Handles CVD (Cumulative Volume Delta) analysis commands.
 """
 
 import logging
-from orderflow.cvd import CVDAnalyzer, format_cvd_output, display_buyer_seller_pressure
+from orderflow.cvd import CVDAnalyzer, display_buyer_seller_pressure
 
 logger = logging.getLogger(__name__)
 
