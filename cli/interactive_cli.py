@@ -29,6 +29,7 @@ from cli.smc_handler import SMCHandler
 from cli.wyckoff_handler import WyckoffHandler
 from cli.elliott_wave_handler import ElliottWaveHandler
 from cli.shark_pattern_handler import handle_shark_pattern_command, parse_shark_pattern_args, get_shark_pattern_help
+from cli.butterfly_pattern_handler import handle_butterfly_pattern_command, parse_butterfly_pattern_args, get_butterfly_pattern_help
 
 class InteractiveCLI:
     """Interactive command-line interface for CryptoPat."""
@@ -148,6 +149,8 @@ class InteractiveCLI:
         print(get_all_patterns_help())
         print()
         print(get_shark_pattern_help())
+        print()
+        print(get_butterfly_pattern_help())
     
     def handle_ema_9_21(self, command: str) -> bool:
         """
@@ -450,6 +453,14 @@ class InteractiveCLI:
             command_parts = command.split()
             args = parse_shark_pattern_args(command_parts)
             result = handle_shark_pattern_command(args)
+            print(result)
+            return True
+        
+        # Handle butterfly pattern command
+        if command.startswith('butterfly'):
+            command_parts = command.split()
+            args = parse_butterfly_pattern_args(command_parts)
+            result = handle_butterfly_pattern_command(args)
             print(result)
             return True
         

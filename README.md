@@ -68,37 +68,42 @@ A Python-based system for detecting chart patterns in cryptocurrency data using 
 Make sure to add new handler to the cli. /cli/ema_9_21_handler.py
 
 
-## Phase 2: Shark Pattern Detection
-1. Create file `/trend/shark_pattern.py`
-2. Use OHLCV data (`collector.py → fetch_ohlcv_data`)
-3. Convert price data into swing points using ZigZag (e.g. `zz=5%`)
-4. Identify five key points: **O → X → A → B → C**
-5. Validate Shark pattern using the following Fibonacci rules:
-   - XA = **0.886 retracement** (pattern foundation)
-   - AB extends **1.13–1.618** of XA leg
-   - BC extends **113%** of OX leg (exactly)
-   - Point **C is entry point**, expecting reversal
-6. Volume spike at point C strengthens signal
-7. Confirmation: Rejection candle or bullish/bearish engulfing after C
+## Phase 2: Butterfly Pattern Detection
+1. Create file: `/trend/butterfly_pattern.py`
+2. Use OHLCV data: High, Low, and Close prices are required
+3. Detect potential Butterfly pattern using the X-A-B-C-D leg structure
+   - Identify swing points using ZigZag algorithm or fractal pivot detection
+4. Butterfly Leg Ratio Rules:
+   - AB = 0.786 retracement of XA ✅
+   - BC = 0.382 to 0.886 retracement of AB ✅
+   - CD = 1.618 to 2.618 extension of BC ✅
+   - AD = 1.27 extension of XA ✅
+5. Entry Signal:
+   - At point D, if pattern completes within tight Fibonacci confluence zone
+   - Additional confirmation: Volume spike + rejection candle at D
+6. Target Zones:
+   - TP1 = 38.2% retracement of CD
+   - TP2 = 61.8% retracement of CD
+   - SL = slightly beyond point X
 ### Input in terminal
-> shark_pattern s=XRP/USDT t=4h l=150 zz=5  
+> butterfly s=XRP/USDT t=4h l=150 zz=5
 - `s` = symbol  
 - `t` = timeframe  
-- `l` = number of candles  
-- `zz` = zigzag threshold %  
+- `l` = limit (candles to load)  
+- `zz` = ZigZag threshold (% swing sensitivity)
 ### Output example in terminal
-🦈 SHARK PATTERN DETECTED
-Symbol: XRP/USDT | Timeframe: 4H  
+[HARMONIC STRUCTURE: BUTTERFLY]
+Symbol: XRP/USDT | Timeframe: 4h
 Pattern Status: ✅ VALID | Bias: 📈 Bullish
-• O: 0.498  
-• X: 0.576  
-• A: 0.512 (XA retrace: 0.886) ✅  
-• B: 0.610 (AB extension: 1.45 of XA) ✅  
-• C: 0.587 (BC extension: 1.13 of OX) ← 📍 Entry Zone  
-🎯 Target: 0.633 | Stop Loss: 0.572  
-Fibonacci Ratios ✅ Confirmed  
-Volume Spike ✅ at C  
-Rejection Candle ✅
-🚦 Signal: BUY | Confidence: HIGH  
+• X: 0.500
+• A: 0.610
+• B: 0.534 (AB retrace: 0.786) ✅
+• C: 0.585 (BC retrace: 0.618) ✅
+• D: 0.450 (CD ext: 2.240) ✅ → 📍 Entry
+Fibonacci Confluence ✅ | Volume Spike ✅ | Rejection Candle ✅
+🎯 Target 1: 0.494 (TP1)
+🎯 Target 2: 0.517 (TP2)
+🛑 Stop Loss: 0.438
+🚦 Signal: BUY | Confidence: HIGH
 ### CLI
-Add new handler `/cli/shark_pattern_handler.py`
+Make sure to add a handler `/cli/butterfly_pattern_handler.py`
