@@ -10,4 +10,4 @@ footprint s=XRP/USDT t=4h l=30 bins=30
 python -m trend.stat_pattern_validation s=BTC/USDT t=4h l=1000 tp=2.0 sl=1.0
 
 is the rules and formula from this requirement is follows industry standard, is the output informative for decision making, is 
-there something can be enhanced in it?
+there something can be enhanced in it from selected text?

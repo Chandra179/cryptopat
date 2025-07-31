@@ -35,6 +35,7 @@ from cli.orderbook_heatmap_handler import OrderBookHeatmapHandler, get_orderbook
 from cli.imbalance_handler import handle_imbalance_analysis
 from cli.absorption_handler import handle_absorption_command, get_absorption_help
 from cli.footprint_handler import FootprintHandler, get_footprint_help
+from cli.stop_sweep_handler import handle_stop_sweep_command, get_stop_sweep_help
 
 class InteractiveCLI:
     """Interactive command-line interface for CryptoPat."""
@@ -170,6 +171,8 @@ class InteractiveCLI:
         print(get_absorption_help())
         print()
         print(get_footprint_help())
+        print()
+        print(get_stop_sweep_help())
     
     def handle_ema_9_21(self, command: str) -> bool:
         """
@@ -541,6 +544,12 @@ class InteractiveCLI:
         # Handle Volume Footprint Chart command
         if command.startswith('footprint'):
             self.footprint_handler.handle(command)
+            return True
+        
+        # Handle Stop Sweep Detection command
+        if command.startswith('stop_sweep'):
+            result = handle_stop_sweep_command(command)
+            print(result)
             return True
         
         # Unknown command
