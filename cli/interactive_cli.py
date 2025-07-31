@@ -33,6 +33,8 @@ from cli.butterfly_pattern_handler import handle_butterfly_pattern_command, pars
 from cli.cvd_handler import CVDHandler
 from cli.orderbook_heatmap_handler import OrderBookHeatmapHandler, get_orderbook_heatmap_help
 from cli.imbalance_handler import handle_imbalance_analysis
+from cli.absorption_handler import handle_absorption_command, get_absorption_help
+from cli.footprint_handler import FootprintHandler, get_footprint_help
 
 class InteractiveCLI:
     """Interactive command-line interface for CryptoPat."""
@@ -54,6 +56,7 @@ class InteractiveCLI:
         self.elliott_wave_handler = ElliottWaveHandler()
         self.cvd_handler = CVDHandler()
         self.orderbook_heatmap_handler = OrderBookHeatmapHandler()
+        self.footprint_handler = FootprintHandler()
         self._setup_readline()
     
     def _setup_readline(self):
@@ -163,6 +166,10 @@ class InteractiveCLI:
         print()
         print("  imbalance s=XRP/USDT d=30")
         print("  imbalance s=BTC/USDT d=60")
+        print()
+        print(get_absorption_help())
+        print()
+        print(get_footprint_help())
     
     def handle_ema_9_21(self, command: str) -> bool:
         """
@@ -524,6 +531,16 @@ class InteractiveCLI:
         # Handle Order Flow Imbalance command
         if command.startswith('imbalance'):
             self.handle_imbalance(command)
+            return True
+        
+        # Handle Absorption Detection command
+        if command.startswith('absorption'):
+            result = handle_absorption_command(command)
+            return True
+        
+        # Handle Volume Footprint Chart command
+        if command.startswith('footprint'):
+            self.footprint_handler.handle(command)
             return True
         
         # Unknown command

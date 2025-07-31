@@ -3,6 +3,11 @@ multi_tf s=XRP/USDT t1=1d t2=4h t3=1h indicators=ema9/21,macd,rsi14 l=200
 wyckoff s=BTC/USDT t=4h l=600 detect=events+phases
 elliott s=XRP/USDT t=4h l=100
 butterfly s=XRP/USDT t=4h l=150 zz=5
-imbalance s=BTC/USDT d=60
+orderbook_heatmap s=XRP/USDT d=5 i=250 l=50
+imbalance s=XRP/USDT d=60
+footprint s=XRP/USDT t=4h l=30 bins=30
 
 python -m trend.stat_pattern_validation s=BTC/USDT t=4h l=1000 tp=2.0 sl=1.0
+
+is the rules and formula from this requirement is follows industry standard, is the output informative for decision making, is 
+there something can be enhanced in it?
