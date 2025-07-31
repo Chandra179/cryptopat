@@ -143,12 +143,12 @@ def detect_head_and_shoulders(prices: pd.Series, volumes: pd.Series, timestamps:
         Dictionary with pattern details or None if not found
     """
     if len(prices) < 80:
-        return None
+        raise ValueError(f"Insufficient data for Head and Shoulders detection: need at least 80 prices, got {len(prices)}")
         
     swing_highs, swing_lows = find_swing_highs_lows(prices, volumes)
     
     if len(swing_highs) < 3 or len(swing_lows) < 2:
-        return None
+        raise ValueError(f"Insufficient swing points: need at least 3 highs and 2 lows, got {len(swing_highs)} highs and {len(swing_lows)} lows")
     
     # Look for potential H&S patterns in recent swing highs
     for i in range(len(swing_highs) - 2):

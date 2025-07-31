@@ -27,7 +27,7 @@ class RSI14Strategy:
             List of RSI values
         """
         if len(prices) < period + 1:
-            return []
+            raise ValueError(f"Insufficient data for RSI calculation: need at least {period + 1} prices, got {len(prices)}")
         
         # Calculate price changes
         price_changes = []
@@ -36,7 +36,7 @@ class RSI14Strategy:
             price_changes.append(change)
         
         if len(price_changes) < period:
-            return []
+            raise ValueError(f"Insufficient price changes for RSI calculation: need at least {period}, got {len(price_changes)}")
         
         rsi_values = []
         

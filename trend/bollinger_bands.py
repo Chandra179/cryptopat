@@ -30,7 +30,7 @@ class BollingerBandsStrategy:
             List of SMA values
         """
         if len(prices) < period:
-            return []
+            raise ValueError(f"Insufficient data: need at least {period} prices, got {len(prices)}")
         
         sma_values = []
         for i in range(period - 1, len(prices)):
@@ -52,7 +52,7 @@ class BollingerBandsStrategy:
             List of standard deviation values
         """
         if len(prices) < period or len(sma_values) == 0:
-            return []
+            raise ValueError(f"Insufficient data for standard deviation calculation: prices={len(prices)}, period={period}")
         
         std_values = []
         for i in range(len(sma_values)):
@@ -80,13 +80,13 @@ class BollingerBandsStrategy:
         middle_band = self.calculate_sma(prices, self.period)
         
         if not middle_band:
-            return [], [], []
+            raise RuntimeError("Failed to calculate middle band (SMA)")
         
         # Calculate standard deviation
         std_dev = self.calculate_standard_deviation(prices, self.period, middle_band)
         
         if not std_dev:
-            return [], [], []
+            raise RuntimeError("Failed to calculate standard deviation")
         
         # Calculate upper and lower bands
         upper_band = [mb + (self.multiplier * sd) for mb, sd in zip(middle_band, std_dev)]

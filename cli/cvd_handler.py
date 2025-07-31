@@ -4,7 +4,7 @@ Handles CVD (Cumulative Volume Delta) analysis commands.
 """
 
 import logging
-from orderflow.cvd import CVDAnalyzer, format_cvd_output
+from orderflow.cvd import CVDAnalyzer, format_cvd_output, display_buyer_seller_pressure
 
 logger = logging.getLogger(__name__)
 
@@ -36,17 +36,8 @@ class CVDHandler:
             symbol, timeframe, limit = self.parse_command(command)
             print(f"\nExecuting: {command}")
             
-            # Calculate CVD
-            cvd_data = self.cvd_analyzer.calculate_cvd(symbol, limit)
-            
-            # Check for errors
-            if 'error' in cvd_data:
-                print(f"❌ CVD Analysis Failed: {cvd_data['error']}")
-                return False
-            
-            # Format and print output
-            result = format_cvd_output(cvd_data, timeframe)
-            print(result)
+            # Display visual buyer/seller pressure analysis (includes CVD calculation)
+            display_buyer_seller_pressure(symbol, limit)
             return True
             
         except Exception as e:

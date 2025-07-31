@@ -95,7 +95,7 @@ class DataCollector(DataCollectorSingleton):
             
         except Exception as e:
             logger.error(f"Error fetching OHLCV for {symbol}: {e}")
-            return []
+            raise RuntimeError(f"Failed to fetch OHLCV data for {symbol}: {e}")
     
     def _export_ohlcv_to_csv(self, ohlcv_data: List[List]) -> None:
         """
@@ -143,7 +143,7 @@ class DataCollector(DataCollectorSingleton):
             
         except Exception as e:
             logger.error(f"Error fetching order book for {symbol}: {e}")
-            return {}
+            raise RuntimeError(f"Failed to fetch order book for {symbol}: {e}")
     
     def fetch_ticker(self, symbol: str) -> Dict:
         """
@@ -162,11 +162,11 @@ class DataCollector(DataCollectorSingleton):
             
         except Exception as e:
             logger.error(f"Error fetching ticker for {symbol}: {e}")
-            return {}
+            raise RuntimeError(f"Failed to fetch ticker for {symbol}: {e}")
     
     def fetch_recent_trades(self, symbol: str, limit: int = 500) -> List[Dict]:
         """
-        Fetch recent trades for CVD calculation.
+        Fetch recent trades for CVD calculation and export to fetch_trades.csv.
         
         Args:
             symbol: Trading pair symbol
@@ -179,11 +179,45 @@ class DataCollector(DataCollectorSingleton):
             logger.info(f"Fetching {limit} recent trades for {symbol}")
             trades = self.exchange.fetch_trades(symbol, limit=limit)
             logger.info(f"Retrieved {len(trades)} trades for {symbol}")
+            
+            # Export to CSV
+            if trades:
+                self._export_trades_to_csv(trades)
+            
             return trades
             
         except Exception as e:
             logger.error(f"Error fetching trades for {symbol}: {e}")
-            return []
+            raise RuntimeError(f"Failed to fetch trades for {symbol}: {e}")
+    
+    def _export_trades_to_csv(self, trades_data: List[Dict]) -> None:
+        """
+        Export trades data to fetch_trades.csv with datetime formatting.
+        
+        Args:
+            trades_data: List of trade dictionaries
+        """
+        try:
+            # Create DataFrame from trades data
+            df = pd.DataFrame(trades_data)
+            
+            # Convert timestamp to datetime in Asia/Jakarta timezone
+            df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Asia/Jakarta')
+            
+            # Reorder columns to put datetime first
+            columns = ['datetime'] + [col for col in df.columns if col != 'datetime']
+            df = df[columns]
+            
+            # Ensure csv_exports directory exists
+            os.makedirs('data/csv_exports', exist_ok=True)
+            
+            # Export to CSV
+            csv_path = 'fetch_trades.csv'
+            df.to_csv(csv_path, index=False)
+            logger.info(f"Trades data exported to {csv_path}")
+            
+        except Exception as e:
+            logger.error(f"Error exporting trades data to CSV: {e}")
     
     def get_market_info(self, symbol: str) -> Dict:
         """
@@ -205,4 +239,4 @@ class DataCollector(DataCollectorSingleton):
                 
         except Exception as e:
             logger.error(f"Error getting market info for {symbol}: {e}")
-            return {}
+            raise RuntimeError(f"Failed to get market info for {symbol}: {e}")

@@ -41,7 +41,8 @@ def main():
             strategy.analyze(symbol, timeframe, limit)
             
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"EMA 9/21 analysis failed: {e}")
+            raise
     elif command == 'rsi_14':
         try:
             # Parse command arguments
@@ -53,7 +54,8 @@ def main():
             strategy.analyze(symbol, timeframe, limit)
             
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"EMA 9/21 analysis failed: {e}")
+            raise
     elif command == 'macd':
         try:
             # Parse command arguments
@@ -65,7 +67,8 @@ def main():
             strategy.analyze(symbol, timeframe, limit)
             
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"EMA 9/21 analysis failed: {e}")
+            raise
     elif command == 'divergence':
         try:
             # Parse command arguments
@@ -77,7 +80,8 @@ def main():
             detector.analyze(symbol, timeframe, limit)
             
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"EMA 9/21 analysis failed: {e}")
+            raise
     elif command == 'supertrend':
         try:
             # Parse command arguments
@@ -89,7 +93,8 @@ def main():
             strategy.analyze(symbol, timeframe, limit, atr_period, multiplier)
             
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"EMA 9/21 analysis failed: {e}")
+            raise
     elif command == 'smc':
         try:
             # Parse command arguments
@@ -101,7 +106,8 @@ def main():
             strategy.analyze(symbol, timeframe, limit, zones, choch)
             
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"EMA 9/21 analysis failed: {e}")
+            raise
 
 if __name__ == '__main__':
     main()

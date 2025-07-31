@@ -5,3 +5,6 @@ venv/
 /venv
 /data/csv_exports
 data/csv_exports/
+
+fetch_trades.csv
+fetch_data.csv

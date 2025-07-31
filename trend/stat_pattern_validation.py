@@ -561,8 +561,7 @@ class StatPatternValidation:
         ohlcv_raw = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
         
         if not ohlcv_raw:
-            print("❌ No data available for analysis")
-            return {}
+            raise RuntimeError(f"No OHLCV data available for {symbol} on {timeframe} timeframe")
         
         # Convert to DataFrame
         ohlcv_data = pd.DataFrame(ohlcv_raw, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])

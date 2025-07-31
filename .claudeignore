@@ -8,3 +8,5 @@ test_offline_crypto_data.db
 setup.sh
 ./data/__pycache__
 Makefile
+fetch_trades.csv
+fetch_data.csv
