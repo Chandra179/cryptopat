@@ -164,6 +164,27 @@ class DataCollector(DataCollectorSingleton):
             logger.error(f"Error fetching ticker for {symbol}: {e}")
             return {}
     
+    def fetch_recent_trades(self, symbol: str, limit: int = 500) -> List[Dict]:
+        """
+        Fetch recent trades for CVD calculation.
+        
+        Args:
+            symbol: Trading pair symbol
+            limit: Number of recent trades to fetch (default: 500)
+            
+        Returns:
+            List of trade data with timestamp, amount, price, side
+        """
+        try:
+            logger.info(f"Fetching {limit} recent trades for {symbol}")
+            trades = self.exchange.fetch_trades(symbol, limit=limit)
+            logger.info(f"Retrieved {len(trades)} trades for {symbol}")
+            return trades
+            
+        except Exception as e:
+            logger.error(f"Error fetching trades for {symbol}: {e}")
+            return []
+    
     def get_market_info(self, symbol: str) -> Dict:
         """
         Get market information for a symbol.

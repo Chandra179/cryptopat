@@ -1,1 +1,28 @@
-is wyckoff.py calculation is following standard formula that most of people used, think deeply
+📈 ELLIOTT WAVE ANALYSIS — XRP/USDT (4H)
+Pattern: Impulse Wave (Bullish) 
+✅ Wave Direction: Bullish | ❌ Pattern Status: INVALID
+Reason: Wave 2 retraced 129.7% (invalid), Wave 4 overlapped Wave 1
+
+--------------------------------------------------
+🔍 Wave Breakdown:
+• Wave 1: 3.02 → 3.24 ✅
+• Wave 2: 3.24 → 2.96 ❌ (Retraced 129.7% of Wave 1 — exceeds 100%)
+• Wave 3: 2.96 → 3.27 ✅ (Wave 3 length: 1.425× Wave 1)
+• Wave 4: 3.27 → 3.00 ✅ (Retraced 86.2% of Wave 3)
+• Wave 5: 3.00 → 3.33 ✅ (Extension: 1.531× Wave 1)
+
+--------------------------------------------------
+📏 Key Fibonacci Ratios:
+• Wave 3 : Wave 1 = 1.425 ✅
+• Wave 5 : Wave 1 = 1.531 ✅
+• Wave 4 : Wave 3 = 0.862 ✅
+
+--------------------------------------------------
+📋 Rule Check Summary:
+✅ Wave 3 not shortest  
+❌ Wave 2 retraced past 100%  
+❌ Wave 4 overlapped Wave 1  
+✅ Wave 5 extends correctly
+
+--------------------------------------------------
+❌ Signal: Do **NOT** trade this structure — invalid impulse

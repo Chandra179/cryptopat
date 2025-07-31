@@ -30,6 +30,7 @@ from cli.wyckoff_handler import WyckoffHandler
 from cli.elliott_wave_handler import ElliottWaveHandler
 from cli.shark_pattern_handler import handle_shark_pattern_command, parse_shark_pattern_args, get_shark_pattern_help
 from cli.butterfly_pattern_handler import handle_butterfly_pattern_command, parse_butterfly_pattern_args, get_butterfly_pattern_help
+from cli.cvd_handler import CVDHandler
 
 class InteractiveCLI:
     """Interactive command-line interface for CryptoPat."""
@@ -49,6 +50,7 @@ class InteractiveCLI:
         self.smc_handler = SMCHandler()
         self.wyckoff_handler = WyckoffHandler()
         self.elliott_wave_handler = ElliottWaveHandler()
+        self.cvd_handler = CVDHandler()
         self._setup_readline()
     
     def _setup_readline(self):
@@ -151,6 +153,8 @@ class InteractiveCLI:
         print(get_shark_pattern_help())
         print()
         print(get_butterfly_pattern_help())
+        print()
+        self.cvd_handler.print_help()
     
     def handle_ema_9_21(self, command: str) -> bool:
         """
@@ -462,6 +466,11 @@ class InteractiveCLI:
             args = parse_butterfly_pattern_args(command_parts)
             result = handle_butterfly_pattern_command(args)
             print(result)
+            return True
+        
+        # Handle CVD command
+        if command.startswith('cvd'):
+            self.cvd_handler.handle(command)
             return True
         
         # Unknown command

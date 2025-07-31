@@ -68,42 +68,29 @@ A Python-based system for detecting chart patterns in cryptocurrency data using 
 Make sure to add new handler to the cli. /cli/ema_9_21_handler.py
 
 
-## Phase 2: Butterfly Pattern Detection
-1. Create file: `/trend/butterfly_pattern.py`
-2. Use OHLCV data: High, Low, and Close prices are required
-3. Detect potential Butterfly pattern using the X-A-B-C-D leg structure
-   - Identify swing points using ZigZag algorithm or fractal pivot detection
-4. Butterfly Leg Ratio Rules:
-   - AB = 0.786 retracement of XA ✅
-   - BC = 0.382 to 0.886 retracement of AB ✅
-   - CD = 1.618 to 2.618 extension of BC ✅
-   - AD = 1.27 extension of XA ✅
-5. Entry Signal:
-   - At point D, if pattern completes within tight Fibonacci confluence zone
-   - Additional confirmation: Volume spike + rejection candle at D
-6. Target Zones:
-   - TP1 = 38.2% retracement of CD
-   - TP2 = 61.8% retracement of CD
-   - SL = slightly beyond point X
+## Phase 27: Cumulative Volume Delta (CVD)
+1. Create file `/orderflow/cvd.py`
+2. Use **tick-by-tick trade data** (Via `collector.py → fetch_ticker`)
+3. Require at least 200–500 recent trades for accuracy
+4. Separate trade flow into:
+   - **Aggressive Buys** (market orders lifting the ask)
+   - **Aggressive Sells** (market orders hitting the bid)
+5. CVD = Σ(Buy Volume) − Σ(Sell Volume) over time
+6. Interpret signals:
+   - **Bullish Bias**: CVD rising while price consolidates → absorption by buyers
+   - **Bearish Bias**: CVD falling while price holds → stealth selling
+   - **Divergence**: CVD and price diverge → signal of potential reversal
+7. Optional: Plot CVD curve to visualize volume flow behavior
 ### Input in terminal
-> butterfly s=XRP/USDT t=4h l=150 zz=5
-- `s` = symbol  
-- `t` = timeframe  
-- `l` = limit (candles to load)  
-- `zz` = ZigZag threshold (% swing sensitivity)
+> cvd s=XRP/USDT t=4h l=300
+- s = symbol (required)
+- t = timeframe for segmentation (1m/5m/1h etc.)
+- l = trade limit (default = 300 latest ticks)
 ### Output example in terminal
-[HARMONIC STRUCTURE: BUTTERFLY]
-Symbol: XRP/USDT | Timeframe: 4h
-Pattern Status: ✅ VALID | Bias: 📈 Bullish
-• X: 0.500
-• A: 0.610
-• B: 0.534 (AB retrace: 0.786) ✅
-• C: 0.585 (BC retrace: 0.618) ✅
-• D: 0.450 (CD ext: 2.240) ✅ → 📍 Entry
-Fibonacci Confluence ✅ | Volume Spike ✅ | Rejection Candle ✅
-🎯 Target 1: 0.494 (TP1)
-🎯 Target 2: 0.517 (TP2)
-🛑 Stop Loss: 0.438
-🚦 Signal: BUY | Confidence: HIGH
+[2025-07-31 14:00] XRP/USDT | TF: 4H  
+Price: 0.6428 | ΔCVD: -45.3K | ΔCVD/min: -5.3K | Volume: 223K  
+Dominant Flow: 🔻 Aggressive Sellers (66%)  
+Divergence: ✅ Bearish Divergence (Price ↑, CVD ↓)  
+Bias: 📉 Short Setup | Confidence: HIGH  
 ### CLI
-Make sure to add a handler `/cli/butterfly_pattern_handler.py`
+Add handler to `/cli/cvd_handler.py`
