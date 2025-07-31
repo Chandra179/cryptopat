@@ -159,6 +159,138 @@ Market Impact Cost: 0.03% (1K trade) | Liquidity Replenishment: 23s avg
 Algo Activity Level: MODERATE (34% of volume) | Market Maker Presence: ACTIVE
 ═══════════════════════════════════════════════════════════════════════════════
 ```
-
 ### CLI Integration
 add Handler: `/cli/orderbook_heatmap_handler.py`
+
+
+## Phase 3: Enhanced Order Flow Imbalance Detection
+1. Create file `/orderflow/imbalance.py`
+2. Use **real-time Level 2 (L2) market depth data** (via `collector.py → fetch_orderbook_stream`) **and** **tick trade data** (`collector.py → fetch_trades_stream`)
+3. **Industry-Standard Data Processing:**
+   - **Multi-Timeframe Snapshots**: 100ms, 500ms, 1s, 5s, 30s intervals
+   - **Volume-Weighted Calculations**: Weight by trade size and execution quality
+   - **Latency-Aware Processing**: Sub-100ms processing for relevance
+   - **Exchange-Specific Logic**: Handle different tick rules and trade classifications
+4. **Enhanced Imbalance Calculations:**
+   - **Basic Formula**: `imbalance = (buy_volume - sell_volume) / (buy_volume + sell_volume)`
+   - **Volume-Weighted Imbalance**: `vw_imbalance = Σ(trade_size * direction) / Σ(trade_size)`
+   - **Time-Decay Weighted**: Apply exponential decay to older snapshots (λ=0.95)
+   - **Statistical Significance**: Calculate z-scores and confidence intervals
+   - **Market Impact Adjustment**: Normalize by average trade size and liquidity depth
+5. **Professional Order Flow Analytics:**
+   - **Trade Classification**:
+     - Aggressive buyers (market orders lifting ask)
+     - Aggressive sellers (market orders hitting bid)  
+     - Passive fills (limit orders being hit)
+     - Self-trade and wash trade filtering
+   - **Liquidity Context Integration**:
+     - Total available liquidity at each level
+     - Liquidity concentration ratios
+     - Order book imbalance correlation
+     - VWAP deviation impact on signals
+   - **Market Regime Awareness**:
+     - Trending vs ranging market adjustments
+     - Volatility-based threshold scaling
+     - Session-specific behavior patterns
+6. **Advanced Signal Detection:**
+   - **Smart Thresholds**: Dynamic thresholds based on volatility and liquidity
+   - **Multi-Level Analysis**: Analyze imbalances across price levels simultaneously  
+   - **Pattern Recognition**:
+     - Absorption vs rejection patterns
+     - Hidden liquidity detection
+     - Institutional footprint identification
+     - Algorithmic trading pattern detection
+   - **False Signal Filtering**:
+     - Statistical significance testing (p-value < 0.05)
+     - Minimum volume requirements
+     - Cross-validation with order book data
+7. **Comprehensive Data Storage:**
+   - Store as enhanced time-series: `(timestamp, price_level, imbalance_value, vw_imbalance, buy_volume, sell_volume, trade_count, avg_trade_size, z_score, confidence_level, liquidity_context)`
+   - Historical pattern database for machine learning
+   - Real-time anomaly detection metrics
+8. **Professional Signal Interpretation:**
+   - **Bullish Signals**:
+     - Strong positive imbalance with statistical significance (z > 2.0)
+     - Buyers absorbing offers at or below current price
+     - Increasing aggressive buy volume with stable/rising price
+   - **Bearish Signals**:
+     - Strong negative imbalance with statistical significance (z < -2.0)
+     - Sellers absorbing bids at or above current price  
+     - Increasing aggressive sell volume with stable/falling price
+   - **Advanced Patterns**:
+     - **Hidden Imbalance**: High imbalance without price movement (trap detection)
+     - **Exhaustion Signals**: Decreasing imbalance despite continued directional pressure
+     - **Institutional Footprints**: Large block trades creating temporary imbalances
+     - **Spoofing Detection**: Rapid order placement/cancellation affecting imbalance
+
+### Enhanced Input Parameters
+> imbalance s=BTC/USDT t=500ms d=600 th=0.6 analytics=full vw=true decay=0.95 significance=0.05
+- `s` = symbol (required)
+- `t` = snapshot interval (100ms, 500ms, 1s, 5s, 30s)
+- `d` = duration (number of snapshots or time: 300s, 5m, 1h)
+- `th` = imbalance threshold (0-1, auto-scaling available)
+- `analytics` = analysis level (basic, standard, full, institutional)
+- `vw` = enable volume-weighted calculations
+- `decay` = time decay factor (0.9-0.99, default: 0.95)
+- `significance` = statistical significance level (0.01-0.1, default: 0.05)
+- `regime` = market regime adjustment (trending, ranging, auto)
+- `min_volume` = minimum volume threshold for signals
+- `liquidity_context` = include order book liquidity analysis
+
+### Enhanced Professional Output
+```
+[2025-07-31 14:00:05.500] BTC/USDT | Interval: 500ms | Analytics: FULL
+═══════════════════════════════════════════════════════════════════════════════
+💹 MARKET CONTEXT
+Price: 43,200.50 (+12.30, +0.028%) | Spread: $0.50 | Volume: 247.3 BTC (5m)
+VWAP: 43,195.20 | Session: LONDON_OPEN | Regime: TRENDING_UP | Vol: NORMAL
+
+📊 ORDER FLOW IMBALANCE ANALYSIS
+Multi-Timeframe View:
+ • 100ms → +0.45 (emerging)     • 5s  → +0.71 (strong)
+ • 500ms → +0.68 (significant)  • 30s → +0.58 (sustained) 
+
+🎯 TOP STATISTICAL IMBALANCES (Z-Score > 2.0)
+ • 43,195.00 → +0.84 ⭐ (Buy: 1,247 | Sell: 156) | Z: 3.2 | p<0.001
+   └─ Volume-Weighted: +0.91 | Confidence: 99.9% | INSTITUTIONAL ABSORPTION
+   └─ Context: Major support + 15.7K liquidity wall | Absorption Rate: 87%
+   
+ • 43,210.00 → -0.72 ❌ (Buy: 203 | Sell: 1,089) | Z: -2.7 | p<0.01  
+   └─ Volume-Weighted: -0.78 | Confidence: 99.0% | BEARISH REJECTION
+   └─ Context: Resistance cluster + weak liquidity | Rejection Rate: 74%
+   
+ • 43,205.00 → +0.66 🔍 (Buy: 834 | Sell: 421) | Z: 2.1 | p<0.05
+   └─ Volume-Weighted: +0.59 | Confidence: 95.0% | HIDDEN BULLISH TRAP
+   └─ Context: No price movement despite buying pressure | Algo Activity: HIGH
+
+⚡ REAL-TIME SIGNALS & ALERTS
+🔥 PRIMARY SIGNAL: STRONG BUY | Confidence: 87.3% (HIGH)
+└─ Rationale: Sustained absorption at key support + Statistical significance
+└─ Entry: Above 43,201 | Stop: 43,190 | Target1: 43,225 | Target2: 43,250
+└─ Risk/Reward: 1:2.2 | Expected Success Rate: 73% (historical backtest)
+
+⚠️  CRITICAL ALERTS:
+• IMBALANCE REGIME SHIFT: Flip from -0.23 → +0.84 in 2.1s (BULLISH REVERSAL)
+• INSTITUTIONAL FOOTPRINT: 3 block trades (>50 BTC) absorbed at 43,195 support
+• SPOOFING DETECTED: 125 BTC fake wall removed at 43,212 (Confidence: 91%)
+• EXHAUSTION WARNING: Selling pressure decreasing despite failed breakout
+
+📈 ADVANCED ANALYTICS
+Order Flow Quality Score: 8.4/10 (Excellent institutional participation)
+Market Impact Analysis: Large trades showing 0.02% average impact (healthy)
+Liquidity Depth Ratio: 2.3:1 (Bid favored) | Concentration: 67% in top 5 levels
+Algo Activity Level: 43% of volume | Pattern: ACCUMULATION_PHASE
+Statistical Reliability: 94% (600+ data points, robust significance)
+
+🧠 PATTERN RECOGNITION
+Detected Pattern: INSTITUTIONAL_ACCUMULATION_WITH_SUPPORT_TEST
+Historical Success Rate: 78% (274/351 occurrences)
+Similar Setups: 2025-07-28 09:23 (+1.4%), 2025-07-25 15:47 (+2.1%)
+Key Risk: Failed absorption below 43,190 → Potential -0.8% correction
+═══════════════════════════════════════════════════════════════════════════════
+```
+
+### CLI
+Add handler to `/cli/imbalance_handler.py`
+- Implement `handle_imbalance_command`  
+- Integrate into main CLI dispatcher  

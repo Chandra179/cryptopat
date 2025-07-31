@@ -3,5 +3,6 @@ multi_tf s=XRP/USDT t1=1d t2=4h t3=1h indicators=ema9/21,macd,rsi14 l=200
 wyckoff s=BTC/USDT t=4h l=600 detect=events+phases
 elliott s=XRP/USDT t=4h l=100
 butterfly s=XRP/USDT t=4h l=150 zz=5
+imbalance s=BTC/USDT d=60
 
 python -m trend.stat_pattern_validation s=BTC/USDT t=4h l=1000 tp=2.0 sl=1.0

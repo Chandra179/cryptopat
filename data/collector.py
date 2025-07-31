@@ -174,3 +174,94 @@ class DataCollector(DataCollectorSingleton):
         except Exception as e:
             logger.error(f"Error getting market info for {symbol}: {e}")
             raise RuntimeError(f"Failed to get market info for {symbol}: {e}")
+    
+    def fetch_orderbook_stream(self, symbol: str, limit: int = 100) -> Dict:
+        """
+        Fetch L2 market depth data for real-time order flow analysis.
+        Enhanced version of fetch_order_book with additional metadata.
+        
+        Args:
+            symbol: Trading pair symbol
+            limit: Number of price levels to fetch
+            
+        Returns:
+            Enhanced order book data with timestamps and metadata
+        """
+        try:
+            logger.debug(f"Fetching L2 market depth for {symbol}")
+            order_book = self.exchange.fetch_order_book(symbol, limit)
+            
+            # Add metadata for enhanced analysis
+            if order_book:
+                order_book['symbol'] = symbol
+                order_book['fetch_timestamp'] = self.exchange.milliseconds()
+                order_book['limit'] = limit
+                
+                # Calculate additional metrics
+                if 'bids' in order_book and 'asks' in order_book:
+                    bids = order_book['bids']
+                    asks = order_book['asks']
+                    
+                    if bids and asks:
+                        order_book['bid_ask_spread'] = float(asks[0][0]) - float(bids[0][0])
+                        order_book['mid_price'] = (float(asks[0][0]) + float(bids[0][0])) / 2
+                        
+                        # Calculate total liquidity
+                        total_bid_volume = sum(float(bid[1]) for bid in bids)
+                        total_ask_volume = sum(float(ask[1]) for ask in asks)
+                        order_book['total_bid_volume'] = total_bid_volume
+                        order_book['total_ask_volume'] = total_ask_volume
+                        order_book['liquidity_imbalance'] = (total_bid_volume - total_ask_volume) / (total_bid_volume + total_ask_volume)
+            
+            return order_book
+            
+        except Exception as e:
+            logger.error(f"Error fetching L2 market depth for {symbol}: {e}")
+            raise RuntimeError(f"Failed to fetch L2 market depth for {symbol}: {e}")
+    
+    def fetch_trades_stream(self, symbol: str, limit: int = 500, since: Optional[int] = None) -> List[Dict]:
+        """
+        Fetch tick trade data for real-time order flow analysis.
+        Enhanced version of fetch_recent_trades with additional metadata.
+        
+        Args:
+            symbol: Trading pair symbol
+            limit: Number of recent trades to fetch
+            since: Start timestamp in milliseconds
+            
+        Returns:
+            Enhanced trade data with additional classification metadata
+        """
+        try:
+            logger.debug(f"Fetching {limit} tick trades for {symbol}")
+            trades = self.exchange.fetch_trades(symbol, since=since, limit=limit)
+            
+            # Add enhanced metadata for each trade
+            enhanced_trades = []
+            for i, trade in enumerate(trades):
+                enhanced_trade = trade.copy()
+                enhanced_trade['sequence'] = i
+                enhanced_trade['symbol'] = symbol
+                
+                # Add price movement classification
+                if i > 0:
+                    prev_price = float(trades[i-1].get('price', 0))
+                    curr_price = float(trade.get('price', 0))
+                    
+                    if curr_price > prev_price:
+                        enhanced_trade['price_movement'] = 'uptick'
+                    elif curr_price < prev_price:
+                        enhanced_trade['price_movement'] = 'downtick'
+                    else:
+                        enhanced_trade['price_movement'] = 'no_change'
+                else:
+                    enhanced_trade['price_movement'] = 'first_trade'
+                
+                enhanced_trades.append(enhanced_trade)
+            
+            logger.debug(f"Enhanced {len(enhanced_trades)} trades for {symbol}")
+            return enhanced_trades
+            
+        except Exception as e:
+            logger.error(f"Error fetching tick trades for {symbol}: {e}")
+            raise RuntimeError(f"Failed to fetch tick trades for {symbol}: {e}")

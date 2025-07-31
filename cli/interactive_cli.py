@@ -32,6 +32,7 @@ from cli.shark_pattern_handler import handle_shark_pattern_command, parse_shark_
 from cli.butterfly_pattern_handler import handle_butterfly_pattern_command, parse_butterfly_pattern_args, get_butterfly_pattern_help
 from cli.cvd_handler import CVDHandler
 from cli.orderbook_heatmap_handler import OrderBookHeatmapHandler, get_orderbook_heatmap_help
+from cli.imbalance_handler import handle_imbalance_analysis
 
 class InteractiveCLI:
     """Interactive command-line interface for CryptoPat."""
@@ -159,6 +160,9 @@ class InteractiveCLI:
         self.cvd_handler.print_help()
         print()
         print(get_orderbook_heatmap_help())
+        print()
+        print("  imbalance s=XRP/USDT d=30")
+        print("  imbalance s=BTC/USDT d=60")
     
     def handle_ema_9_21(self, command: str) -> bool:
         """
@@ -303,6 +307,41 @@ class InteractiveCLI:
             True if command was handled successfully, False otherwise
         """
         return self.elliott_wave_handler.handle(command)
+    
+    def handle_imbalance(self, command: str) -> bool:
+        """
+        Handle order flow imbalance analysis command.
+        
+        Args:
+            command: The command string
+            
+        Returns:
+            True if command was handled successfully, False otherwise
+        """
+        import asyncio
+        
+        # Parse command arguments
+        parts = command.split()
+        symbol = "XRP/USDT"  # default
+        duration = 30  # default
+        
+        for part in parts[1:]:  # Skip 'imbalance'
+            if part.startswith('s='):
+                symbol = part[2:]
+            elif part.startswith('d='):
+                try:
+                    duration = int(part[2:])
+                except ValueError:
+                    print(f"Invalid duration: {part[2:]}")
+                    return True
+        
+        # Run the async handler
+        try:
+            asyncio.run(handle_imbalance_analysis(symbol, duration))
+        except Exception as e:
+            print(f"Error running imbalance analysis: {e}")
+        
+        return True
     
     def process_command(self, command: str) -> bool:
         """
@@ -480,6 +519,11 @@ class InteractiveCLI:
         # Handle Order Book Heatmap command
         if command.startswith('orderbook_heatmap'):
             self.orderbook_heatmap_handler.handle(command)
+            return True
+        
+        # Handle Order Flow Imbalance command
+        if command.startswith('imbalance'):
+            self.handle_imbalance(command)
             return True
         
         # Unknown command
