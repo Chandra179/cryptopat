@@ -310,7 +310,7 @@ def analyze_flag(symbol: str = "ETH/USDT", timeframe: str = "4h", limit: int = 1
 
 def format_flag_output(analysis: Dict) -> str:
     """
-    Format Flag analysis output for terminal display
+    Format Flag analysis output for terminal display using Phase 3 format
     
     Args:
         analysis: Analysis results dictionary
@@ -322,38 +322,113 @@ def format_flag_output(analysis: Dict) -> str:
         return f"❌ Error: {analysis['error']}"
     
     if not analysis['pattern_detected']:
-        symbol_clean = analysis['symbol'].replace('/', '').upper()
-        return f"{symbol_clean} ({analysis['timeframe']}) - Flag\nPrice: {analysis['current_price']} | Signal: NONE ⏳ | Neckline: —\nTarget: — | Confidence: —"
+        return f"""
+===============================================================
+FLAG PATTERN ANALYSIS - {analysis['symbol']}
+===============================================================
+PATTERN_STATUS: NOT_FOUND | TIMEFRAME: {analysis['timeframe']} | CANDLES: {analysis['total_candles']}
+CURRENT_PRICE: ${analysis['current_price']} | SIGNAL_STRENGTH: 0.00 | BREAKOUT_LEVEL: N/A
+FLAGPOLE_MOVE: N/A | FLAG_CONSOLIDATION: N/A | VOLUME_PROFILE: INSUFFICIENT_DATA
+PATTERN_START: N/A | PATTERN_END: N/A
+
+SUMMARY: No flag pattern detected in current timeframe data
+CONFIDENCE_SCORE: 0% | Pattern recognition requires flagpole + consolidation setup
+TREND_DIRECTION: NEUTRAL | MOMENTUM_STATE: UNCERTAIN
+ENTRY_WINDOW: Pattern not formed
+EXIT_TRIGGER: No active pattern to monitor
+
+SUPPORT: N/A | RESISTANCE: N/A
+STOP_ZONE: N/A | TP_ZONE: N/A
+RR_RATIO: N/A | MAX_DRAWDOWN: N/A
+
+ACTION: NEUTRAL
+"""
     
-    # Pattern detected
-    symbol_clean = analysis['symbol'].replace('/', '').upper()
+    # Pattern detected - extract data
     pattern_type = analysis['pattern']
+    flagpole = analysis['flagpole']
     flag = analysis['flag']
+    current_price = analysis['current_price']
+    confidence = analysis['confidence']
     
-    # Determine signal and emoji
+    # Calculate metrics
+    pole_strength = flagpole['move_percent'] / 100
+    flag_consolidation = flag['flag_to_pole_ratio']
+    breakout_level = flag['high'] if flagpole['direction'] == 'up' else flag['low']
+    
+    # Determine trend and momentum
+    trend_direction = "Bullish" if flagpole['direction'] == 'up' else "Bearish"
+    
+    # Momentum state based on current position relative to flag
     if analysis.get('breakout'):
-        if analysis['breakout'] == "Upward":
-            signal = "BUY"
-            signal_emoji = "🚀"
-        elif analysis['breakout'] == "Downward":
-            signal = "SELL"
-            signal_emoji = "📉"
+        if analysis['breakout'] in ["Upward", "Downward"]:
+            momentum_state = "Accelerating"
+        elif analysis['breakout'] == "Failed":
+            momentum_state = "Reversing"
         else:
-            signal = "NONE"
-            signal_emoji = "⏳"
+            momentum_state = "Consolidating"
     else:
-        signal = "NONE"
-        signal_emoji = "⏳"
+        momentum_state = "Consolidating"
     
-    # Use flag high as neckline reference
-    neckline = flag['high'] if pattern_type == "Bull Flag" else flag['low']
-    target = analysis.get('target_price', '—')
+    # Support/Resistance levels
+    if flagpole['direction'] == 'up':
+        support = flag['low']
+        resistance = analysis.get('target_price', flag['high'] * 1.1)
+        stop_zone = f"Below ${flag['low'] * 0.98:.4f}"
+        tp_zone = f"${analysis.get('target_price', flag['high'] * 1.1):.4f}"
+    else:
+        support = analysis.get('target_price', flag['low'] * 0.9)
+        resistance = flag['high']
+        stop_zone = f"Above ${flag['high'] * 1.02:.4f}"
+        tp_zone = f"${analysis.get('target_price', flag['low'] * 0.9):.4f}"
     
-    output = f"{symbol_clean} ({analysis['timeframe']}) - {pattern_type}\n"
-    output += f"Price: {analysis['current_price']} | Signal: {signal} {signal_emoji} | Neckline: {neckline}\n"
-    output += f"Target: {target} | Confidence: {analysis['confidence']}%"
+    # Risk/Reward calculation
+    if analysis.get('target_price'):
+        target_distance = abs(analysis['target_price'] - current_price)
+        stop_distance = abs(current_price - (flag['low'] if flagpole['direction'] == 'up' else flag['high']))
+        rr_ratio = target_distance / stop_distance if stop_distance > 0 else 0
+    else:
+        rr_ratio = 0
     
-    return output
+    # Entry timing
+    if analysis.get('breakout') and analysis['breakout'] in ["Upward", "Downward"]:
+        entry_window = "Active breakout confirmed"
+    elif current_price >= breakout_level * 0.99 and current_price <= breakout_level * 1.01:
+        entry_window = "Approaching breakout level"
+    else:
+        entry_window = "Waiting for breakout confirmation"
+    
+    # Exit trigger
+    exit_trigger = f"Break {'below' if flagpole['direction'] == 'up' else 'above'} flag {'low' if flagpole['direction'] == 'up' else 'high'} (${breakout_level})"
+    
+    # Pattern timing
+    pattern_start = analysis.get('current_time', 'N/A')  # This should be enhanced with actual flagpole start time
+    pattern_end = analysis.get('current_time', 'N/A')
+    
+    # Action signal
+    signal = analysis.get('signal', 'NEUTRAL')
+    
+    return f"""
+===============================================================
+FLAG PATTERN ANALYSIS - {analysis['symbol']}
+===============================================================
+POLE_STRENGTH: {pole_strength:.2f} | FLAG_RATIO: {flag_consolidation:.3f} | MOVE_PERCENT: {flagpole['move_percent']:.1f}%
+BREAKOUT_LEVEL: ${breakout_level} | CURRENT_PRICE: ${current_price} | DISTANCE_TO_BREAKOUT: {((current_price - breakout_level) / breakout_level * 100):.2f}%
+FLAGPOLE_START: ${flagpole['start_price']} | FLAGPOLE_END: ${flagpole['end_price']} | FLAG_RANGE: ${flag['range']}
+PATTERN_LENGTH: {flagpole['length'] + flag['length']} bars | FLAG_HIGH: ${flag['high']} | FLAG_LOW: ${flag['low']}
+
+SUMMARY: {pattern_type} detected - {flagpole['move_percent']:.1f}% flagpole with {flag['flag_to_pole_ratio']:.1f}x consolidation ratio
+CONFIDENCE_SCORE: {confidence}% | Based on pole strength + flag proportion + breakout status
+TREND_DIRECTION: {trend_direction} | MOMENTUM_STATE: {momentum_state}
+ENTRY_WINDOW: {entry_window}
+EXIT_TRIGGER: {exit_trigger}
+
+SUPPORT: ${support:.4f} | RESISTANCE: ${resistance:.4f}
+STOP_ZONE: {stop_zone} | TP_ZONE: {tp_zone}
+RR_RATIO: {rr_ratio:.1f}:1 | MAX_DRAWDOWN: -{((flag['range'] / current_price) * 100):.1f}% expected
+
+ACTION: {signal}
+"""
 
 
 if __name__ == "__main__":

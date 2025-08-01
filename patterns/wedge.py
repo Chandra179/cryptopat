@@ -313,7 +313,7 @@ def analyze_wedge(symbol: str = "BTC/USDT", timeframe: str = "4h", limit: int = 
 
 def format_wedge_output(analysis: Dict) -> str:
     """
-    Format Wedge analysis output for terminal display
+    Format Wedge analysis output for terminal display using Phase 3 format
     
     Args:
         analysis: Analysis results dictionary
@@ -324,38 +324,96 @@ def format_wedge_output(analysis: Dict) -> str:
     if 'error' in analysis:
         return f"❌ Error: {analysis['error']}"
 
+    symbol_clean = analysis['symbol'].replace('/', '').upper()
+    
     if not analysis['pattern_detected']:
-        symbol_clean = analysis['symbol'].replace('/', '').upper()
-        return f"{symbol_clean} ({analysis['timeframe']}) - Wedge\nPrice: {analysis['current_price']} | Signal: NONE ⏳ | Neckline: —\nTarget: — | Confidence: —"
+        output = "\n===============================================================\n"
+        output += f"WEDGE PATTERN ANALYSIS - {symbol_clean}\n"
+        output += "===============================================================\n"
+        output += f"PATTERN_STATUS: NOT_DETECTED | TIMEFRAME: {analysis['timeframe']} | CURRENT_PRICE: ${analysis['current_price']}\n"
+        output += f"DATA_QUALITY: ✓ ({analysis['total_candles']} candles) | ANALYSIS_TIME: {analysis['current_time']}\n\n"
+        output += "SUMMARY: No wedge pattern detected in current timeframe\n"
+        output += "CONFIDENCE_SCORE: — | Pattern formation incomplete\n"
+        output += "TREND_DIRECTION: — | MOMENTUM_STATE: —\n"
+        output += "ENTRY_WINDOW: No signal\n"
+        output += "EXIT_TRIGGER: —\n\n"
+        output += "SUPPORT: — | RESISTANCE: —\n"
+        output += "STOP_ZONE: — | TP_ZONE: —\n"
+        output += "RR_RATIO: — | MAX_DRAWDOWN: —\n\n"
+        output += "ACTION: NEUTRAL"
+        return output
     
     # Pattern detected
-    symbol_clean = analysis['symbol'].replace('/', '').upper()
     pattern_type = analysis['pattern']
     resistance = analysis['resistance_line']
     support = analysis['support_line']
+    bias = analysis['bias']
     
-    # Determine signal and emoji
+    # Determine signal and action
     if analysis.get('breakout'):
         if analysis['breakout'] == "Upward":
-            signal = "BUY"
-            signal_emoji = "🚀"
+            action = "BUY"
+            momentum_state = "Breaking Higher"
         elif analysis['breakout'] == "Downward":
-            signal = "SELL"
-            signal_emoji = "📉"
+            action = "SELL"
+            momentum_state = "Breaking Lower"
         else:
-            signal = "NONE"
-            signal_emoji = "⏳"
+            action = "NEUTRAL"
+            momentum_state = "Consolidating"
     else:
-        signal = "NONE"
-        signal_emoji = "⏳"
+        if analysis['signal'] == "PENDING":
+            action = "WAITING FOR BREAKOUT"
+            momentum_state = "Converging"
+        else:
+            action = analysis['signal']
+            momentum_state = "Pattern Forming"
     
-    # Use the appropriate trendline as neckline
-    neckline = resistance['current_level'] if pattern_type == "Rising Wedge" else support['current_level']
-    target = "—"  # Wedge patterns don't have specific targets like H&S
+    # Calculate key levels and targets
+    current_price = analysis['current_price']
+    pattern_height = analysis['pattern_height']
     
-    output = f"{symbol_clean} ({analysis['timeframe']}) - {pattern_type}\n"
-    output += f"Price: {analysis['current_price']} | Signal: {signal} {signal_emoji} | Neckline: {neckline}\n"
-    output += f"Target: {target} | Confidence: {analysis['confidence']}%"
+    # Target calculation based on pattern height
+    if pattern_type == "Rising Wedge":
+        target_price = current_price - pattern_height * 0.618  # 61.8% of pattern height
+        stop_price = resistance['current_level'] + (current_price * 0.01)  # 1% above resistance
+        trend_direction = "Bearish"
+    else:  # Falling Wedge
+        target_price = current_price + pattern_height * 0.618  # 61.8% of pattern height  
+        stop_price = support['current_level'] - (current_price * 0.01)  # 1% below support
+        trend_direction = "Bullish"
+    
+    # Risk/Reward calculation
+    if stop_price != current_price:
+        rr_ratio = abs(target_price - current_price) / abs(stop_price - current_price)
+    else:
+        rr_ratio = 0
+    
+    # Expected drawdown
+    max_drawdown = abs(stop_price - current_price) / current_price * 100
+    
+    # Convergence info
+    convergence_info = ""
+    if analysis['convergence_point']['x'] is not None:
+        convergence_info = f" | CONVERGENCE: {analysis['convergence_point']['x']:.0f} bars"
+    
+    output = "\n===============================================================\n"
+    output += f"WEDGE PATTERN ANALYSIS - {symbol_clean}\n"
+    output += "===============================================================\n"
+    output += f"PATTERN_TYPE: {pattern_type} | BIAS: {bias} | TIMEFRAME: {analysis['timeframe']}\n"
+    output += f"RESISTANCE_SLOPE: {resistance['slope']:.6f} | SUPPORT_SLOPE: {support['slope']:.6f} | CURRENT_PRICE: ${current_price}\n"
+    output += f"PATTERN_HEIGHT: ${pattern_height:.4f} | PATTERN_WIDTH: {analysis['pattern_width']} bars{convergence_info}\n"
+    output += f"BREAKOUT_STATUS: {analysis.get('breakout', 'PENDING')} | EXPECTED_DIRECTION: {analysis['expected_breakout']}\n\n"
+    
+    output += f"SUMMARY: {pattern_type} detected with {trend_direction.lower()} bias - lines converging toward breakout\n"
+    output += f"CONFIDENCE_SCORE: {analysis['confidence']}% | Based on pattern geometry + convergence angle\n"
+    output += f"TREND_DIRECTION: {trend_direction} | MOMENTUM_STATE: {momentum_state}\n"
+    output += f"ENTRY_WINDOW: On breakout confirmation\n"
+    output += f"EXIT_TRIGGER: Pattern invalidation or target reached\n\n"
+    
+    output += f"SUPPORT: ${support['current_level']:.4f} | RESISTANCE: ${resistance['current_level']:.4f}\n"
+    output += f"STOP_ZONE: ${stop_price:.4f} | TP_ZONE: ${target_price:.4f}\n"
+    output += f"RR_RATIO: {rr_ratio:.1f}:1 | MAX_DRAWDOWN: -{max_drawdown:.1f}% expected\n\n"
+    output += f"ACTION: {action}"
     
     return output
 

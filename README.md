@@ -111,3 +111,27 @@ Confidence: HIGH
 Add handler to `/cli/stop_sweep_handler.py`  
 - Implement `handle_stop_sweep_command(command: str)`  
 - Integrate into main CLI dispatcher in `cli.py`  
+
+## Phase 3: Output format Patterns Analysis
+the output could be used for trend or pattern analysis, use only whats needed
+```
+\n
+===============================================================
+{TECHNICAL ANALYSIS NAME}
+===============================================================
+<METRICS_1>: 1.16:1 | <METRICS_2>: ✓ (0.72) | <METRICS_3>: 7.1%  
+<METRICS_4>: INSUFFICIENT_DATA | <METRICS_5>: $2.9707 | <METRICS_6>: 0.00%  
+<METRICS_7>: 2025-06-30 19:00:00 | <METRICS_8>: 2025-07-04 23:00:00  
+
+SUMMARY: (i.e: RSI recovering from oversold + bullish divergence confirmed)
+CONFIDENCE_SCORE: 83% | Based on pattern + volume + volatility match  
+TREND_DIRECTION: Bullish | MOMENTUM_STATE: Accelerating  
+ENTRY_WINDOW: Optimal in next 3 bars  
+EXIT_TRIGGER: Cross below EMA 21 OR RSI > 85  
+
+SUPPORT: $2.8600 | RESISTANCE: $3.0400  
+STOP_ZONE: Below $2.8100 | TP_ZONE: $3.1200–$3.2000  
+RR_RATIO: 2.4:1 | MAX_DRAWDOWN: -4.2% expected  
+
+ACTION: BUY | SELL | NEUTRAL | WAITING FOR PATTERN | WAITING FOR BREAKOUT
+```

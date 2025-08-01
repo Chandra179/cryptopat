@@ -195,33 +195,67 @@ class DoubleTopDetector:
                         pattern_height = max_high - valley_price
                         target_price = valley_price - pattern_height
                         
+                        # Get volume data for confidence calculation
+                        vol1 = volumes[high1_idx]
+                        vol2 = volumes[high2_idx]
+                        
                         # Calculate confidence score
                         confidence = self._calculate_confidence(
                             price_diff_pct, valley_depth_pct, vol1, vol2, 
                             high2_idx - high1_idx, len(closes)
                         )
                         
+                        # Calculate additional metrics for enhanced output
+                        stop_loss_price = max(high1_price, high2_price) * 1.02  # 2% above highest peak
+                        risk_amount = stop_loss_price - valley_price
+                        reward_amount = valley_price - target_price
+                        risk_reward_ratio = reward_amount / risk_amount if risk_amount > 0 else 0
+                        
+                        # Calculate pattern age and timing
+                        current_time = datetime.now()
+                        high1_time = datetime.fromtimestamp(timestamps[high1_idx] / 1000)
+                        high2_time = datetime.fromtimestamp(timestamps[high2_idx] / 1000)
+                        valley_time = datetime.fromtimestamp(timestamps[valley_idx] / 1000)
+                        
+                        pattern_age_days = (current_time - high2_time).days
+                        time_between_peaks_days = (high2_time - high1_time).days
+                        
+                        # Calculate staged profit targets
+                        target_25 = valley_price - (pattern_height * 0.25)
+                        target_50 = valley_price - (pattern_height * 0.50)
+                        target_75 = valley_price - (pattern_height * 0.75)
+                        
                         # Valid double top pattern found
                         pattern_result.update({
                             "pattern_detected": True,
                             "high1_price": high1_price,
                             "high1_index": high1_idx,
-                            "high1_timestamp": datetime.fromtimestamp(timestamps[high1_idx] / 1000),
+                            "high1_timestamp": high1_time,
                             "valley_price": valley_price,
                             "valley_index": valley_idx,
-                            "valley_timestamp": datetime.fromtimestamp(timestamps[valley_idx] / 1000),
+                            "valley_timestamp": valley_time,
                             "high2_price": high2_price,
                             "high2_index": high2_idx,
-                            "high2_timestamp": datetime.fromtimestamp(timestamps[high2_idx] / 1000),
+                            "high2_timestamp": high2_time,
                             "neckline": valley_price,
                             "target_price": target_price,
+                            "target_25": target_25,
+                            "target_50": target_50,
+                            "target_75": target_75,
                             "pattern_height": pattern_height,
-                            "confidence": confidence
+                            "confidence": confidence,
+                            "stop_loss_price": stop_loss_price,
+                            "risk_reward_ratio": risk_reward_ratio,
+                            "pattern_age_days": pattern_age_days,
+                            "time_between_peaks_days": time_between_peaks_days,
+                            "price_diff_pct": price_diff_pct,
+                            "valley_depth_pct": valley_depth_pct,
+                            "vol1": vol1,
+                            "vol2": vol2,
+                            "volume_change_pct": ((vol2 - vol1) / vol1 * 100) if vol1 > 0 else 0
                         })
                         
                         # Check volume confirmation (lower volume on second high)
-                        vol1 = volumes[high1_idx]
-                        vol2 = volumes[high2_idx]
                         pattern_result["volume_confirmation"] = vol2 <= vol1
                         
                         # Check current price relative to neckline
@@ -327,7 +361,7 @@ class DoubleTopDetector:
     
     def format_analysis(self, symbol: str, timeframe: str, pattern_data: Dict) -> str:
         """
-        Format pattern analysis for terminal output.
+        Format pattern analysis for terminal output using Phase 3 format.
         
         Args:
             symbol: Trading pair symbol
@@ -338,23 +372,119 @@ class DoubleTopDetector:
             Formatted analysis string
         """
         if "error" in pattern_data:
-            return f"❌ Error analyzing {symbol}: {pattern_data['error']}"
-        
-        symbol_clean = symbol.replace('/', '').upper()
+            return f"""
+===============================================================
+DOUBLE TOP PATTERN ANALYSIS
+===============================================================
+ERROR: {pattern_data['error']}
+
+SUMMARY: Insufficient data for pattern analysis
+CONFIDENCE_SCORE: 0% | Based on data availability
+TREND_DIRECTION: Unknown | MOMENTUM_STATE: Unknown
+ENTRY_WINDOW: N/A
+EXIT_TRIGGER: N/A
+
+SUPPORT: N/A | RESISTANCE: N/A
+STOP_ZONE: N/A | TP_ZONE: N/A
+RR_RATIO: N/A | MAX_DRAWDOWN: N/A
+
+ACTION: INSUFFICIENT_DATA"""
         
         if not pattern_data["pattern_detected"]:
-            return f"{symbol_clean} ({timeframe}) - Double Top\nPrice: {pattern_data.get('current_price', '—')} | Signal: NONE ⏳ | Neckline: —\nTarget: — | Confidence: —"
+            current_price = pattern_data.get('current_price', 0)
+            return f"""
+===============================================================
+DOUBLE TOP PATTERN ANALYSIS
+===============================================================
+CURRENT_PRICE: ${current_price:.4f} | PATTERN_STATUS: NO_PATTERN | TIMEFRAME: {timeframe}
+
+SUMMARY: No double top pattern detected in current data
+CONFIDENCE_SCORE: 0% | Based on swing point analysis
+TREND_DIRECTION: Neutral | MOMENTUM_STATE: Analyzing
+ENTRY_WINDOW: Pattern not formed
+EXIT_TRIGGER: N/A
+
+SUPPORT: N/A | RESISTANCE: N/A
+STOP_ZONE: N/A | TP_ZONE: N/A
+RR_RATIO: N/A | MAX_DRAWDOWN: N/A
+
+ACTION: NEUTRAL"""
         
-        # Pattern detected
-        signal_emoji = {"BUY": "🚀", "SELL": "📉", "NONE": "⏳"}
-        signal = pattern_data['signal']
-        neckline = pattern_data['neckline']
-        target = f"{pattern_data.get('target_price', 0):.2f}" if pattern_data.get('target_price') else '—'
-        confidence = pattern_data.get('confidence', '—')
+        # Pattern detected - extract key metrics
+        confidence = pattern_data.get('confidence', 0)
+        risk_reward = pattern_data.get('risk_reward_ratio', 0)
+        current_price = pattern_data.get('current_price', 0)
+        valley_depth = pattern_data.get('valley_depth_pct', 0)
+        volume_change = pattern_data.get('volume_change_pct', 0)
+        pattern_age = pattern_data.get('pattern_age_days', 0)
+        high1_time = pattern_data.get('high1_timestamp')
+        high2_time = pattern_data.get('high2_timestamp')
+        neckline = pattern_data.get('neckline', 0)
+        target_price = pattern_data.get('target_price', 0)
+        stop_loss_price = pattern_data.get('stop_loss_price', 0)
+        breakdown_confirmed = pattern_data.get('breakdown_confirmed', False)
+        volume_confirmation = pattern_data.get('volume_confirmation', False)
+        pattern_height = pattern_data.get('pattern_height', 0)
         
-        output = f"{symbol} ({timeframe}) - Double Top\n"
-        output += f"Price: {pattern_data['current_price']:.2f} | Signal: {signal} {signal_emoji.get(signal, '')} | Neckline: {neckline}\n"
-        output += f"Target: {target} | Confidence: {confidence}%"
+        # Format timestamps
+        high1_str = high1_time.strftime('%Y-%m-%d %H:%M:%S') if high1_time else "UNKNOWN"
+        high2_str = high2_time.strftime('%Y-%m-%d %H:%M:%S') if high2_time else "UNKNOWN"
+        
+        # Volume confirmation status
+        vol_conf_status = "✓" if volume_confirmation else "✗"
+        
+        # Determine action and momentum
+        if breakdown_confirmed:
+            action = "SELL"
+            momentum = "Declining"
+            trend_direction = "Bearish"
+            entry_window = "Active breakdown"
+        elif pattern_data.get('pattern_status') == "Pattern Forming":
+            action = "WAITING FOR PATTERN"
+            momentum = "Consolidating"
+            trend_direction = "Neutral"
+            entry_window = "Pattern incomplete"
+        else:
+            action = "WAITING FOR BREAKOUT"
+            momentum = "Stalling"
+            trend_direction = "Bearish Pending"
+            entry_window = "Awaiting neckline break"
+        
+        # Calculate expected drawdown
+        max_drawdown = (pattern_height / current_price * 100) if current_price > 0 else 0
+        
+        # Generate summary
+        summary_parts = []
+        if volume_confirmation:
+            summary_parts.append("Volume confirmation present")
+        if breakdown_confirmed:
+            summary_parts.append("Neckline breakdown confirmed")
+        else:
+            summary_parts.append("Pattern complete, awaiting breakdown")
+        if valley_depth >= 10:
+            summary_parts.append("Strong valley depth")
+        
+        summary = " + ".join(summary_parts) if summary_parts else "Double top pattern identified"
+        
+        output = f"""
+===============================================================
+DOUBLE TOP PATTERN ANALYSIS
+===============================================================
+RISK_REWARD: {risk_reward:.1f}:1 | VOLUME_CONF: {vol_conf_status} ({confidence/100:.2f}) | VALLEY_DEPTH: {valley_depth:.1f}%
+BREAKDOWN: {"CONFIRMED" if breakdown_confirmed else "PENDING"} | CURRENT_PRICE: ${current_price:.4f} | VOLUME_CHANGE: {volume_change:+.1f}%
+PEAK1_TIME: {high1_str} | PEAK2_TIME: {high2_str}
+
+SUMMARY: {summary}
+CONFIDENCE_SCORE: {confidence:.0f}% | Based on pattern + volume + volatility match
+TREND_DIRECTION: {trend_direction} | MOMENTUM_STATE: {momentum}
+ENTRY_WINDOW: {entry_window}
+EXIT_TRIGGER: Break above ${stop_loss_price:.4f} OR volume surge above peaks
+
+SUPPORT: ${neckline:.4f} | RESISTANCE: ${max(pattern_data.get('high1_price', 0), pattern_data.get('high2_price', 0)):.4f}
+STOP_ZONE: Above ${stop_loss_price:.4f} | TP_ZONE: ${target_price:.4f}–${pattern_data.get('target_75', target_price):.4f}
+RR_RATIO: {risk_reward:.1f}:1 | MAX_DRAWDOWN: -{max_drawdown:.1f}% expected
+
+ACTION: {action}"""
         
         return output
 

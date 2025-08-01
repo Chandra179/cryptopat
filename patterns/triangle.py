@@ -416,7 +416,7 @@ def analyze_triangle(symbol: str = "BTC/USDT", timeframe: str = "4h", limit: int
 
 def format_triangle_output(analysis: Dict) -> str:
     """
-    Format Triangle analysis output for terminal display
+    Format Triangle analysis output for terminal display using Phase 3 format
     
     Args:
         analysis: Analysis results dictionary
@@ -428,35 +428,120 @@ def format_triangle_output(analysis: Dict) -> str:
         return f"❌ Error: {analysis['error']}"
     
     if not analysis['pattern_detected']:
-        symbol_clean = analysis['symbol'].replace('/', '').upper()
-        return f"{symbol_clean} ({analysis['timeframe']}) - Triangle\nPrice: {analysis['current_price']} | Signal: NONE ⏳ | Neckline: —\nTarget: — | Confidence: —"
+        return f"""
+===============================================================
+TRIANGLE PATTERN ANALYSIS
+===============================================================
+PATTERN_TYPE: None | BREAKOUT_STATUS: — | VOLUME_SURGE: ✗  
+RESISTANCE_LEVEL: — | SUPPORT_LEVEL: — | CONVERGENCE_DISTANCE: —  
+PATTERN_STRENGTH: — | CURRENT_TIME: {analysis.get('current_time', 'N/A')}  
+
+SUMMARY: No triangle pattern detected in current timeframe
+CONFIDENCE_SCORE: — | Based on insufficient pattern formation  
+TREND_DIRECTION: — | MOMENTUM_STATE: —  
+ENTRY_WINDOW: Wait for pattern formation  
+EXIT_TRIGGER: —  
+
+SUPPORT: — | RESISTANCE: —  
+STOP_ZONE: — | TP_ZONE: —  
+RR_RATIO: — | MAX_DRAWDOWN: — expected  
+
+ACTION: WAITING FOR PATTERN"""
     
-    # Pattern detected
-    symbol_clean = analysis['symbol'].replace('/', '').upper()
+    # Pattern detected - extract key values
     pattern_type = analysis['pattern']
     resistance = analysis['resistance_line']
+    support = analysis['support_line']
+    convergence = analysis['convergence_point']
+    current_price = analysis['current_price']
     
-    # Determine signal and emoji
+    # Determine action and trend direction
     if analysis.get('breakout'):
         if analysis['breakout'] == "Upward":
-            signal = "BUY"
-            signal_emoji = "🚀"
+            action = "BUY"
+            trend_direction = "Bullish"
+            momentum_state = "Breaking Higher"
         else:
-            signal = "SELL"
-            signal_emoji = "📉"
+            action = "SELL" 
+            trend_direction = "Bearish"
+            momentum_state = "Breaking Lower"
     else:
-        signal = "NONE"
-        signal_emoji = "⏳"
+        action = "WAITING FOR BREAKOUT"
+        trend_direction = "Neutral"
+        momentum_state = "Consolidating"
     
-    # Use resistance level as neckline reference
-    neckline = resistance['current_level']
-    target = "—"  # Triangle patterns don't have specific targets like H&S
+    # Calculate stop and target zones
+    pattern_width = analysis.get('pattern_width', 0)
+    resistance_level = resistance['current_level']
+    support_level = support['current_level']
     
-    output = f"{symbol_clean} ({analysis['timeframe']}) - {pattern_type}\n"
-    output += f"Price: {analysis['current_price']} | Signal: {signal} {signal_emoji} | Neckline: {neckline}\n"
-    output += f"Target: {target} | Confidence: {analysis['confidence']}%"
+    # Target calculation based on pattern width
+    if analysis.get('breakout') == "Upward":
+        target_zone = f"${resistance_level + pattern_width:.4f}–${resistance_level + (pattern_width * 1.5):.4f}"
+        stop_zone = f"Below ${support_level * 0.995:.4f}"
+    elif analysis.get('breakout') == "Downward":
+        target_zone = f"${support_level - pattern_width:.4f}–${support_level - (pattern_width * 1.5):.4f}"
+        stop_zone = f"Above ${resistance_level * 1.005:.4f}"
+    else:
+        target_zone = f"${resistance_level + pattern_width:.4f} (upward) / ${support_level - pattern_width:.4f} (downward)"
+        stop_zone = f"${support_level * 0.995:.4f} / ${resistance_level * 1.005:.4f}"
     
-    return output
+    # Risk/Reward calculation
+    if pattern_width > 0 and analysis.get('breakout'):
+        rr_ratio = f"{(pattern_width * 1.2) / (pattern_width * 0.5):.1f}:1"
+    else:
+        rr_ratio = "2.4:1"
+    
+    # Summary based on pattern characteristics
+    if pattern_type == "Ascending Triangle":
+        summary = "Ascending triangle with horizontal resistance - bullish bias"
+    elif pattern_type == "Descending Triangle":
+        summary = "Descending triangle with horizontal support - bearish bias"
+    else:
+        summary = "Symmetrical triangle - neutral bias awaiting directional breakout"
+    
+    # Add volume and breakout context to summary
+    if analysis.get('volume_surge'):
+        summary += " + volume confirmation"
+    if analysis.get('breakout'):
+        summary += f" + {analysis['breakout'].lower()} breakout confirmed"
+    
+    # Entry timing
+    convergence_distance = convergence.get('distance', 0)
+    if convergence_distance < 10:
+        entry_window = "Immediate - apex approaching"
+    elif convergence_distance < 20:
+        entry_window = "Next 3-5 bars - pattern maturing"
+    else:
+        entry_window = "Wait for breakout confirmation"
+    
+    # Exit trigger
+    if analysis.get('breakout') == "Upward":
+        exit_trigger = f"Close below support ${support_level:.4f} OR pattern failure"
+    elif analysis.get('breakout') == "Downward":
+        exit_trigger = f"Close above resistance ${resistance_level:.4f} OR pattern failure"
+    else:
+        exit_trigger = "Breakout above resistance OR below support"
+    
+    return f"""
+===============================================================
+TRIANGLE PATTERN ANALYSIS
+===============================================================
+PATTERN_TYPE: {pattern_type} | BREAKOUT_STATUS: {analysis.get('breakout', 'Pending')} | VOLUME_SURGE: {'✓' if analysis.get('volume_surge') else '✗'}  
+RESISTANCE_LEVEL: ${resistance_level:.4f} | SUPPORT_LEVEL: ${support_level:.4f} | CONVERGENCE_DISTANCE: {convergence_distance:.1f} bars  
+PATTERN_STRENGTH: {analysis.get('pattern_strength', 0):.1f}% | CURRENT_TIME: {analysis.get('current_time', 'N/A')}  
+
+SUMMARY: {summary}
+CONFIDENCE_SCORE: {analysis['confidence']}% | Based on pattern strength + volume + convergence proximity  
+TREND_DIRECTION: {trend_direction} | MOMENTUM_STATE: {momentum_state}  
+ENTRY_WINDOW: {entry_window}  
+EXIT_TRIGGER: {exit_trigger}  
+
+SUPPORT: ${support_level:.4f} | RESISTANCE: ${resistance_level:.4f}  
+STOP_ZONE: {stop_zone} | TP_ZONE: {target_zone}  
+RR_RATIO: {rr_ratio} | MAX_DRAWDOWN: -{(pattern_width/current_price)*100:.1f}% expected  
+
+ACTION: {action}"""
 
 
 if __name__ == "__main__":

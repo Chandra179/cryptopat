@@ -315,35 +315,88 @@ def analyze_head_and_shoulders(symbol: str = "BTC/USDT", timeframe: str = "4h", 
 
 def format_head_and_shoulders_output(analysis: Dict) -> str:
     """
-    Format Head and Shoulders analysis output for terminal display
+    Format Head and Shoulders analysis output for terminal display using Phase 3 format
     
     Args:
         analysis: Analysis results dictionary
         
     Returns:
-        Formatted output string
+        Formatted output string following Phase 3 specification
     """
     if 'error' in analysis:
-        return f"❌ Error: {analysis['error']}"
+        return f"\n===============================================================\nHEAD AND SHOULDERS PATTERN ANALYSIS\n===============================================================\nERROR: {analysis['error']}\nACTION: ANALYSIS_FAILED"
+    
+    output = "\n===============================================================\n"
+    output += "HEAD AND SHOULDERS PATTERN ANALYSIS\n"
+    output += "===============================================================\n"
     
     if not analysis['pattern_detected']:
-        symbol_clean = analysis['symbol'].replace('/', '').upper()
-        return f"{symbol_clean} ({analysis['timeframe']}) - Head & Shoulders\nPrice: {analysis['current_price']} | Signal: NONE ⏳ | Neckline: —\nTarget: — | Confidence: —"
+        output += f"PATTERN_STATUS: NOT_DETECTED | TIMEFRAME: {analysis['timeframe']} | CANDLES_ANALYZED: {analysis['total_candles']}\n"
+        output += f"CURRENT_PRICE: ${analysis['current_price']} | VOLUME: {analysis['current_volume']} | LAST_UPDATE: {analysis['current_time']}\n"
+        output += "NECKLINE: — | TARGET_PRICE: — | CONFIDENCE: —\n"
+        output += "\nACTION: WAITING FOR PATTERN"
+        return output
     
-    # Pattern detected
-    symbol_clean = analysis['symbol'].replace('/', '').upper()
-    signal_emoji = "📉" if analysis['signal'] == 'SELL' else "⏳"
-    signal = analysis['signal'] if analysis['confirmed'] else 'NONE'
-    target = analysis['target_price'] if analysis['confirmed'] else '—'
+    # Pattern detected - format metrics using Phase 3 structure
+    target_str = f"${analysis['target_price']}" if analysis['confirmed'] else "—"
+    neckline_slope_pct = round(analysis['neckline_slope'] * 100, 3)
+    volume_score_pct = round(analysis['volume_score'] * 100, 1)
+    time_symmetry_pct = round(analysis['time_symmetry'] * 100, 1)
     
-    output = f"{symbol_clean} ({analysis['timeframe']}) - Head & Shoulders\n"
-    output += f"Price: {analysis['current_price']} | Signal: {signal} {signal_emoji} | Neckline: {analysis['neckline']}\n"
-    output += f"Target: {target} | Confidence: {analysis['confidence']}%\n"
+    # Calculate additional metrics for Phase 3 format
+    current_to_neckline_ratio = round(analysis['current_price'] / analysis['neckline'], 2)
+    potential_move_pct = round(((analysis['neckline'] - analysis['target_price']) / analysis['neckline']) * 100, 1) if analysis['confirmed'] else 0
     
-    # Add detailed breakdown if pattern detected
-    if 'confidence_breakdown' in analysis:
-        output += f"Volume Score: {analysis['volume_score']} | Time Symmetry: {analysis['time_symmetry']}\n"
-        output += f"Neckline Slope: {analysis['neckline_slope']}"
+    # Metrics lines following Phase 3 format
+    output += f"PATTERN_QUALITY: ✓ ({analysis['confidence']}%) | VOLUME_PATTERN: {volume_score_pct}% | TIME_SYMMETRY: {time_symmetry_pct}%\n"
+    output += f"NECKLINE_SLOPE: {neckline_slope_pct}% | CURRENT_PRICE: ${analysis['current_price']} | NECKLINE_LEVEL: ${analysis['neckline']}\n"
+    output += f"LEFT_SHOULDER: {analysis['left_shoulder']['timestamp'].strftime('%Y-%m-%d %H:%M:%S')} | HEAD_PEAK: {analysis['head']['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+    
+    # Summary and confidence
+    summary = f"Head and Shoulders formation {'confirmed with neckline break' if analysis['confirmed'] else 'pending breakout confirmation'}"
+    output += f"\nSUMMARY: {summary}\n"
+    output += f"CONFIDENCE_SCORE: {analysis['confidence']}% | Based on pattern symmetry + volume + neckline slope\n"
+    output += f"TREND_DIRECTION: {'Bearish' if analysis['confirmed'] else 'Neutral'} | MOMENTUM_STATE: {'Accelerating' if analysis['confirmed'] else 'Building'}\n"
+    
+    # Entry and exit conditions
+    if analysis['confirmed']:
+        output += f"ENTRY_WINDOW: Immediate on neckline break confirmation\n"
+        output += f"EXIT_TRIGGER: Price recovery above neckline OR target reached\n"
+    else:
+        output += f"ENTRY_WINDOW: Wait for neckline break below ${analysis['neckline']}\n"
+        output += f"EXIT_TRIGGER: Pattern invalidation above head OR confirmation break\n"
+    
+    # Support/Resistance and targets
+    resistance_level = analysis['head']['price']
+    support_level = analysis['target_price'] if analysis['confirmed'] else analysis['neckline']
+    stop_level = round(resistance_level * 1.02, 4)  # 2% above head as invalidation
+    
+    output += f"\nSUPPORT: ${support_level} | RESISTANCE: ${resistance_level}\n"
+    output += f"STOP_ZONE: Above ${stop_level} | TP_ZONE: ${target_str}\n"
+    
+    # Risk/Reward calculation
+    if analysis['confirmed']:
+        entry_price = analysis['neckline']
+        target_price = analysis['target_price']
+        stop_price = stop_level
+        reward = abs(entry_price - target_price)
+        risk = abs(stop_price - entry_price)
+        rr_ratio = round(reward / risk, 1) if risk > 0 else 0
+        max_drawdown = round((risk / entry_price) * 100, 1)
+        
+        output += f"RR_RATIO: {rr_ratio}:1 | MAX_DRAWDOWN: -{max_drawdown}% expected\n"
+    else:
+        output += f"RR_RATIO: TBD | MAX_DRAWDOWN: Pattern not confirmed\n"
+    
+    # Determine action
+    if analysis['confirmed']:
+        action = "SELL"
+    elif analysis['confidence'] >= 70:
+        action = "WAITING FOR BREAKOUT"
+    else:
+        action = "WAITING FOR PATTERN"
+    
+    output += f"\nACTION: {action}"
     
     return output
 

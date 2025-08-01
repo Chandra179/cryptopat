@@ -233,19 +233,53 @@ def format_inverse_head_and_shoulders_output(analysis: Dict) -> str:
     if 'error' in analysis:
         return f"❌ Error: {analysis['error']}"
     
+    output = "\n"
+    output += "===============================================================\n"
+    output += "INVERSE HEAD AND SHOULDERS PATTERN\n"
+    output += "===============================================================\n"
+    
     if not analysis['pattern_detected']:
-        symbol_clean = analysis['symbol'].replace('/', '').upper()
-        return f"{symbol_clean} ({analysis['timeframe']}) - Inverse Head & Shoulders\nPrice: {analysis['current_price']} | Signal: NONE ⏳ | Neckline: —\nTarget: — | Confidence: —"
+        output += "PATTERN_STATUS: NOT_DETECTED | NECKLINE: — | TARGET: —\n"
+        output += "CURRENT_PRICE: ${:.4f} | CONFIDENCE: 0% | VOLUME_CONFIRMED: ✗\n".format(analysis['current_price'])
+        output += "LEFT_SHOULDER: — | HEAD: — | RIGHT_SHOULDER: —\n"
+        output += "ANALYSIS_TIME: {} | DATA_POINTS: {}\n".format(analysis['current_time'], analysis['total_candles'])
+        output += "ACTION: WAITING FOR PATTERN\n"
+        return output
     
-    # Pattern detected
-    symbol_clean = analysis['symbol'].replace('/', '').upper()
-    signal_emoji = "🚀" if analysis['signal'] == 'BUY' else "⏳"
-    signal = analysis['signal'] if analysis['confirmed'] else 'NONE'
-    target = analysis['target_price'] if analysis['confirmed'] else '—'
+    # Pattern detected - format with phase 3 specifications
+    volume_status = "✓" if analysis['volume_confirmed'] else "✗"
+    price_status = "✓" if analysis['price_confirmed'] else "✗"
     
-    output = f"{symbol_clean} ({analysis['timeframe']}) - Inverse Head & Shoulders\n"
-    output += f"Price: {analysis['current_price']} | Signal: {signal} {signal_emoji} | Neckline: {analysis['neckline']}\n"
-    output += f"Target: {target} | Confidence: {analysis['confidence']}%"
+    # Calculate risk-reward ratio
+    if analysis['confirmed']:
+        risk_reward = (analysis['target_price'] - analysis['current_price']) / (analysis['current_price'] - analysis['head']['price'])
+        risk_reward_str = f"{risk_reward:.2f}:1"
+    else:
+        risk_reward_str = "INSUFFICIENT_DATA"
+    
+    # Format timestamps
+    left_shoulder_time = analysis['left_shoulder']['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+    head_time = analysis['head']['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+    right_shoulder_time = analysis['right_shoulder']['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+    
+    output += "RISK_REWARD: {} | VOLUME_CONFIRMED: {} ({}) | CONFIDENCE: {}%\n".format(
+        risk_reward_str, volume_status, analysis['confidence']/100, analysis['confidence'])
+    output += "PRICE_CONFIRMED: {} | NECKLINE: ${:.4f} | TARGET: ${:.4f}\n".format(
+        price_status, analysis['neckline'], analysis['target_price'] if analysis['confirmed'] else 0)
+    output += "LEFT_SHOULDER: ${:.4f} | HEAD: ${:.4f} | RIGHT_SHOULDER: ${:.4f}\n".format(
+        analysis['left_shoulder']['price'], analysis['head']['price'], analysis['right_shoulder']['price'])
+    output += "LS_TIME: {} | HEAD_TIME: {}\n".format(left_shoulder_time, head_time)
+    output += "RS_TIME: {} | CURRENT_TIME: {}\n".format(right_shoulder_time, analysis['current_time'])
+    
+    # Determine action based on confirmation status
+    if analysis['confirmed']:
+        action = "BUY"
+    elif analysis['pattern_detected'] and not analysis['confirmed']:
+        action = "WAITING FOR BREAKOUT"
+    else:
+        action = "NEUTRAL"
+    
+    output += "ACTION: {}\n".format(action)
     
     return output
 

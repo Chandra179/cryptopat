@@ -149,7 +149,11 @@ class DoubleBottomDetector:
             "confidence_score": 0,
             "time_symmetry": 0,
             "volume_ratio": 0,
-            "relative_volume_strength": 0
+            "relative_volume_strength": 0,
+            "stop_loss": None,
+            "entry_price": None,
+            "risk_reward_ratio": 0,
+            "trend_context": {"trend": "UNKNOWN", "strength": 0, "change_pct": 0}
         }
         
         if len(swing_lows) < 2:
@@ -242,6 +246,24 @@ class DoubleBottomDetector:
                         )
                         pattern_result["confidence_score"] = confidence_score
                         
+                        # Calculate risk management levels
+                        stop_loss = min(low1_price, low2_price) * 0.98  # 2% below pattern lows
+                        entry_price = neckline * 1.001  # Slightly above neckline for confirmation
+                        risk_distance = entry_price - stop_loss
+                        reward_distance = price_target - entry_price
+                        risk_reward_ratio = reward_distance / risk_distance if risk_distance > 0 else 0
+                        
+                        # Calculate trend context using recent price action
+                        trend_context = self._analyze_trend_context(closes, low1_idx)
+                        
+                        # Update pattern result with enhanced metrics
+                        pattern_result.update({
+                            "stop_loss": stop_loss,
+                            "entry_price": entry_price,
+                            "risk_reward_ratio": risk_reward_ratio,
+                            "trend_context": trend_context
+                        })
+                        
                         # Check current price relative to neckline
                         current_price = closes[-1]
                         
@@ -254,12 +276,12 @@ class DoubleBottomDetector:
                             })
                         elif low2_idx >= len(closes) - 10:  # Recent second low
                             pattern_result.update({
-                                "signal": "NONE",
+                                "signal": "WATCH",
                                 "pattern_status": "Pattern Forming"
                             })
                         else:
                             pattern_result.update({
-                                "signal": "NONE",
+                                "signal": "WATCH",
                                 "pattern_status": "Pattern Complete - Awaiting Breakout"
                             })
                         
@@ -359,9 +381,52 @@ class DoubleBottomDetector:
         
         return min(confidence, 100)  # Cap at 100%
     
+    def _analyze_trend_context(self, closes: np.ndarray, pattern_start_idx: int) -> Dict:
+        """
+        Analyze trend context before the pattern formation.
+        
+        Args:
+            closes: Array of closing prices
+            pattern_start_idx: Index where pattern starts
+        
+        Returns:
+            Dictionary with trend analysis
+        """
+        if pattern_start_idx < 20:
+            return {"trend": "INSUFFICIENT_DATA", "strength": 0}
+        
+        # Analyze trend before pattern (20 periods before first low)
+        pre_pattern_closes = closes[max(0, pattern_start_idx-20):pattern_start_idx]
+        
+        if len(pre_pattern_closes) < 10:
+            return {"trend": "INSUFFICIENT_DATA", "strength": 0}
+        
+        # Calculate trend direction and strength
+        start_price = pre_pattern_closes[0]
+        end_price = pre_pattern_closes[-1]
+        trend_change_pct = ((end_price - start_price) / start_price) * 100
+        
+        # Calculate trend strength using linear regression slope
+        x = np.arange(len(pre_pattern_closes))
+        slope, _ = np.polyfit(x, pre_pattern_closes, 1)
+        trend_strength = abs(slope / np.mean(pre_pattern_closes)) * 100
+        
+        if trend_change_pct < -5:
+            trend_direction = "DOWNTREND"
+        elif trend_change_pct > 5:
+            trend_direction = "UPTREND"
+        else:
+            trend_direction = "SIDEWAYS"
+        
+        return {
+            "trend": trend_direction,
+            "strength": trend_strength,
+            "change_pct": trend_change_pct
+        }
+    
     def format_analysis(self, symbol: str, timeframe: str, pattern_data: Dict) -> str:
         """
-        Format pattern analysis for terminal output.
+        Format enhanced pattern analysis for terminal output using Phase 3 format.
         
         Args:
             symbol: Trading pair symbol
@@ -369,29 +434,152 @@ class DoubleBottomDetector:
             pattern_data: Pattern detection results
         
         Returns:
-            Formatted analysis string
+            Formatted analysis string following Phase 3 specifications
         """
         if "error" in pattern_data:
-            return f"❌ Error analyzing {symbol}: {pattern_data['error']}"
+            return f"""
+===============================================================
+DOUBLE BOTTOM PATTERN ANALYSIS
+===============================================================
+ERROR: {pattern_data['error']}
+
+SUMMARY: Insufficient data for pattern analysis
+CONFIDENCE_SCORE: 0% | Unable to analyze pattern
+TREND_DIRECTION: UNKNOWN | MOMENTUM_STATE: N/A
+ENTRY_WINDOW: N/A
+EXIT_TRIGGER: N/A
+
+SUPPORT: N/A | RESISTANCE: N/A
+STOP_ZONE: N/A | TP_ZONE: N/A
+RR_RATIO: N/A | MAX_DRAWDOWN: N/A
+
+ACTION: INSUFFICIENT_DATA"""
         
         if not pattern_data["pattern_detected"]:
-            return f"{symbol} ({timeframe}) - No Double bottom Pattern Detected"
+            current_price = pattern_data.get('current_price', 0)
+            return f"""
+===============================================================
+DOUBLE BOTTOM PATTERN ANALYSIS
+===============================================================
+PATTERN_STATUS: NO PATTERN | CURRENT_PRICE: ${current_price:.4f} | TREND_SCAN: COMPLETE
+
+SUMMARY: No double bottom pattern detected in recent price action
+CONFIDENCE_SCORE: 0% | No valid pattern formation found
+TREND_DIRECTION: Neutral | MOMENTUM_STATE: Waiting
+ENTRY_WINDOW: Pattern required for entry signals
+EXIT_TRIGGER: N/A
+
+SUPPORT: N/A | RESISTANCE: N/A
+STOP_ZONE: N/A | TP_ZONE: N/A
+RR_RATIO: N/A | MAX_DRAWDOWN: N/A
+
+ACTION: NEUTRAL"""
         
-        # Format the output in the new structure
-        signal_emoji = {"BUY": "🚀", "SELL": "📉", "NONE": "⏳"}
-        neckline = pattern_data.get('neckline', '—')
-        neckline_str = f"{neckline:.4f}" if isinstance(neckline, (int, float)) else "—"
-        target = pattern_data.get('price_target', '—')
-        target_str = f"{target:.4f}" if isinstance(target, (int, float)) else "—"
+        # Extract key metrics
+        current_price = pattern_data['current_price']
+        signal = pattern_data['signal']
         confidence = pattern_data.get('confidence_score', 0)
         
-        return (
-            f"{symbol} ({timeframe}) - Double Bottom\n"
-            f"Price: {pattern_data['current_price']:.2f} | "
-            f"Signal: {pattern_data['signal']} {signal_emoji.get(pattern_data['signal'], '')} | "
-            f"Neckline: {neckline_str}\n"
-            f"Target: {target_str} | Confidence: {confidence:.0f}%"
-        )
+        # Risk management metrics
+        neckline = pattern_data.get('neckline', 0)
+        target = pattern_data.get('price_target', 0)
+        stop_loss = pattern_data.get('stop_loss', 0)
+        entry_price = pattern_data.get('entry_price', 0)
+        risk_reward = pattern_data.get('risk_reward_ratio', 0)
+        
+        # Pattern quality metrics
+        volume_conf = pattern_data.get('volume_confirmation', False)
+        volume_ratio = pattern_data.get('volume_ratio', 1.0)
+        time_symmetry = pattern_data.get('time_symmetry', 0)
+        rel_vol_strength = pattern_data.get('relative_volume_strength', 1.0)
+        pattern_status = pattern_data.get('pattern_status', 'Unknown')
+        breakout_confirmed = pattern_data.get('breakout_confirmed', False)
+        
+        # Trend context
+        trend_context = pattern_data.get('trend_context', {})
+        trend_dir = trend_context.get('trend', 'UNKNOWN')
+        trend_strength = trend_context.get('strength', 0)
+        trend_change_pct = trend_context.get('change_pct', 0)
+        
+        # Format timestamps
+        low1_time = pattern_data.get('low1_timestamp', 'N/A')
+        low2_time = pattern_data.get('low2_timestamp', 'N/A')
+        
+        # Calculate pattern quality percentage
+        pattern_height_pct = 0
+        if pattern_data.get('pattern_height') and pattern_data.get('low1_price'):
+            pattern_height_pct = (pattern_data['pattern_height'] / pattern_data['low1_price']) * 100
+        
+        # Volume confirmation symbol
+        vol_status = "✓" if volume_conf else "✗"
+        
+        # Determine momentum state
+        if breakout_confirmed:
+            momentum_state = "Accelerating"
+        elif signal == "WATCH":
+            momentum_state = "Building"
+        else:
+            momentum_state = "Consolidating"
+        
+        # Determine trend direction for display
+        if trend_dir == "DOWNTREND":
+            trend_display = "Bearish→Bullish"
+        elif trend_dir == "UPTREND":
+            trend_display = "Bullish"
+        elif trend_dir == "SIDEWAYS":
+            trend_display = "Neutral→Bullish"
+        else:
+            trend_display = "Unknown"
+        
+        # Create summary based on pattern status
+        if breakout_confirmed:
+            summary = "Double bottom confirmed + neckline breakout validated"
+        elif signal == "WATCH" and "Forming" in pattern_status:
+            summary = "Double bottom forming + waiting for neckline test"
+        elif signal == "WATCH":
+            summary = "Double bottom complete + awaiting breakout confirmation"
+        else:
+            summary = "Double bottom pattern detected + monitoring price action"
+        
+        # Entry window determination
+        if breakout_confirmed:
+            entry_window = "Active - pullback to neckline optimal"
+        elif signal == "WATCH":
+            entry_window = "Pending - await neckline break"
+        else:
+            entry_window = "Setup phase - monitor closely"
+        
+        # Exit trigger
+        exit_trigger = f"Close below ${stop_loss:.4f} OR target ${target:.4f} reached"
+        
+        # Calculate max drawdown estimate
+        if stop_loss > 0 and current_price > 0:
+            max_drawdown_pct = ((current_price - stop_loss) / current_price) * 100
+        else:
+            max_drawdown_pct = 0
+        
+        # Build Phase 3 formatted output
+        output = f"""
+===============================================================
+DOUBLE BOTTOM PATTERN ANALYSIS
+===============================================================
+RISK_REWARD: {risk_reward:.1f}:1 | VOLUME_CONF: {vol_status} ({volume_ratio:.2f}) | PATTERN_HEIGHT: {pattern_height_pct:.1f}%
+TIME_SYMMETRY: {time_symmetry:.2f} | CURRENT_PRICE: ${current_price:.4f} | TREND_CHANGE: {trend_change_pct:.2f}%
+LOW_1_TIME: {low1_time} | LOW_2_TIME: {low2_time}
+
+SUMMARY: {summary}
+CONFIDENCE_SCORE: {confidence:.0f}% | Based on pattern + volume + timing alignment
+TREND_DIRECTION: {trend_display} | MOMENTUM_STATE: {momentum_state}
+ENTRY_WINDOW: {entry_window}
+EXIT_TRIGGER: {exit_trigger}
+
+SUPPORT: ${pattern_data.get('low1_price', 0):.4f} | RESISTANCE: ${neckline:.4f}
+STOP_ZONE: Below ${stop_loss:.4f} | TP_ZONE: ${target:.4f}
+RR_RATIO: {risk_reward:.1f}:1 | MAX_DRAWDOWN: -{max_drawdown_pct:.1f}% expected
+
+ACTION: {signal}"""
+        
+        return output
 
 
 def analyze_double_bottom(symbol: str, timeframe: str = '4h', limit: int = 200) -> str:
