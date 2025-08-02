@@ -14,12 +14,11 @@ Future patterns to be added:
 - Wedge patterns
 """
 
-from .double_bottom import analyze_double_bottom, DoubleBottomDetector
+from .double_bottom import DoubleBottomStrategy
 # from .all_patterns import analyze_all_patterns, AllPatternsAnalyzer
 
 __all__ = [
-    'analyze_double_bottom',
-    'DoubleBottomDetector',
+    'DoubleBottomStrategy',
     # 'analyze_all_patterns', 
     # 'AllPatternsAnalyzer'
 ]

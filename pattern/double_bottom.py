@@ -6,55 +6,51 @@ A double bottom is a bullish reversal pattern consisting of two swing lows
 at approximately the same level, separated by an intervening peak.
 """
 
-import logging
-from typing import List, Dict
-from datetime import datetime
+import pandas as pd
+from datetime import datetime, timezone
+from typing import List, Dict, Optional
 import numpy as np
 from data import get_data_collector
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-
-class DoubleBottomDetector:
+class DoubleBottomStrategy:
     """Double Bottom pattern detection and analysis."""
     
-    def __init__(self, tolerance_pct: float = 2.0, min_peak_height_pct: float = 5.0, 
-                 min_time_between_lows: int = 10, max_time_between_lows: int = 100):
-        """
-        Initialize Double Bottom detector.
-        
-        Args:
-            tolerance_pct: Tolerance for considering two lows as equal (in %)
-            min_peak_height_pct: Minimum height of intervening peak above lows (in %)
-            min_time_between_lows: Minimum candles between the two lows
-            max_time_between_lows: Maximum candles between the two lows
-        """
-        self.tolerance_pct = tolerance_pct
-        self.min_peak_height_pct = min_peak_height_pct
-        self.min_time_between_lows = min_time_between_lows
-        self.max_time_between_lows = max_time_between_lows
-        self.data_collector = get_data_collector()
+    def __init__(self):
+        """Initialize Double Bottom strategy detector."""
+        self.tolerance_pct = 2.0
+        self.min_peak_height_pct = 5.0
+        self.min_time_between_lows = 10
+        self.max_time_between_lows = 100
+        self.collector = get_data_collector()
     
-    def detect_pattern(self, symbol: str, timeframe: str = '4h', limit: int = 200) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
         """
-        Detect double bottom pattern for given symbol and timeframe.
+        Analyze Double Bottom patterns for given symbol and timeframe.
         
         Args:
-            symbol: Trading pair symbol (e.g., 'ADA/USDT')
+            symbol: Trading pair symbol
             timeframe: Timeframe for analysis
             limit: Number of candles to analyze
         
         Returns:
-            Dictionary with pattern analysis results
+            Analysis results dictionary
         """
         try:
             # Fetch OHLCV data
-            ohlcv_data = self.data_collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
-            if len(ohlcv_data) < 50:
-                return {"error": "Insufficient data for pattern detection"}
+            if not ohlcv_data or len(ohlcv_data) < 50:
+                return {
+                    'error': f'Insufficient data: need at least 50 candles, got {len(ohlcv_data) if ohlcv_data else 0}',
+                    'success': False,
+                    'symbol': symbol,
+                    'timeframe': timeframe
+                }
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
             
             # Extract price and volume arrays
             timestamps = [candle[0] for candle in ohlcv_data]
@@ -73,11 +69,117 @@ class DoubleBottomDetector:
                 swing_lows, swing_highs
             )
             
-            return pattern_data
+            # Get current price and timestamp info
+            current_price = df['close'].iloc[-1]
+            current_timestamp = df['timestamp'].iloc[-1]
+            dt = datetime.fromtimestamp(current_timestamp.timestamp(), tz=timezone.utc)
+            
+            # Build result similar to wedge.py structure
+            result = {
+                'success': True,
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
+                'timestamp': int(current_timestamp.timestamp() * 1000),
+                'total_candles': len(df),
+                'current_price': round(current_price, 4),
+                'pattern_detected': pattern_data.get('pattern_detected', False)
+            }
+            
+            if pattern_data.get('pattern_detected', False):
+                # Pattern detected - extract trading data
+                signal = pattern_data.get('signal', 'HOLD')
+                confidence = pattern_data.get('confidence_score', 0)
+                neckline = pattern_data.get('neckline', current_price)
+                target = pattern_data.get('price_target', current_price)
+                stop_loss = pattern_data.get('stop_loss', current_price * 0.98)
+                
+                # Calculate support/resistance levels
+                support_level = min(pattern_data.get('low1_price', current_price), pattern_data.get('low2_price', current_price))
+                resistance_level = neckline
+                
+                # Calculate stop loss and take profit zones
+                if signal == 'BUY':
+                    stop_zone = stop_loss
+                    tp_low = target
+                    tp_high = target * 1.02
+                elif signal == 'WATCH':
+                    stop_zone = support_level * 0.995
+                    tp_low = resistance_level * 1.005
+                    tp_high = target
+                else:
+                    stop_zone = support_level * 0.995
+                    tp_low = resistance_level * 1.005
+                    tp_high = target
+                
+                # Calculate Risk/Reward ratio
+                risk = abs(current_price - stop_zone)
+                reward = abs(tp_low - current_price) if tp_low != current_price else abs(tp_high - current_price)
+                rr_ratio = reward / risk if risk > 0 else 0
+                
+                # Determine entry window
+                if signal == 'BUY' and confidence > 70:
+                    entry_window = "Optimal now"
+                elif signal in ['BUY', 'WATCH'] and confidence > 50:
+                    entry_window = "Good in next 2-3 bars"
+                else:
+                    entry_window = "Wait for better setup"
+                
+                # Exit trigger
+                if signal == 'BUY':
+                    exit_trigger = "Close below support or target reached"
+                elif signal == 'WATCH':
+                    exit_trigger = "Breakout above neckline or breakdown below support"
+                else:
+                    exit_trigger = "Wait for breakout signal"
+                
+                # Update result with pattern analysis
+                result.update({
+                    'pattern_type': 'Double Bottom',
+                    'bias': 'BULLISH',
+                    'signal': signal,
+                    'confidence_score': confidence,
+                    'entry_window': entry_window,
+                    'exit_trigger': exit_trigger,
+                    'support_level': round(support_level, 4),
+                    'resistance_level': round(resistance_level, 4),
+                    'stop_zone': round(stop_zone, 4),
+                    'tp_low': round(tp_low, 4),
+                    'tp_high': round(tp_high, 4),
+                    'rr_ratio': round(rr_ratio, 1),
+                    'pattern_height': pattern_data.get('pattern_height'),
+                    'low1_price': pattern_data.get('low1_price'),
+                    'low2_price': pattern_data.get('low2_price'),
+                    'neckline': neckline,
+                    'price_target': target,
+                    'raw_data': {
+                        'ohlcv_data': ohlcv_data,
+                        'pattern_data': pattern_data
+                    }
+                })
+            else:
+                # No pattern detected
+                result.update({
+                    'pattern_type': None,
+                    'bias': 'NEUTRAL',
+                    'signal': 'HOLD',
+                    'confidence_score': 0,
+                    'entry_window': "No pattern detected",
+                    'exit_trigger': "Wait for pattern formation",
+                    'support_level': round(current_price * 0.98, 4),
+                    'resistance_level': round(current_price * 1.02, 4),
+                    'rr_ratio': 0
+                })
+            
+            return result
             
         except Exception as e:
-            logger.error(f"Error detecting double bottom pattern for {symbol}: {e}")
-            return {"error": str(e)}
+            return {
+                'error': f'Analysis failed: {str(e)}',
+                'success': False,
+                'symbol': symbol,
+                'timeframe': timeframe
+            }
     
     def _find_swing_lows(self, lows: np.ndarray, window: int = 5) -> List[int]:
         """Find swing low indices where price is lowest in the window."""
@@ -193,7 +295,6 @@ class DoubleBottomDetector:
                 if price_diff_pct <= self.tolerance_pct:
                     # Check if peak is high enough above the lows
                     min_low = min(low1_price, low2_price)
-                    max_low = max(low1_price, low2_price)
                     pattern_height = peak_price - min_low
                     peak_height_pct = pattern_height / min_low * 100
                     
@@ -424,177 +525,4 @@ class DoubleBottomDetector:
             "change_pct": trend_change_pct
         }
     
-    def format_analysis(self, symbol: str, timeframe: str, pattern_data: Dict) -> str:
-        """
-        Format enhanced pattern analysis for terminal output using Phase 3 format.
-        
-        Args:
-            symbol: Trading pair symbol
-            timeframe: Timeframe used
-            pattern_data: Pattern detection results
-        
-        Returns:
-            Formatted analysis string following Phase 3 specifications
-        """
-        if "error" in pattern_data:
-            return f"""
-===============================================================
-DOUBLE BOTTOM PATTERN ANALYSIS
-===============================================================
-ERROR: {pattern_data['error']}
-
-SUMMARY: Insufficient data for pattern analysis
-CONFIDENCE_SCORE: 0% | Unable to analyze pattern
-TREND_DIRECTION: UNKNOWN | MOMENTUM_STATE: N/A
-ENTRY_WINDOW: N/A
-EXIT_TRIGGER: N/A
-
-SUPPORT: N/A | RESISTANCE: N/A
-STOP_ZONE: N/A | TP_ZONE: N/A
-RR_RATIO: N/A | MAX_DRAWDOWN: N/A
-
-ACTION: INSUFFICIENT_DATA"""
-        
-        if not pattern_data["pattern_detected"]:
-            current_price = pattern_data.get('current_price', 0)
-            return f"""
-===============================================================
-DOUBLE BOTTOM PATTERN ANALYSIS
-===============================================================
-PATTERN_STATUS: NO PATTERN | CURRENT_PRICE: ${current_price:.4f} | TREND_SCAN: COMPLETE
-
-SUMMARY: No double bottom pattern detected in recent price action
-CONFIDENCE_SCORE: 0% | No valid pattern formation found
-TREND_DIRECTION: Neutral | MOMENTUM_STATE: Waiting
-ENTRY_WINDOW: Pattern required for entry signals
-EXIT_TRIGGER: N/A
-
-SUPPORT: N/A | RESISTANCE: N/A
-STOP_ZONE: N/A | TP_ZONE: N/A
-RR_RATIO: N/A | MAX_DRAWDOWN: N/A
-
-ACTION: NEUTRAL"""
-        
-        # Extract key metrics
-        current_price = pattern_data['current_price']
-        signal = pattern_data['signal']
-        confidence = pattern_data.get('confidence_score', 0)
-        
-        # Risk management metrics
-        neckline = pattern_data.get('neckline', 0)
-        target = pattern_data.get('price_target', 0)
-        stop_loss = pattern_data.get('stop_loss', 0)
-        entry_price = pattern_data.get('entry_price', 0)
-        risk_reward = pattern_data.get('risk_reward_ratio', 0)
-        
-        # Pattern quality metrics
-        volume_conf = pattern_data.get('volume_confirmation', False)
-        volume_ratio = pattern_data.get('volume_ratio', 1.0)
-        time_symmetry = pattern_data.get('time_symmetry', 0)
-        rel_vol_strength = pattern_data.get('relative_volume_strength', 1.0)
-        pattern_status = pattern_data.get('pattern_status', 'Unknown')
-        breakout_confirmed = pattern_data.get('breakout_confirmed', False)
-        
-        # Trend context
-        trend_context = pattern_data.get('trend_context', {})
-        trend_dir = trend_context.get('trend', 'UNKNOWN')
-        trend_strength = trend_context.get('strength', 0)
-        trend_change_pct = trend_context.get('change_pct', 0)
-        
-        # Format timestamps
-        low1_time = pattern_data.get('low1_timestamp', 'N/A')
-        low2_time = pattern_data.get('low2_timestamp', 'N/A')
-        
-        # Calculate pattern quality percentage
-        pattern_height_pct = 0
-        if pattern_data.get('pattern_height') and pattern_data.get('low1_price'):
-            pattern_height_pct = (pattern_data['pattern_height'] / pattern_data['low1_price']) * 100
-        
-        # Volume confirmation symbol
-        vol_status = "✓" if volume_conf else "✗"
-        
-        # Determine momentum state
-        if breakout_confirmed:
-            momentum_state = "Accelerating"
-        elif signal == "WATCH":
-            momentum_state = "Building"
-        else:
-            momentum_state = "Consolidating"
-        
-        # Determine trend direction for display
-        if trend_dir == "DOWNTREND":
-            trend_display = "Bearish→Bullish"
-        elif trend_dir == "UPTREND":
-            trend_display = "Bullish"
-        elif trend_dir == "SIDEWAYS":
-            trend_display = "Neutral→Bullish"
-        else:
-            trend_display = "Unknown"
-        
-        # Create summary based on pattern status
-        if breakout_confirmed:
-            summary = "Double bottom confirmed + neckline breakout validated"
-        elif signal == "WATCH" and "Forming" in pattern_status:
-            summary = "Double bottom forming + waiting for neckline test"
-        elif signal == "WATCH":
-            summary = "Double bottom complete + awaiting breakout confirmation"
-        else:
-            summary = "Double bottom pattern detected + monitoring price action"
-        
-        # Entry window determination
-        if breakout_confirmed:
-            entry_window = "Active - pullback to neckline optimal"
-        elif signal == "WATCH":
-            entry_window = "Pending - await neckline break"
-        else:
-            entry_window = "Setup phase - monitor closely"
-        
-        # Exit trigger
-        exit_trigger = f"Close below ${stop_loss:.4f} OR target ${target:.4f} reached"
-        
-        # Calculate max drawdown estimate
-        if stop_loss > 0 and current_price > 0:
-            max_drawdown_pct = ((current_price - stop_loss) / current_price) * 100
-        else:
-            max_drawdown_pct = 0
-        
-        # Build Phase 3 formatted output
-        output = f"""
-===============================================================
-DOUBLE BOTTOM PATTERN ANALYSIS
-===============================================================
-RISK_REWARD: {risk_reward:.1f}:1 | VOLUME_CONF: {vol_status} ({volume_ratio:.2f}) | PATTERN_HEIGHT: {pattern_height_pct:.1f}%
-TIME_SYMMETRY: {time_symmetry:.2f} | CURRENT_PRICE: ${current_price:.4f} | TREND_CHANGE: {trend_change_pct:.2f}%
-LOW_1_TIME: {low1_time} | LOW_2_TIME: {low2_time}
-
-SUMMARY: {summary}
-CONFIDENCE_SCORE: {confidence:.0f}% | Based on pattern + volume + timing alignment
-TREND_DIRECTION: {trend_display} | MOMENTUM_STATE: {momentum_state}
-ENTRY_WINDOW: {entry_window}
-EXIT_TRIGGER: {exit_trigger}
-
-SUPPORT: ${pattern_data.get('low1_price', 0):.4f} | RESISTANCE: ${neckline:.4f}
-STOP_ZONE: Below ${stop_loss:.4f} | TP_ZONE: ${target:.4f}
-RR_RATIO: {risk_reward:.1f}:1 | MAX_DRAWDOWN: -{max_drawdown_pct:.1f}% expected
-
-ACTION: {signal}"""
-        
-        return output
-
-
-def analyze_double_bottom(symbol: str, timeframe: str = '4h', limit: int = 200) -> str:
-    """
-    Analyze double bottom pattern for a symbol.
-    
-    Args:
-        symbol: Trading pair symbol (e.g., 'ADA/USDT')
-        timeframe: Timeframe for analysis
-        limit: Number of candles to analyze
-    
-    Returns:
-        Formatted analysis string
-    """
-    detector = DoubleBottomDetector()
-    pattern_data = detector.detect_pattern(symbol, timeframe, limit)
-    return detector.format_analysis(symbol, timeframe, pattern_data)
 

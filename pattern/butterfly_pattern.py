@@ -17,18 +17,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class ButterflyPatternDetector:
+class ButterflyStrategy:
     """Butterfly harmonic pattern detection and analysis."""
     
-    def __init__(self, zigzag_threshold: float = 5.0):
+    def __init__(self):
         """
-        Initialize Butterfly pattern detector.
-        
-        Args:
-            zigzag_threshold: ZigZag threshold percentage for swing point detection
+        Initialize Butterfly pattern strategy.
         """
-        self.zigzag_threshold = zigzag_threshold
-        self.data_collector = get_data_collector()
+        self.zigzag_threshold = 5.0
+        self.collector = get_data_collector()
         
         # Fibonacci validation ranges for Butterfly pattern
         self.ab_retracement = 0.786      # AB must be 0.786 retracement of XA
@@ -40,24 +37,33 @@ class ButterflyPatternDetector:
         self.ad_extension = 1.27         # AD must be 1.27 extension of XA
         self.ad_tolerance = 0.05         # ±5% tolerance for AD
     
-    def detect_pattern(self, symbol: str, timeframe: str = '4h', limit: int = 150) -> Dict:
+    def _convert_confidence_to_score(self, confidence: str) -> int:
+        """Convert confidence string to numeric score."""
+        confidence_map = {"HIGH": 85, "MEDIUM": 72, "LOW": 45}
+        return confidence_map.get(confidence, 0)
+    
+    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
         """
-        Detect Butterfly pattern for given symbol and timeframe.
+        Analyze Butterfly patterns for given symbol and timeframe
         
         Args:
-            symbol: Trading pair symbol (e.g., 'XRP/USDT')
+            symbol: Trading pair symbol
             timeframe: Timeframe for analysis
             limit: Number of candles to analyze
-        
+            
         Returns:
-            Dictionary with pattern analysis results
+            Analysis results dictionary
         """
         try:
-            # Fetch OHLCV data
-            ohlcv_data = self.data_collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
-            if len(ohlcv_data) < 50:
-                return {"error": "Insufficient data for pattern detection"}
+            if not ohlcv_data or len(ohlcv_data) < 50:
+                return {
+                    'error': f'Insufficient data: need at least 50 candles, got {len(ohlcv_data) if ohlcv_data else 0}',
+                    'success': False,
+                    'symbol': symbol,
+                    'timeframe': timeframe
+                }
             
             # Extract price and volume arrays
             timestamps = [candle[0] for candle in ohlcv_data]
@@ -74,11 +80,100 @@ class ButterflyPatternDetector:
                 timestamps, highs, lows, closes, volumes, swing_points
             )
             
-            return pattern_data
+            # Get current price and timestamp info
+            current_price = closes[-1]
+            current_timestamp = timestamps[-1]
+            dt = datetime.fromtimestamp(current_timestamp / 1000)
+            
+            result = {
+                'success': True,
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
+                'timestamp': current_timestamp,
+                'total_candles': len(ohlcv_data),
+                'current_price': round(current_price, 4),
+                'pattern_detected': pattern_data["pattern_detected"]
+            }
+            
+            if pattern_data["pattern_detected"]:
+                # Extract pattern details
+                signal = pattern_data.get("signal", "HOLD")
+                bias = pattern_data.get("bias", "NEUTRAL")
+                confidence = self._convert_confidence_to_score(pattern_data.get("confidence", "LOW"))
+                
+                # Calculate price levels
+                d_price = pattern_data.get("d_price", current_price)
+                tp1_price = pattern_data.get("tp1_price", current_price * 1.02)
+                tp2_price = pattern_data.get("tp2_price", current_price * 1.05)
+                stop_loss = pattern_data.get("stop_loss", current_price * 0.98)
+                
+                # Calculate Risk/Reward ratio
+                if signal in ['BUY', 'SELL']:
+                    risk = abs(current_price - stop_loss)
+                    reward = abs(tp1_price - current_price)
+                    rr_ratio = reward / risk if risk > 0 else 0
+                else:
+                    rr_ratio = 0
+                
+                # Determine entry window
+                if signal in ['BUY', 'SELL'] and confidence > 70:
+                    entry_window = "Optimal at point D"
+                elif signal in ['BUY', 'SELL'] and confidence > 50:
+                    entry_window = "Good after confirmation"
+                else:
+                    entry_window = "Wait for better setup"
+                
+                # Exit trigger
+                if signal == 'BUY':
+                    exit_trigger = "Target hit OR Stop loss breach"
+                elif signal == 'SELL':
+                    exit_trigger = "Target hit OR Stop loss breach"
+                else:
+                    exit_trigger = "Wait for pattern completion"
+                
+                # Update result with pattern analysis
+                result.update({
+                    'pattern_type': 'Butterfly',
+                    'bias': bias,
+                    'signal': signal,
+                    'confidence_score': confidence,
+                    'entry_window': entry_window,
+                    'exit_trigger': exit_trigger,
+                    'support_level': round(pattern_data.get("x_price", current_price * 0.98), 4),
+                    'resistance_level': round(pattern_data.get("a_price", current_price * 1.02), 4),
+                    'stop_zone': round(stop_loss, 4),
+                    'tp_low': round(tp1_price, 4),
+                    'tp_high': round(tp2_price, 4),
+                    'rr_ratio': round(rr_ratio, 1),
+                    'raw_data': {
+                        'ohlcv_data': ohlcv_data,
+                        'pattern_data': pattern_data
+                    }
+                })
+            else:
+                # No pattern detected
+                result.update({
+                    'pattern_type': None,
+                    'bias': 'NEUTRAL',
+                    'signal': 'HOLD',
+                    'confidence_score': 0,
+                    'entry_window': "No pattern detected",
+                    'exit_trigger': "Wait for pattern formation",
+                    'support_level': round(current_price * 0.98, 4),
+                    'resistance_level': round(current_price * 1.02, 4),
+                    'rr_ratio': 0
+                })
+                
+            return result
             
         except Exception as e:
-            logger.error(f"Error detecting Butterfly pattern for {symbol}: {e}")
-            return {"error": str(e)}
+            return {
+                'error': f'Analysis failed: {str(e)}',
+                'success': False,
+                'symbol': symbol,
+                'timeframe': timeframe
+            }
     
     def _create_zigzag_points(self, highs: np.ndarray, lows: np.ndarray, 
                              threshold_pct: float) -> List[Tuple[int, float, str]]:
@@ -374,119 +469,3 @@ class ButterflyPatternDetector:
         else:
             return "LOW"
     
-    def format_analysis(self, symbol: str, timeframe: str, pattern_data: Dict) -> str:
-        """
-        Format Butterfly pattern analysis for terminal output using phase 3 format.
-        
-        Args:
-            symbol: Trading pair symbol
-            timeframe: Timeframe used
-            pattern_data: Pattern detection results
-        
-        Returns:
-            Formatted analysis string
-        """
-        if "error" in pattern_data:
-            return f"❌ Error analyzing {symbol}: {pattern_data['error']}"
-        
-        if not pattern_data["pattern_detected"]:
-            return (
-                f"\n"
-                f"===============================================================\n"
-                f"BUTTERFLY HARMONIC PATTERN\n"
-                f"===============================================================\n"
-                f"AB_RETRACEMENT: INSUFFICIENT_DATA | BC_RETRACEMENT: INSUFFICIENT_DATA | CD_EXTENSION: INSUFFICIENT_DATA\n"
-                f"AD_EXTENSION: INSUFFICIENT_DATA | CURRENT_PRICE: ${pattern_data['current_price']:.4f} | VOLUME_SPIKE: 0.00%\n"
-                f"PATTERN_START: N/A | PATTERN_END: N/A\n"
-                f"\n"
-                f"SUMMARY: No valid Butterfly pattern detected in the analyzed timeframe\n"
-                f"CONFIDENCE_SCORE: 0% | Based on insufficient swing points or invalid Fibonacci ratios\n"
-                f"TREND_DIRECTION: Neutral | MOMENTUM_STATE: Undefined\n"
-                f"ENTRY_WINDOW: No valid entry point\n"
-                f"EXIT_TRIGGER: N/A\n"
-                f"\n"
-                f"SUPPORT: N/A | RESISTANCE: N/A\n"
-                f"STOP_ZONE: N/A | TP_ZONE: N/A\n"
-                f"RR_RATIO: N/A | MAX_DRAWDOWN: N/A\n"
-                f"\n"
-                f"ACTION: NEUTRAL"
-            )
-        
-        # Extract pattern data
-        ab_ratio = pattern_data["ab_retracement"]
-        bc_ratio = pattern_data["bc_retracement"]
-        cd_ratio = pattern_data["cd_extension"]
-        ad_ratio = pattern_data["ad_extension"]
-        
-        volume_status = "✓" if pattern_data["volume_spike"] else "✗"
-        rejection_status = "✓" if pattern_data["rejection_candle"] else "✗"
-        
-        # Calculate confidence percentage
-        confidence_map = {"HIGH": "85%", "MEDIUM": "72%", "LOW": "45%"}
-        confidence_pct = confidence_map.get(pattern_data["confidence"], "0%")
-        
-        # Calculate RR ratio
-        entry_price = pattern_data["d_price"]
-        tp1_price = pattern_data["tp1_price"]
-        stop_loss = pattern_data["stop_loss"]
-        
-        if pattern_data["bias"] == "Bullish":
-            risk = abs(entry_price - stop_loss)
-            reward = abs(tp1_price - entry_price)
-        else:
-            risk = abs(stop_loss - entry_price)
-            reward = abs(entry_price - tp1_price)
-        
-        rr_ratio = f"{reward/risk:.1f}:1" if risk > 0 else "N/A"
-        
-        # Calculate max drawdown estimate
-        max_drawdown = f"{(risk/entry_price)*100:.1f}%" if entry_price > 0 else "N/A"
-        
-        # Determine momentum state
-        momentum_state = "Accelerating" if pattern_data["confidence"] == "HIGH" else "Building"
-        
-        # Format timestamps
-        x_time = pattern_data["x_timestamp"].strftime("%Y-%m-%d %H:%M:%S") if pattern_data["x_timestamp"] else "N/A"
-        d_time = pattern_data["d_timestamp"].strftime("%Y-%m-%d %H:%M:%S") if pattern_data["d_timestamp"] else "N/A"
-        
-        return (
-            f"\n"
-            f"===============================================================\n"
-            f"BUTTERFLY HARMONIC PATTERN\n"
-            f"===============================================================\n"
-            f"AB_RETRACEMENT: {ab_ratio:.3f} | BC_RETRACEMENT: {bc_ratio:.3f} | CD_EXTENSION: {cd_ratio:.3f}\n"
-            f"AD_EXTENSION: {ad_ratio:.3f} | CURRENT_PRICE: ${pattern_data['current_price']:.4f} | VOLUME_SPIKE: {volume_status}\n"
-            f"PATTERN_START: {x_time} | PATTERN_END: {d_time}\n"
-            f"\n"
-            f"SUMMARY: {pattern_data['bias']} Butterfly pattern with Fibonacci confluence at point D\n"
-            f"CONFIDENCE_SCORE: {confidence_pct} | Based on Fibonacci ratios + volume + rejection confirmation\n"
-            f"TREND_DIRECTION: {pattern_data['bias']} | MOMENTUM_STATE: {momentum_state}\n"
-            f"ENTRY_WINDOW: Optimal at point D (${pattern_data['d_price']:.4f})\n"
-            f"EXIT_TRIGGER: Target hit OR Stop loss breach\n"
-            f"\n"
-            f"SUPPORT: ${pattern_data['x_price']:.4f} | RESISTANCE: ${pattern_data['a_price']:.4f}\n"
-            f"STOP_ZONE: ${stop_loss:.4f} | TP_ZONE: ${pattern_data['tp1_price']:.4f}–${pattern_data['tp2_price']:.4f}\n"
-            f"RR_RATIO: {rr_ratio} | MAX_DRAWDOWN: {max_drawdown} expected\n"
-            f"\n"
-            f"ACTION: {pattern_data['signal']}"
-        )
-
-
-def analyze_butterfly_pattern(symbol: str, timeframe: str = '4h', limit: int = 150, 
-                             zigzag_threshold: float = 5.0) -> str:
-    """
-    Analyze Butterfly pattern for a symbol.
-    
-    Args:
-        symbol: Trading pair symbol (e.g., 'XRP/USDT')
-        timeframe: Timeframe for analysis
-        limit: Number of candles to analyze
-        zigzag_threshold: ZigZag threshold percentage
-    
-    Returns:
-        Formatted analysis string
-    """
-    detector = ButterflyPatternDetector(zigzag_threshold)
-    pattern_data = detector.detect_pattern(symbol, timeframe, limit)
-    return detector.format_analysis(symbol, timeframe, pattern_data)
-

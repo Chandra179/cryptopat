@@ -1,2 +1,2 @@
 remove parse command, main, print output, make it into class if not exist, 
-the analyze function should be named analyze() at /pattern/head_and_shoulders.py, see /pattern/wedge.py for reference
+the analyze function should be named analyze() at /pattern/butterfly_pattern.py, see /pattern/wedge.py for reference

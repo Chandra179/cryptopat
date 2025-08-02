@@ -12,7 +12,7 @@ import pandas as pd
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 import sys
 import os
 
@@ -61,11 +61,11 @@ class ElliottWavePattern:
     validation_results: Dict[str, bool]
     fibonacci_ratios: Dict[str, float]
 
-class ElliottWaveAnalyzer:
-    """Elliott Wave pattern detection and validation"""
+class ElliottWaveStrategy:
+    """Elliott Wave pattern detection strategy for cryptocurrency trend analysis"""
     
     def __init__(self):
-        self.data_collector = get_data_collector()
+        self.collector = get_data_collector()
         
     def detect_zigzag_swings(self, df: pd.DataFrame, threshold_percent: float = 5.0) -> List[SwingPoint]:
         """
@@ -288,7 +288,7 @@ class ElliottWaveAnalyzer:
         """
         try:
             # Fetch OHLCV data
-            ohlcv_data = self.data_collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             if ohlcv_data is None or len(ohlcv_data) < 10:
                 return None
                 
@@ -594,26 +594,176 @@ class ElliottWaveAnalyzer:
         
         return output
     
-    def analyze(self, symbol: str, timeframe: str, limit: int = 150, zigzag_threshold: float = 5.0):
+    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
         """
-        Perform Elliott Wave analysis and print results
+        Analyze Elliott Wave patterns for given symbol and timeframe
         
         Args:
-            symbol: Trading pair (e.g., 'BTC/USDT')
-            timeframe: Time interval (e.g., '1h', '4h', '1d')
+            symbol: Trading pair symbol
+            timeframe: Timeframe for analysis
             limit: Number of candles to analyze
-            zigzag_threshold: ZigZag threshold percentage for swing detection
+            
+        Returns:
+            Analysis results dictionary
         """
-        pattern = self.analyze_elliott_wave(symbol, timeframe, limit, zigzag_threshold)
-        if pattern:
-            # Get current timestamp from the last data point
-            try:
-                ohlcv_data = self.data_collector.fetch_ohlcv_data(symbol, timeframe, 1)
-                current_timestamp = ohlcv_data[0][0] if ohlcv_data else int(datetime.now().timestamp() * 1000)
-            except:
-                current_timestamp = int(datetime.now().timestamp() * 1000)
+        try:
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            
+            if not ohlcv_data or len(ohlcv_data) < 50:
+                return {
+                    'error': f'Insufficient data: need at least 50 candles, got {len(ohlcv_data) if ohlcv_data else 0}',
+                    'success': False,
+                    'symbol': symbol,
+                    'timeframe': timeframe
+                }
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
+            
+            # Analyze Elliott Wave pattern
+            pattern = self.analyze_elliott_wave(symbol, timeframe, limit, 5.0)
+            
+            # Get current price and timestamp info
+            current_price = df['close'].iloc[-1]
+            current_timestamp = df['timestamp'].iloc[-1]
+            dt = datetime.fromtimestamp(current_timestamp / 1000, tz=timezone.utc)
+            
+            result = {
+                'success': True,
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
+                'timestamp': int(current_timestamp),
+                'total_candles': len(df),
+                'current_price': round(current_price, 4),
+                'pattern_detected': pattern is not None
+            }
+            
+            if pattern:
+                # Calculate confidence and signal
+                confidence = self.calculate_pattern_confidence(pattern)
                 
-            return self.format_analysis_output(pattern, current_timestamp)
-        else:
-            return f"No valid Elliott Wave pattern found for {symbol} on {timeframe}"
+                # Determine signal based on pattern type and validation
+                if confidence >= 70:
+                    if pattern.pattern_type == WaveType.IMPULSE:
+                        signal = "BUY" if pattern.trend_direction == TrendDirection.BULLISH else "SELL"
+                    else:  # Corrective - expect reversal
+                        signal = "SELL" if pattern.trend_direction == TrendDirection.BULLISH else "BUY"
+                elif confidence >= 50:
+                    signal = "BUY" if pattern.trend_direction == TrendDirection.BULLISH else "SELL"
+                else:
+                    signal = "HOLD"
+                
+                # Determine bias
+                bias = "BULLISH" if pattern.trend_direction == TrendDirection.BULLISH else "BEARISH"
+                
+                # Calculate support/resistance levels based on wave structure
+                if pattern.waves:
+                    wave_prices = []
+                    for wave in pattern.waves:
+                        wave_prices.extend([wave.start_point.price, wave.end_point.price])
+                    
+                    support_level = min(wave_prices)
+                    resistance_level = max(wave_prices)
+                else:
+                    support_level = current_price * 0.98
+                    resistance_level = current_price * 1.02
+                
+                # Calculate stop loss and take profit zones
+                if signal == 'BUY':
+                    stop_zone = support_level * 0.995
+                    tp_low = resistance_level * 1.005
+                    tp_high = resistance_level * 1.02
+                elif signal == 'SELL':
+                    stop_zone = resistance_level * 1.005
+                    tp_low = support_level * 0.995
+                    tp_high = support_level * 0.98
+                else:
+                    stop_zone = support_level * 0.995
+                    tp_low = resistance_level * 1.005
+                    tp_high = resistance_level * 1.02
+                
+                # Calculate Risk/Reward ratio
+                if signal in ['BUY', 'SELL']:
+                    risk = abs(current_price - stop_zone)
+                    reward = abs(tp_low - current_price) if tp_low != current_price else abs(tp_high - current_price)
+                    rr_ratio = reward / risk if risk > 0 else 0
+                else:
+                    rr_ratio = 0
+                
+                # Determine entry window
+                if signal in ['BUY', 'SELL'] and confidence > 70:
+                    entry_window = "Optimal now"
+                elif signal in ['BUY', 'SELL'] and confidence > 50:
+                    entry_window = "Good in next 2-3 bars"
+                else:
+                    entry_window = "Wait for better setup"
+                
+                # Exit trigger
+                if signal == 'BUY':
+                    exit_trigger = "Price breaks below key wave support"
+                elif signal == 'SELL':
+                    exit_trigger = "Price breaks above key wave resistance"
+                else:
+                    exit_trigger = "Wait for wave completion signal"
+                
+                # Update result with pattern analysis
+                result.update({
+                    # Pattern specific data
+                    'pattern_type': pattern.pattern_type.value,
+                    'bias': bias,
+                    'wave_count': len(pattern.waves),
+                    'trend_direction': pattern.trend_direction.value,
+                    'is_valid': pattern.is_valid,
+                    
+                    # Price levels
+                    'support_level': round(support_level, 4),
+                    'resistance_level': round(resistance_level, 4),
+                    'stop_zone': round(stop_zone, 4),
+                    'tp_low': round(tp_low, 4),
+                    'tp_high': round(tp_high, 4),
+                    
+                    # Trading analysis
+                    'signal': signal,
+                    'confidence_score': confidence,
+                    'entry_window': entry_window,
+                    'exit_trigger': exit_trigger,
+                    'rr_ratio': round(rr_ratio, 1),
+                    
+                    # Elliott Wave specific data
+                    'validation_results': pattern.validation_results,
+                    'fibonacci_ratios': pattern.fibonacci_ratios,
+                    'wave_structure': self.get_wave_structure_summary(pattern),
+                    'prediction_targets': self.get_prediction_targets(pattern),
+                    
+                    # Raw data
+                    'raw_data': {
+                        'ohlcv_data': ohlcv_data,
+                        'pattern_data': pattern
+                    }
+                })
+            else:
+                # No pattern detected
+                result.update({
+                    'pattern_type': None,
+                    'bias': 'NEUTRAL',
+                    'signal': 'HOLD',
+                    'confidence_score': 0,
+                    'entry_window': "No pattern detected",
+                    'exit_trigger': "Wait for pattern formation",
+                    'support_level': round(current_price * 0.98, 4),
+                    'resistance_level': round(current_price * 1.02, 4),
+                    'rr_ratio': 0
+                })
+                
+            return result
+            
+        except Exception as e:
+            return {
+                'error': f'Analysis failed: {str(e)}',
+                'success': False,
+                'symbol': symbol,
+                'timeframe': timeframe
+            }
 
