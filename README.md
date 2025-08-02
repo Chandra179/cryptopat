@@ -58,3 +58,12 @@ triangle pattern, wedge pattern
 4. bullish trend start if EMA 9 crosses above EMA 21, Close is above both EMAs, with Volume spike
 5. bearish trend start if EMA 9 crosses below EMA 21, Close is below both EMAs, with Volume spike
 6. Confirmation = crossover + follow-through over next candles
+
+## Phase 2: CLI
+```
+> s=BTC/USDT t=1h l=100
+
+s = coin symbol
+t = timeframe (15m, 1h, 4h, 1d, 3d, 1w, 1m)
+l = number of candles
+```
