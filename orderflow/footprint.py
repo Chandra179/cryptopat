@@ -12,13 +12,13 @@ from data import get_data_collector
 
 logger = logging.getLogger(__name__)
 
-class FootprintAnalyzer:
+class FootprintStrategy:
     """
-    Volume Footprint Chart analyzer for detecting volume-based order flow signals.
+    Volume Footprint Chart strategy for detecting volume-based order flow signals.
     """
     
     def __init__(self):
-        """Initialize the FootprintAnalyzer."""
+        """Initialize the FootprintStrategy."""
         self.collector = get_data_collector()
         
     def fetch_footprint_data(self, symbol: str, timeframe: str = '5m', 
@@ -386,92 +386,120 @@ class FootprintAnalyzer:
         
         return "\n".join(output)
     
-    def analyze_footprint(self, symbol: str, timeframe: str = '5m', 
-                        limit: int = 50, num_bins: int = 40) -> str:
+    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict[str, Any]:
         """
-        Complete footprint analysis with signal detection and chart rendering.
+        Analyze footprint patterns for given symbol and timeframe.
         
         Args:
             symbol: Trading pair symbol
-            timeframe: Candle timeframe
+            timeframe: Timeframe for analysis
             limit: Number of candles to analyze
-            num_bins: Number of price bins per candle
             
         Returns:
-            Complete analysis output string
+            Analysis results dictionary
         """
         try:
             # Fetch data
             ohlcv_data, trades_data = self.fetch_footprint_data(symbol, timeframe, limit)
             
             if not ohlcv_data or not trades_data:
-                return f"Insufficient data for footprint analysis of {symbol}"
+                return {
+                    'error': f'Insufficient data for footprint analysis: OHLCV={len(ohlcv_data) if ohlcv_data else 0}, Trades={len(trades_data) if trades_data else 0}',
+                    'success': False,
+                    'symbol': symbol,
+                    'timeframe': timeframe
+                }
             
-            # Build footprint matrix
+            # Build footprint matrix with default bins
+            num_bins = 40
             footprint_data = self.build_footprint_matrix(ohlcv_data, trades_data, num_bins)
             
             if not footprint_data:
-                return f"Failed to build footprint matrix for {symbol}"
+                return {
+                    'error': 'Failed to build footprint matrix',
+                    'success': False,
+                    'symbol': symbol,
+                    'timeframe': timeframe
+                }
             
             # Detect signals
             signals = self.detect_footprint_signals(footprint_data)
             
-            # Render chart
-            chart_output = self.render_footprint_chart(footprint_data, symbol, timeframe, num_bins)
+            # Get current price and timestamp info
+            current_candle = footprint_data[-1]
+            current_price = current_candle['close']
+            current_timestamp = current_candle['timestamp']
+            dt = datetime.fromtimestamp(current_timestamp / 1000)
             
-            # Add signal analysis
-            output = [chart_output, ""]
+            # Determine overall signal and confidence
+            overall_signal = signals.get('overall_signal', 'NEUTRAL')
+            confidence = signals.get('confidence', 'LOW')
             
-            # Volume exhaustion signals
-            if signals['volume_exhaustion']:
-                output.append("Volume Exhaustion Signals:")
-                for signal in signals['volume_exhaustion']:
-                    signal_type = signal['type'].replace('_', ' ').title()
-                    location = signal['location'].title()
-                    strength = signal['strength'].upper()
-                    output.append(f"  • {signal_type} at {location} ({strength})")
-                output.append("")
-            
-            # Delta imbalance signals  
-            if signals['delta_imbalances']:
-                output.append("Delta Imbalance Signals:")
-                for signal in signals['delta_imbalances'][:3]:  # Show top 3
-                    imbalance_type = signal['type'].replace('_', ' ').title()
-                    ratio = signal['ratio']
-                    price_low, price_high = signal['price_range']
-                    output.append(f"  • {imbalance_type}: {ratio:.1%} at {price_high:.4f}–{price_low:.4f}")
-                output.append("")
-            
-            # Overall signal
-            overall_signal = signals['overall_signal'].replace('_', ' ').title()
-            confidence = signals['confidence'].title()
-            
-            if signals['overall_signal'] != 'NEUTRAL':
-                output.append(f"Signal: {overall_signal}")
-                output.append(f"Confidence: {confidence}")
+            # Map to standard format
+            if overall_signal == 'BEARISH_REVERSAL':
+                signal = 'SELL'
+                bias = 'BEARISH'
+            elif overall_signal == 'BULLISH_REVERSAL':
+                signal = 'BUY' 
+                bias = 'BULLISH'
             else:
-                output.append("Signal: No clear directional bias")
-                output.append("Confidence: LOW")
+                signal = 'HOLD'
+                bias = 'NEUTRAL'
             
-            return "\n".join(output)
+            # Calculate confidence score
+            confidence_score = {
+                'HIGH': 85,
+                'MEDIUM': 65,
+                'LOW': 35
+            }.get(confidence, 35)
+            
+            result = {
+                'success': True,
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
+                'timestamp': current_timestamp,
+                'total_candles': len(ohlcv_data),
+                'current_price': round(current_price, 4),
+                'pattern_detected': len(signals['volume_exhaustion']) > 0 or len(signals['delta_imbalances']) > 0,
+                
+                # Pattern specific data
+                'pattern_type': 'Volume Footprint',
+                'bias': bias,
+                'signal': signal,
+                'confidence_score': confidence_score,
+                
+                # Signal details
+                'volume_exhaustion_signals': signals['volume_exhaustion'],
+                'delta_imbalance_signals': signals['delta_imbalances'],
+                'overall_signal': overall_signal,
+                
+                # Price levels (basic support/resistance)
+                'support_level': round(current_price * 0.99, 4),
+                'resistance_level': round(current_price * 1.01, 4),
+                
+                # Analysis details
+                'total_trades': current_candle['num_trades'],
+                'price_range': round(current_candle['price_range'], 4),
+                'num_bins': num_bins,
+                
+                # Raw data
+                'raw_data': {
+                    'ohlcv_data': ohlcv_data,
+                    'footprint_data': footprint_data,
+                    'signals': signals
+                }
+            }
+            
+            return result
             
         except Exception as e:
             logger.error(f"Error in footprint analysis for {symbol}: {e}")
-            return f"Error analyzing footprint for {symbol}: {str(e)}"
+            return {
+                'error': f'Analysis failed: {str(e)}',
+                'success': False,
+                'symbol': symbol,
+                'timeframe': timeframe
+            }
 
 
-def analyze_footprint(symbol: str, timeframe: str = '5m', limit: int = 50, bins: int = 40) -> str:
-    """
-    Convenience function for footprint analysis.
-    
-    Args:
-        symbol: Trading pair symbol (e.g., 'XRP/USDT')
-        timeframe: Candle timeframe (e.g., '1m', '5m', '15m')
-        limit: Number of candles to analyze
-        bins: Number of price bins per candle
-        
-    Returns:
-        Complete footprint analysis output
-    """
-    analyzer = FootprintAnalyzer()
-    return analyzer.analyze_footprint(symbol, timeframe, limit, bins)

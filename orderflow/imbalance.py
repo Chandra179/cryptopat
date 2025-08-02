@@ -8,11 +8,10 @@ Implements industry-standard multi-timeframe analysis with advanced signal detec
 import logging
 import time
 import asyncio
-from typing import Dict, List, Optional, Tuple, NamedTuple
-from datetime import datetime, timedelta
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+from datetime import datetime
+from dataclasses import dataclass
 from collections import deque
-import numpy as np
 import statistics
 from data import get_data_collector
 
@@ -681,78 +680,151 @@ class OrderFlowImbalanceDetector:
         
         return False
 
-# Analysis functions
-async def run_imbalance_analysis(symbol: str, duration_seconds: int = 60) -> Dict:
-    """
-    Run comprehensive order flow imbalance analysis.
-    
-    Args:
-        symbol: Trading pair symbol (e.g., 'BTC/USDT')
-        duration_seconds: Analysis duration in seconds
+    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+        """
+        Analyze order flow imbalance patterns for given symbol and timeframe.
         
-    Returns:
-        Complete analysis results
-    """
-    detector = OrderFlowImbalanceDetector()
-    return await detector.analyze_symbol(symbol, duration_seconds)
+        Args:
+            symbol: Trading pair symbol
+            timeframe: Timeframe for analysis
+            limit: Number of candles to analyze
+            
+        Returns:
+            Analysis results dictionary
+        """
+        try:
+            # Fetch OHLCV data
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            
+            if not ohlcv_data or len(ohlcv_data) < 20:
+                return {
+                    'error': f'Insufficient data: need at least 20 candles, got {len(ohlcv_data) if ohlcv_data else 0}',
+                    'success': False,
+                    'symbol': symbol,
+                    'timeframe': timeframe
+                }
+            
+            # Get current price and market data
+            current_candle = ohlcv_data[-1]
+            current_price = float(current_candle[4])  # close price
+            current_volume = float(current_candle[5])  # volume
+            
+            # Calculate recent volume average for comparison
+            recent_volumes = [float(candle[5]) for candle in ohlcv_data[-10:]]
+            avg_volume = sum(recent_volumes) / len(recent_volumes)
+            volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1.0
+            
+            # Basic imbalance detection using volume and price action
+            price_change = (current_price - float(current_candle[1])) / float(current_candle[1])  # (close - open) / open
+            body_size = abs(current_price - float(current_candle[1]))
+            candle_range = float(current_candle[2]) - float(current_candle[3])  # high - low
+            
+            # Detect imbalance pattern
+            pattern_detected = False
+            signal = 'HOLD'
+            bias = 'NEUTRAL'
+            confidence = 0
+            signal_type = 'no_pattern'
+            
+            # Volume spike with minimal price movement indicates absorption/imbalance
+            if volume_ratio > 1.5 and abs(price_change) < 0.01:  # 1% price movement threshold
+                pattern_detected = True
+                confidence = min(int(volume_ratio * 30), 95)
+                
+                if price_change > 0:
+                    signal = 'BUY'
+                    bias = 'BULLISH'
+                    signal_type = 'bullish_imbalance'
+                elif price_change < 0:
+                    signal = 'SELL'
+                    bias = 'BEARISH'
+                    signal_type = 'bearish_imbalance'
+                else:
+                    signal_type = 'neutral_imbalance'
+            
+            # Calculate support/resistance levels
+            if pattern_detected:
+                if signal == 'BUY':
+                    support_level = current_price * 0.99
+                    resistance_level = current_price * 1.02
+                    stop_zone = current_price * 0.985
+                elif signal == 'SELL':
+                    support_level = current_price * 0.98
+                    resistance_level = current_price * 1.01
+                    stop_zone = current_price * 1.015
+                else:
+                    support_level = current_price * 0.99
+                    resistance_level = current_price * 1.01
+                    stop_zone = current_price
+            else:
+                support_level = current_price * 0.99
+                resistance_level = current_price * 1.01
+                stop_zone = current_price
+            
+            # Calculate risk/reward ratio
+            risk = abs(current_price - stop_zone)
+            reward = abs(resistance_level - current_price) if signal == 'BUY' else abs(current_price - support_level)
+            rr_ratio = reward / risk if risk > 0 else 0
+            
+            # Entry window assessment
+            if pattern_detected and confidence > 70:
+                entry_window = "Optimal now"
+            elif pattern_detected and confidence > 50:
+                entry_window = "Good in next 2-3 bars"
+            else:
+                entry_window = "Wait for better setup"
+            
+            # Exit trigger
+            if signal == 'BUY':
+                exit_trigger = "Price breaks below support level"
+            elif signal == 'SELL':
+                exit_trigger = "Price breaks above resistance level"
+            else:
+                exit_trigger = "Wait for clear directional imbalance"
+            
+            return {
+                'success': True,
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'analysis_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'timestamp': int(current_candle[0]),
+                'total_candles': len(ohlcv_data),
+                'current_price': round(current_price, 4),
+                'pattern_detected': pattern_detected,
+                
+                # Pattern specific data
+                'pattern_type': signal_type,
+                'bias': bias,
+                'signal': signal,
+                'confidence_score': confidence,
+                
+                # Price levels
+                'support_level': round(support_level, 4),
+                'resistance_level': round(resistance_level, 4),
+                'stop_zone': round(stop_zone, 4),
+                
+                # Trading analysis
+                'entry_window': entry_window,
+                'exit_trigger': exit_trigger,
+                'rr_ratio': round(rr_ratio, 1),
+                
+                # Volume metrics
+                'volume_ratio': round(volume_ratio, 2),
+                'current_volume': round(current_volume, 2),
+                'avg_volume': round(avg_volume, 2),
+                
+                # Price action
+                'price_change_pct': round(price_change * 100, 3),
+                'body_size': round(body_size, 4),
+                'candle_range': round(candle_range, 4)
+            }
+            
+        except Exception as e:
+            return {
+                'error': f'Analysis failed: {str(e)}',
+                'success': False,
+                'symbol': symbol,
+                'timeframe': timeframe
+            }
 
-def format_imbalance_results(results: Dict) -> str:
-    """Format imbalance analysis results for terminal output."""
-    if 'error' in results:
-        return f"❌ Analysis Error: {results['error']}"
-    
-    symbol = results['symbol']
-    duration = results['duration_seconds']
-    snapshots = results['snapshots_collected']
-    signals = results['signals_detected']
-    
-    output = [
-        f"{'='*70}",
-        f"ORDER FLOW IMBALANCE ANALYSIS: {symbol}",
-        f"{'='*70}",
-        f"Duration: {duration}s | Snapshots: {snapshots} | Signals: {signals}",
-        ""
-    ]
-    
-    # Market regime
-    regime = results.get('market_regime', {})
-    if regime:
-        vol_regime = getattr(regime, 'volatility_regime', 'unknown')
-        session = getattr(regime, 'session_type', 'unknown')
-        output.append(f"Market Regime: {vol_regime.title()} Volatility | {session.title()} Session")
-        output.append("")
-    
-    # Timeframe results
-    tf_results = results.get('timeframe_results', {})
-    for timeframe, data in tf_results.items():
-        output.append(f"📊 {timeframe.upper()} ANALYSIS")
-        output.append(f"{'─'*40}")
-        
-        avg_imbalance = data.get('avg_imbalance', 0)
-        avg_volume = data.get('avg_volume', 0)
-        avg_aggressive = data.get('avg_aggressive_ratio', 0)
-        signals_count = data.get('signals_count', 0)
-        
-        output.append(f"Average Imbalance: {avg_imbalance:+.3f}")
-        output.append(f"Average Volume: {avg_volume:.2f}")
-        output.append(f"Average Aggressive Ratio: {avg_aggressive:.2f}")
-        output.append(f"Signals Detected: {signals_count}")
-        
-        # Latest snapshot details
-        latest = data.get('latest_snapshot')
-        if latest:
-            output.append(f"Latest: {latest.basic_imbalance:+.3f} imbalance, "
-                         f"z-score: {latest.statistical_significance:.2f}")
-        
-        # Recent signals
-        recent_signals = data.get('recent_signals', [])
-        if recent_signals:
-            output.append("Recent Signals:")
-            for signal in recent_signals[-3:]:  # Last 3 signals
-                output.append(f"  • {signal.signal_type.title()} ({signal.direction}) "
-                             f"- Strength: {signal.strength:.2f}, Confidence: {signal.confidence:.2f}")
-        
-        output.append("")
-    
-    return "\n".join(output)
 

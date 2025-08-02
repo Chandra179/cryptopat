@@ -9,17 +9,14 @@ from .orderbook_heatmap import (
     OrderBookSnapshot,
     MarketMicrostructureMetrics,
     InstitutionalSignal,
-    create_heatmap_analyzer,
-    run_analysis
+    OrderBookHeatmapStrategy
 )
 
 from .imbalance import (
     OrderFlowImbalanceDetector,
     OrderFlowSnapshot,
     ImbalanceSignal,
-    MarketRegime,
-    run_imbalance_analysis,
-    format_imbalance_results
+    MarketRegime
 )
 
 __all__ = [
@@ -27,12 +24,9 @@ __all__ = [
     'OrderBookSnapshot', 
     'MarketMicrostructureMetrics',
     'InstitutionalSignal',
-    'create_heatmap_analyzer',
-    'run_analysis',
+    'OrderBookHeatmapStrategy',
     'OrderFlowImbalanceDetector',
     'OrderFlowSnapshot',
     'ImbalanceSignal', 
-    'MarketRegime',
-    'run_imbalance_analysis',
-    'format_imbalance_results'
+    'MarketRegime'
 ]

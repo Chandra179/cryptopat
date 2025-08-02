@@ -806,26 +806,46 @@ class StopSweepDetector(EnhancedStopSweepDetector):
     def analyze_stop_sweep(self, *args, **kwargs):
         return self.analyze_enhanced_stop_sweep(*args, **kwargs)
 
-def analyze_stop_sweep(symbol: str, timeframe: str = '1m', zigzag_threshold: float = 3.0,
-                      volume_threshold: float = 5000, wall_volume_threshold: float = 10000,
-                      spike_window: int = 5, sustain_seconds: int = 3) -> str:
-    """
-    Enhanced convenience function for stop run and liquidity sweep analysis.
+class StopSweepStrategy:
+    """Stop run and liquidity sweep detection strategy."""
     
-    Args:
-        symbol: Trading pair symbol (e.g., 'ETH/USDT')
-        timeframe: Timeframe for swing detection
-        zigzag_threshold: ZigZag threshold percentage
-        volume_threshold: Minimum volume for spike detection
-        wall_volume_threshold: Minimum wall volume for sweep detection
-        spike_window: Window in seconds for volume spike detection
-        sustain_seconds: Time to confirm reversal
+    def __init__(self):
+        """Initialize strategy."""
+        self.detector = EnhancedStopSweepDetector()
+    
+    def analyze(self, symbol: str, timeframe: str = '1m', limit: int = 100) -> Dict:
+        """
+        Analyze stop run and liquidity sweep patterns.
         
-    Returns:
-        Complete enhanced stop sweep analysis output with delta, ATR, confluence, and regime filtering
-    """
-    detector = EnhancedStopSweepDetector()
-    return detector.analyze_enhanced_stop_sweep(
-        symbol, timeframe, zigzag_threshold, volume_threshold,
-        wall_volume_threshold, spike_window, sustain_seconds
-    )
+        Args:
+            symbol: Trading pair symbol
+            timeframe: Timeframe for analysis
+            limit: Number of candles to analyze
+            
+        Returns:
+            Dict with analysis results
+        """
+        try:
+            result = self.detector.analyze_enhanced_stop_sweep(
+                symbol=symbol,
+                timeframe=timeframe,
+                limit=limit
+            )
+            
+            return {
+                "success": True,
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "analysis": result,
+                "signal": "NEUTRAL",  # Would be extracted from actual analysis
+                "pattern_detected": "stop_run" in result.lower(),
+                "timestamp": time.time()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "symbol": symbol,
+                "timeframe": timeframe
+            }

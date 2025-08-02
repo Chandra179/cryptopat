@@ -3,171 +3,9 @@ Smart Money Concepts (SMC) analysis implementation for cryptocurrency markets.
 Detects liquidity zones, order blocks, break of structure (BOS), and change of character (CHOCH).
 """
 
-import sys
-from datetime import datetime
-from typing import List, Tuple, Dict, Any, Optional
+from datetime import datetime, timezone
+from typing import List, Tuple, Dict
 from data import get_data_collector
-
-
-class OutputFormatter:
-    """Standardized output formatter for trend analysis results."""
-    
-    @staticmethod
-    def format_analysis_output(timestamp: int, metrics: Dict[str, Any], 
-                              signal: str, trend: str, 
-                              price: Optional[float] = None,
-                              symbol: Optional[str] = None,
-                              timeframe: Optional[str] = None,
-                              multiline: bool = False) -> str:
-        """
-        Format analysis output with standardized structure.
-        
-        Args:
-            timestamp: Unix timestamp in milliseconds
-            metrics: Dictionary of metric names and values
-            signal: Trading signal (BUY, SELL, HOLD, NONE, etc.)
-            trend: Trend direction (BULLISH, BEARISH, NEUTRAL, etc.)
-            price: Optional current price
-            symbol: Optional trading symbol (e.g., BTC/USDT)
-            timeframe: Optional chart timeframe (e.g., 1h, 4h, 1d)
-            multiline: If True, format with better visual hierarchy
-            
-        Returns:
-            Formatted output string (single or multi-line)
-        """
-        # Convert timestamp to readable format
-        dt = datetime.fromtimestamp(timestamp / 1000)
-        timestamp_str = dt.strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Build context string (symbol/timeframe)
-        context_parts = []
-        if symbol:
-            context_parts.append(symbol)
-        if timeframe:
-            context_parts.append(timeframe)
-        context_str = f"[{' | '.join(context_parts)}] " if context_parts else ""
-        
-        # Format metrics with angle brackets
-        metric_parts = []
-        for key, value in metrics.items():
-            if isinstance(value, float):
-                if abs(value) >= 1000:
-                    metric_parts.append(f"<{key}>: {value:.0f}")
-                elif abs(value) >= 1:
-                    metric_parts.append(f"<{key}>: {value:.2f}")
-                else:
-                    metric_parts.append(f"<{key}>: {value:.4f}")
-            else:
-                metric_parts.append(f"<{key}>: {value}")
-        
-        # Get trend emoji
-        trend_emoji = OutputFormatter.get_trend_emoji(trend)
-        
-        if multiline:
-            # Multi-line format with better visual hierarchy
-            lines = []
-            lines.append(f"┌─ {context_str}[{timestamp_str}]")
-            
-            # Group metrics by category for better readability
-            primary_metrics = []
-            secondary_metrics = []
-            
-            for part in metric_parts:
-                key = part.split(":")[0].replace("<", "").replace(">", "")
-                if key in ['PRICE', 'SIGNAL', 'CONFIDENCE', 'FIB_LEVEL', 'PATTERN', 'BOS', 'CHOCH']:
-                    primary_metrics.append(part)
-                else:
-                    secondary_metrics.append(part)
-            
-            if primary_metrics:
-                lines.append(f"├─ Primary: {' | '.join(primary_metrics)}")
-            if secondary_metrics:
-                lines.append(f"├─ Metrics: {' | '.join(secondary_metrics)}")
-            
-            if price is not None:
-                lines.append(f"├─ Price: {price:.4f}")
-            
-            lines.append(f"└─ Signal: {signal} | {trend_emoji} {trend}")
-            
-            return "\n".join(lines)
-        else:
-            # Single-line format (compatible with existing code)
-            metrics_str = " | ".join(metric_parts)
-            
-            # Add price if provided
-            if price is not None:
-                price_str = f" | <PRICE>: {price:.4f}"
-            else:
-                price_str = ""
-            
-            return f"{context_str}[{timestamp_str}] {metrics_str}{price_str} | Signal: {signal} | {trend_emoji} {trend}"
-    
-    @staticmethod
-    def get_trend_emoji(trend: str) -> str:
-        """
-        Get emoji for trend direction.
-        
-        Args:
-            trend: Trend direction string
-            
-        Returns:
-            Corresponding emoji
-        """
-        trend_upper = trend.upper()
-        
-        if trend_upper in ['BULLISH', 'BUY', 'UP', 'LONG']:
-            return "📈"
-        elif trend_upper in ['BEARISH', 'SELL', 'DOWN', 'SHORT']:
-            return "📉"
-        elif trend_upper in ['NEUTRAL', 'SIDEWAYS', 'CONSOLIDATION']:
-            return "➖"
-        elif trend_upper in ['STRONG_BULLISH', 'VERY_BULLISH']:
-            return "🚀"
-        elif trend_upper in ['STRONG_BEARISH', 'VERY_BEARISH']:
-            return "🔻"
-        elif trend_upper in ['VOLATILE', 'CHOPPY']:
-            return "🌊"
-        elif trend_upper in ['UNCERTAIN', 'MIXED']:
-            return "❓"
-        else:
-            return "➖"  # Default to neutral
-    
-    @staticmethod
-    def format_smc_output(timestamp: int, bos: bool, choch: bool, ob_hit: bool,
-                         signal: str, trend: str, confidence: int = 0,
-                         price: Optional[float] = None, symbol: Optional[str] = None,
-                         timeframe: Optional[str] = None, multiline: bool = False) -> str:
-        """
-        Format SMC (Smart Money Concepts) analysis output.
-        
-        Args:
-            timestamp: Unix timestamp in milliseconds
-            bos: Break of Structure detected
-            choch: Change of Character detected
-            ob_hit: Order Block hit
-            signal: Trading signal
-            trend: Trend direction
-            confidence: Confidence percentage
-            price: Optional current price
-            symbol: Optional trading symbol
-            timeframe: Optional chart timeframe
-            multiline: If True, use multi-line format
-            
-        Returns:
-            Formatted output string
-        """
-        metrics = {
-            "BOS": "YES" if bos else "NO",
-            "CHOCH": "YES" if choch else "NO",
-            "OB_HIT": "YES" if ob_hit else "NO"
-        }
-        
-        if confidence > 0:
-            metrics["CONFIDENCE"] = f"{confidence}%"
-        
-        return OutputFormatter.format_analysis_output(
-            timestamp, metrics, signal, trend, price, symbol, timeframe, multiline
-        )
 
 
 class SMCStrategy:
@@ -224,15 +62,15 @@ class SMCStrategy:
         return swing_highs, swing_lows
     
     def detect_liquidity_zones(self, swing_highs: List[dict], swing_lows: List[dict],
-                              _highs: List[float], _lows: List[float]) -> List[dict]:
+                              highs: List[float], lows: List[float]) -> List[dict]:
         """
         Detect liquidity zones (equal highs/lows and recent swing points).
         
         Args:
             swing_highs: List of swing high points
             swing_lows: List of swing low points
-            _highs: List of high prices (unused in current implementation)
-            _lows: List of low prices (unused in current implementation)
+            highs: List of high prices (unused in current implementation)
+            lows: List of low prices (unused in current implementation)
             
         Returns:
             List of liquidity zone dictionaries
@@ -598,8 +436,7 @@ class SMCStrategy:
         
         return signals
     
-    def analyze(self, symbol: str, timeframe: str, limit: int, 
-                zones: bool = False, choch: bool = False) -> str:
+    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
         """
         Perform SMC analysis and return results.
         
@@ -607,78 +444,202 @@ class SMCStrategy:
             symbol: Trading pair (e.g., 'BTC/USDT')
             timeframe: Timeframe (e.g., '1h', '4h', '1d')
             limit: Number of candles to analyze (minimum 200)
-            zones: Whether to show liquidity zones details
-            choch: Whether to show CHOCH details
             
         Returns:
-            Formatted analysis string
+            Analysis results dictionary
         """
-        if limit < 200:
-            limit = 200
-        
-        # Fetch OHLCV data
-        ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
-        
-        if len(ohlcv_data) < 200:
-            return f"Error: Need at least 200 candles for SMC analysis. Got {len(ohlcv_data)}"
-        
-        # Extract OHLCV data
-        timestamps = [candle[0] for candle in ohlcv_data]
-        opens = [candle[1] for candle in ohlcv_data]
-        highs = [candle[2] for candle in ohlcv_data]
-        lows = [candle[3] for candle in ohlcv_data]
-        closes = [candle[4] for candle in ohlcv_data]
-        
-        # Detect SMC components
-        swing_highs, swing_lows = self.find_swing_points(highs, lows)
-        liquidity_zones = self.detect_liquidity_zones(swing_highs, swing_lows, highs, lows)
-        order_blocks = self.detect_order_blocks(opens, highs, lows, closes)
-        bos_events = self.detect_bos(swing_highs, swing_lows, closes)
-        choch_events = self.detect_choch(swing_highs, swing_lows, closes)
-        
-        # Generate signals
-        signals = self.generate_signals(liquidity_zones, order_blocks, bos_events, 
-                                       choch_events, closes, timestamps)
-        
-        # Display recent signals
-        recent_signals = []
-        
-        for signal in signals[-10:]:  # Last 10 signals
-            dt = datetime.fromtimestamp(signal['timestamp'] / 1000)
-            recent_signals.append((signal, dt))
-        
-        if not recent_signals:
-            return "No SMC signals detected in recent data"
-        
-        # Build output string
-        output_parts = []
-        
-        # Display signals using standardized formatter
-        for signal, dt in recent_signals:
-            formatted_output = OutputFormatter.format_smc_output(
-                timestamp=signal['timestamp'],
-                bos=signal['bos'],
-                choch=signal['choch'],
-                ob_hit=signal['ob_hit'],
-                signal=signal['signal'],
-                trend=signal['trend'],
-                confidence=signal['confidence'] if signal['confidence'] > 0 else 0,
-                price=signal['close']
-            )
-            output_parts.append(formatted_output)
-        
-        # Additional details if requested
-        if zones and liquidity_zones:
-            output_parts.append(f"\n📍 Liquidity Zones Detected: {len(liquidity_zones)}")
-            for lz in liquidity_zones[-3:]:  # Show last 3
-                output_parts.append(f"  {lz['type'].upper()}: ${lz['price']:.4f} ({lz['equal_count']} equal levels)")
-        
-        if choch and choch_events:
-            output_parts.append(f"\n🔄 Recent CHOCH Events: {len(choch_events[-5:])}")
-            for ch in choch_events[-3:]:  # Show last 3
-                dt = datetime.fromtimestamp(timestamps[ch['index']] / 1000)
-                output_parts.append(f"  {ch['type'].upper()}: {dt.strftime('%m-%d %H:%M')} at ${ch['break_price']:.4f}")
-        
-        return "\n".join(output_parts)
-
-
+        try:
+            if limit < 200:
+                limit = 200
+            
+            # Fetch OHLCV data
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            
+            if not ohlcv_data or len(ohlcv_data) < 200:
+                return {
+                    'error': f'Insufficient data: need at least 200 candles, got {len(ohlcv_data) if ohlcv_data else 0}',
+                    'success': False,
+                    'symbol': symbol,
+                    'timeframe': timeframe
+                }
+            
+            # Extract OHLCV data
+            timestamps = [candle[0] for candle in ohlcv_data]
+            opens = [candle[1] for candle in ohlcv_data]
+            highs = [candle[2] for candle in ohlcv_data]
+            lows = [candle[3] for candle in ohlcv_data]
+            closes = [candle[4] for candle in ohlcv_data]
+            
+            # Get current price and timestamp info
+            current_price = closes[-1]
+            current_timestamp = timestamps[-1]
+            dt = datetime.fromtimestamp(current_timestamp / 1000, tz=timezone.utc)
+            
+            # Detect SMC components
+            swing_highs, swing_lows = self.find_swing_points(highs, lows)
+            liquidity_zones = self.detect_liquidity_zones(swing_highs, swing_lows, highs, lows)
+            order_blocks = self.detect_order_blocks(opens, highs, lows, closes)
+            bos_events = self.detect_bos(swing_highs, swing_lows, closes)
+            choch_events = self.detect_choch(swing_highs, swing_lows, closes)
+            
+            # Generate signals
+            signals = self.generate_signals(liquidity_zones, order_blocks, bos_events, 
+                                           choch_events, closes, timestamps)
+            
+            # Get the most recent signal
+            latest_signal = signals[-1] if signals else None
+            
+            result = {
+                'success': True,
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
+                'timestamp': current_timestamp,
+                'total_candles': len(ohlcv_data),
+                'current_price': round(current_price, 4),
+                'pattern_detected': latest_signal is not None
+            }
+            
+            if latest_signal:
+                # Extract signal information
+                signal = latest_signal.get('signal', 'HOLD')
+                trend = latest_signal.get('trend', 'NEUTRAL')
+                confidence = latest_signal.get('confidence', 0)
+                bos = latest_signal.get('bos', False)
+                choch = latest_signal.get('choch', False)
+                ob_hit = latest_signal.get('ob_hit', False)
+                liquidity_sweep = latest_signal.get('liquidity_sweep', False)
+                
+                # Calculate support/resistance levels based on SMC analysis
+                if signal == 'BUY':
+                    # Find nearest order block or swing low for support
+                    support_level = current_price * 0.985  # Conservative support
+                    for ob in order_blocks[-5:]:  # Recent order blocks
+                        if ob['type'] == 'bullish_ob' and ob['low'] < current_price:
+                            support_level = max(support_level, ob['low'])
+                    
+                    resistance_level = current_price * 1.02
+                    stop_zone = support_level * 0.995
+                    tp_low = resistance_level
+                    tp_high = resistance_level * 1.015
+                    
+                elif signal == 'SELL':
+                    # Find nearest order block or swing high for resistance
+                    resistance_level = current_price * 1.015  # Conservative resistance
+                    for ob in order_blocks[-5:]:  # Recent order blocks
+                        if ob['type'] == 'bearish_ob' and ob['high'] > current_price:
+                            resistance_level = min(resistance_level, ob['high'])
+                    
+                    support_level = current_price * 0.98
+                    stop_zone = resistance_level * 1.005
+                    tp_low = support_level
+                    tp_high = support_level * 0.985
+                    
+                else:
+                    support_level = current_price * 0.99
+                    resistance_level = current_price * 1.01
+                    stop_zone = current_price * 0.99
+                    tp_low = current_price * 1.01
+                    tp_high = current_price * 1.02
+                
+                # Calculate Risk/Reward ratio
+                if signal in ['BUY', 'SELL']:
+                    risk = abs(current_price - stop_zone)
+                    reward = abs(tp_low - current_price) if tp_low != current_price else abs(tp_high - current_price)
+                    rr_ratio = reward / risk if risk > 0 else 0
+                else:
+                    rr_ratio = 0
+                
+                # Determine entry window based on confluence
+                confluence_count = sum([bos, choch, ob_hit, liquidity_sweep])
+                if confluence_count >= 3 and confidence > 70:
+                    entry_window = "High confluence - optimal entry"
+                elif confluence_count >= 2 and confidence > 60:
+                    entry_window = "Good setup - enter on pullback"
+                elif confluence_count >= 1 and confidence > 50:
+                    entry_window = "Wait for additional confirmation"
+                else:
+                    entry_window = "Weak setup - avoid entry"
+                
+                # Exit trigger based on SMC principles
+                if bos:
+                    exit_trigger = "Structure broken - trend continuation expected"
+                elif choch:
+                    exit_trigger = "Character change - trend reversal possible"
+                elif ob_hit:
+                    exit_trigger = "Order block reaction - watch for rejection/continuation"
+                else:
+                    exit_trigger = "Monitor for SMC structure changes"
+                
+                # Update result with SMC analysis
+                result.update({
+                    # SMC specific data
+                    'bos_detected': bos,
+                    'choch_detected': choch,
+                    'order_block_hit': ob_hit,
+                    'liquidity_sweep': liquidity_sweep,
+                    'confluence_count': confluence_count,
+                    
+                    # Price levels
+                    'support_level': round(support_level, 4),
+                    'resistance_level': round(resistance_level, 4),
+                    'stop_zone': round(stop_zone, 4),
+                    'tp_low': round(tp_low, 4),
+                    'tp_high': round(tp_high, 4),
+                    
+                    # Trading analysis
+                    'signal': signal,
+                    'trend': trend,
+                    'confidence_score': confidence,
+                    'entry_window': entry_window,
+                    'exit_trigger': exit_trigger,
+                    'rr_ratio': round(rr_ratio, 1),
+                    
+                    # SMC structure counts
+                    'swing_highs_count': len(swing_highs),
+                    'swing_lows_count': len(swing_lows),
+                    'liquidity_zones_count': len(liquidity_zones),
+                    'order_blocks_count': len(order_blocks),
+                    'bos_events_count': len(bos_events),
+                    'choch_events_count': len(choch_events),
+                    
+                    # Raw data
+                    'raw_data': {
+                        'ohlcv_data': ohlcv_data,
+                        'latest_signal': latest_signal,
+                        'recent_signals': signals[-5:] if len(signals) >= 5 else signals
+                    }
+                })
+            else:
+                # No SMC signals detected
+                result.update({
+                    'bos_detected': False,
+                    'choch_detected': False,
+                    'order_block_hit': False,
+                    'liquidity_sweep': False,
+                    'confluence_count': 0,
+                    'signal': 'HOLD',
+                    'trend': 'NEUTRAL',
+                    'confidence_score': 0,
+                    'entry_window': "No SMC signals detected",
+                    'exit_trigger': "Wait for structure development",
+                    'support_level': round(current_price * 0.99, 4),
+                    'resistance_level': round(current_price * 1.01, 4),
+                    'rr_ratio': 0,
+                    'swing_highs_count': len(swing_highs),
+                    'swing_lows_count': len(swing_lows),
+                    'liquidity_zones_count': len(liquidity_zones),
+                    'order_blocks_count': len(order_blocks),
+                    'bos_events_count': len(bos_events),
+                    'choch_events_count': len(choch_events)
+                })
+            
+            return result
+            
+        except Exception as e:
+            return {
+                'error': f'Analysis failed: {str(e)}',
+                'success': False,
+                'symbol': symbol,
+                'timeframe': timeframe
+            }

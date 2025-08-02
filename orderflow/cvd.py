@@ -16,6 +16,123 @@ class CVDAnalyzer:
     def __init__(self):
         self.collector = get_data_collector()
     
+    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+        """
+        Analyze CVD patterns for given symbol and timeframe.
+        
+        Args:
+            symbol: Trading pair symbol
+            timeframe: Timeframe for analysis (not used in CVD but kept for consistency)
+            limit: Number of recent trades to analyze
+            
+        Returns:
+            Analysis results dictionary
+        """
+        try:
+            cvd_data = self.calculate_cvd(symbol, limit)
+            
+            if 'error' in cvd_data:
+                return {
+                    'error': cvd_data['error'],
+                    'success': False,
+                    'symbol': symbol,
+                    'timeframe': timeframe
+                }
+            
+            # Transform CVD data to match expected output format
+            result = {
+                'success': True,
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'analysis_time': cvd_data['timestamp'].strftime('%Y-%m-%d %H:%M:%S'),
+                'timestamp': int(cvd_data['timestamp'].timestamp() * 1000),
+                'current_price': cvd_data['current_price'],
+                'pattern_detected': abs(cvd_data['cvd']) > 100,  # Pattern detected if significant CVD
+                
+                # CVD specific metrics
+                'cvd_value': cvd_data['cvd'],
+                'cvd_side': cvd_data['cvd_side'],
+                'cvd_price': cvd_data['cvd_price'],
+                'cvd_per_minute': cvd_data['cvd_per_minute'],
+                'total_volume': cvd_data['total_volume'],
+                'buy_volume': cvd_data['buy_volume'],
+                'sell_volume': cvd_data['sell_volume'],
+                'buy_percentage': cvd_data['buy_percentage'],
+                'sell_percentage': cvd_data['sell_percentage'],
+                'dominant_flow': cvd_data['dominant_flow'],
+                'dominant_percentage': cvd_data['dominant_percentage'],
+                'bias': cvd_data['bias'],
+                'confidence_score': self._map_confidence_to_score(cvd_data['confidence']),
+                'divergence': cvd_data['divergence'],
+                'trades_analyzed': cvd_data['trades_analyzed'],
+                'classification_method': cvd_data['classification_method'],
+                'classification_accuracy': cvd_data['classification_accuracy'],
+                'bid_ask_available': cvd_data['bid_ask_available'],
+                
+                # Trading signals derived from CVD
+                'signal': self._determine_signal(cvd_data),
+                'entry_window': self._determine_entry_window(cvd_data),
+                'exit_trigger': self._determine_exit_trigger(cvd_data),
+                'rr_ratio': 0,  # Not applicable for CVD analysis
+                
+                # Raw CVD data
+                'raw_data': cvd_data
+            }
+            
+            return result
+            
+        except Exception as e:
+            return {
+                'error': f'CVD analysis failed: {str(e)}',
+                'success': False,
+                'symbol': symbol,
+                'timeframe': timeframe
+            }
+    
+    def _map_confidence_to_score(self, confidence: str) -> int:
+        """Map confidence string to numerical score."""
+        confidence_map = {
+            'HIGH': 85,
+            'MEDIUM': 65,
+            'LOW': 35,
+            'NONE': 0
+        }
+        return confidence_map.get(confidence, 50)
+    
+    def _determine_signal(self, cvd_data: Dict) -> str:
+        """Determine trading signal from CVD data."""
+        buy_pct = cvd_data['buy_percentage']
+        sell_pct = cvd_data['sell_percentage']
+        dominance = abs(buy_pct - sell_pct)
+        
+        if dominance >= 15:
+            return 'BUY' if buy_pct > sell_pct else 'SELL'
+        else:
+            return 'HOLD'
+    
+    def _determine_entry_window(self, cvd_data: Dict) -> str:
+        """Determine optimal entry window based on CVD metrics."""
+        confidence = cvd_data['confidence']
+        dominance = abs(cvd_data['buy_percentage'] - cvd_data['sell_percentage'])
+        
+        if confidence == 'HIGH' and dominance >= 20:
+            return "Optimal now"
+        elif confidence in ['HIGH', 'MEDIUM'] and dominance >= 10:
+            return "Good entry opportunity"
+        else:
+            return "Wait for clearer signal"
+    
+    def _determine_exit_trigger(self, cvd_data: Dict) -> str:
+        """Determine exit trigger based on CVD analysis."""
+        signal = self._determine_signal(cvd_data)
+        
+        if signal == 'BUY':
+            return "Exit if selling pressure increases significantly"
+        elif signal == 'SELL':
+            return "Exit if buying pressure increases significantly"
+        else:
+            return "Monitor for clear directional flow"
+    
     def calculate_cvd(self, symbol: str, limit: int = 300) -> Dict:
         """
         Calculate CVD for a symbol using recent trades with enhanced classification.

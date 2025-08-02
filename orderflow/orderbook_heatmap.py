@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import json
 import os
@@ -861,66 +861,279 @@ class OrderBookHeatmap:
             except Exception as e:
                 logger.warning(f"Error during exchange cleanup: {e}")
 
-# Utility functions for external access
-def create_heatmap_analyzer(symbol: str = 'XRP/USDT', **kwargs) -> OrderBookHeatmap:
-    """Create and return a new OrderBookHeatmap analyzer."""
-    return OrderBookHeatmap(symbol=symbol, **kwargs)
-
-async def run_analysis(symbol: str = 'XRP/USDT', duration_minutes: int = 60, **kwargs):
-    """
-    Run order book analysis for specified duration.
+class OrderBookHeatmapStrategy:
+    """Order book heatmap pattern detection strategy for cryptocurrency order flow analysis."""
     
-    Args:
-        symbol: Trading pair to analyze
-        duration_minutes: How long to run analysis
-        **kwargs: Additional parameters for OrderBookHeatmap
-    """
-    analyzer = create_heatmap_analyzer(symbol, **kwargs)
+    def __init__(self):
+        self.collector = get_data_collector()
     
-    try:
-        # Start streaming in background
-        stream_task = asyncio.create_task(analyzer.start_streaming())
+    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+        """
+        Analyze order book heatmap patterns for given symbol and timeframe.
         
-        # Wait for specified duration
-        await asyncio.sleep(duration_minutes * 15)
-        
-        # Stop streaming
-        analyzer.stop_streaming()
-        
-        # Cancel and wait for stream task to complete
-        if not stream_task.done():
-            stream_task.cancel()
+        Args:
+            symbol: Trading pair symbol
+            timeframe: Timeframe for analysis
+            limit: Number of candles to analyze
+            
+        Returns:
+            Analysis results dictionary
+        """
+        try:
+            # Get OHLCV data for baseline analysis
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            
+            if not ohlcv_data or len(ohlcv_data) < 20:
+                return {
+                    'error': f'Insufficient data: need at least 20 candles, got {len(ohlcv_data) if ohlcv_data else 0}',
+                    'success': False,
+                    'symbol': symbol,
+                    'timeframe': timeframe
+                }
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+            
+            # Get current price and timestamp info
+            current_price = df['close'].iloc[-1]
+            current_timestamp = df['timestamp'].iloc[-1]
+            dt = datetime.fromtimestamp(current_timestamp.timestamp(), tz=timezone.utc)
+            
+            # Note: Could initialize OrderBookHeatmap for real-time streaming analysis if needed
+            
+            # Get current order book data
             try:
-                await stream_task
-            except asyncio.CancelledError:
-                pass
+                order_book = self.collector.fetch_order_book(symbol, limit=50)
+                if not order_book or 'bids' not in order_book or 'asks' not in order_book:
+                    raise Exception("No order book data available")
+                
+                # Analyze order book structure
+                pattern_analysis = self._analyze_order_book_patterns(order_book, current_price)
+                
+            except Exception as e:
+                logger.warning(f"Order book analysis failed: {e}, using OHLCV fallback")
+                pattern_analysis = self._analyze_volume_patterns(df)
+            
+            result = {
+                'success': True,
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
+                'timestamp': int(current_timestamp.timestamp() * 1000),
+                'total_candles': len(df),
+                'current_price': round(current_price, 4),
+                'pattern_detected': pattern_analysis is not None and pattern_analysis.get('signal') != 'HOLD'
+            }
+            
+            if pattern_analysis:
+                result.update(pattern_analysis)
+            else:
+                result.update({
+                    'pattern_type': None,
+                    'bias': 'NEUTRAL',
+                    'signal': 'HOLD',
+                    'confidence_score': 0,
+                    'entry_window': "No clear order flow pattern detected",
+                    'exit_trigger': "Wait for significant order imbalance",
+                    'support_level': round(current_price * 0.99, 4),
+                    'resistance_level': round(current_price * 1.01, 4),
+                    'rr_ratio': 0
+                })
+            
+            return result
+            
+        except Exception as e:
+            return {
+                'error': f'Analysis failed: {str(e)}',
+                'success': False,
+                'symbol': symbol,
+                'timeframe': timeframe
+            }
+    
+    def _analyze_order_book_patterns(self, order_book: Dict, current_price: float) -> Optional[Dict]:
+        """Analyze order book for liquidity imbalances and institutional patterns."""
+        bids = order_book.get('bids', [])
+        asks = order_book.get('asks', [])
         
-        # Export results
-        export_path = analyzer.export_to_csv()
+        if not bids or not asks:
+            return None
         
-        # Get final heatmap data
-        heatmap_data = analyzer.get_heatmap_data()
+        # Calculate order flow metrics
+        bid_volume = sum(float(bid[1]) for bid in bids[:10])
+        ask_volume = sum(float(ask[1]) for ask in asks[:10])
+        total_volume = bid_volume + ask_volume
         
-        logger.info(f"Analysis completed for {symbol}. Data exported to {export_path}")
+        if total_volume == 0:
+            return None
+        
+        # Order Flow Imbalance
+        ofi = (bid_volume - ask_volume) / total_volume
+        
+        # Spread analysis
+        best_bid = float(bids[0][0])
+        best_ask = float(asks[0][0])
+        spread = best_ask - best_bid
+        spread_pct = (spread / current_price) * 100
+        
+        # Liquidity concentration analysis
+        total_bid_volume_20 = sum(float(bid[1]) for bid in bids[:20])
+        total_ask_volume_20 = sum(float(ask[1]) for ask in asks[:20])
+        
+        # Top 3 vs total ratio (concentration)
+        top3_bid_volume = sum(float(bid[1]) for bid in bids[:3])
+        top3_ask_volume = sum(float(ask[1]) for ask in asks[:3])
+        
+        bid_concentration = top3_bid_volume / total_bid_volume_20 if total_bid_volume_20 > 0 else 0
+        ask_concentration = top3_ask_volume / total_ask_volume_20 if total_ask_volume_20 > 0 else 0
+        
+        # Pattern detection logic
+        signal = 'HOLD'
+        bias = 'NEUTRAL'
+        pattern_type = 'Order Flow Analysis'
+        confidence = 50
+        
+        # Strong bullish bias
+        if ofi > 0.3 and bid_concentration > 0.6:
+            signal = 'BUY'
+            bias = 'BULLISH'
+            pattern_type = 'Strong Bid Wall'
+            confidence = min(85, 50 + abs(ofi) * 100 + bid_concentration * 30)
+        
+        # Strong bearish bias
+        elif ofi < -0.3 and ask_concentration > 0.6:
+            signal = 'SELL'
+            bias = 'BEARISH'
+            pattern_type = 'Strong Ask Wall'
+            confidence = min(85, 50 + abs(ofi) * 100 + ask_concentration * 30)
+        
+        # Moderate bullish
+        elif ofi > 0.15:
+            signal = 'BUY'
+            bias = 'BULLISH'
+            pattern_type = 'Bid Imbalance'
+            confidence = min(75, 50 + abs(ofi) * 100)
+        
+        # Moderate bearish
+        elif ofi < -0.15:
+            signal = 'SELL'
+            bias = 'BEARISH'
+            pattern_type = 'Ask Imbalance'
+            confidence = min(75, 50 + abs(ofi) * 100)
+        
+        # Wide spread - potential volatility
+        if spread_pct > 0.1:
+            confidence = max(30, confidence - 20)
+            pattern_type += ' (Wide Spread)'
+        
+        # Calculate levels based on order book structure
+        if signal == 'BUY':
+            support_level = best_bid
+            resistance_level = current_price * 1.015
+            stop_zone = best_bid * 0.995
+            tp_low = resistance_level
+            tp_high = resistance_level * 1.01
+        elif signal == 'SELL':
+            support_level = current_price * 0.985
+            resistance_level = best_ask
+            stop_zone = best_ask * 1.005
+            tp_low = support_level
+            tp_high = support_level * 0.99
+        else:
+            support_level = best_bid
+            resistance_level = best_ask
+            stop_zone = current_price * 0.99
+            tp_low = current_price * 1.01
+            tp_high = current_price * 1.02
+        
+        # Risk/Reward calculation
+        if signal in ['BUY', 'SELL']:
+            risk = abs(current_price - stop_zone)
+            reward = abs(tp_low - current_price) if tp_low != current_price else abs(tp_high - current_price)
+            rr_ratio = reward / risk if risk > 0 else 0
+        else:
+            rr_ratio = 0
+        
+        # Entry timing
+        if confidence > 70:
+            entry_window = "Strong signal - enter now"
+        elif confidence > 50:
+            entry_window = "Moderate signal - wait for confirmation"
+        else:
+            entry_window = "Weak signal - wait for better setup"
+        
+        # Exit trigger
+        if signal == 'BUY':
+            exit_trigger = "Break below support or OFI turns negative"
+        elif signal == 'SELL':
+            exit_trigger = "Break above resistance or OFI turns positive"
+        else:
+            exit_trigger = "Wait for significant order imbalance"
+        
         return {
-            "export_path": export_path,
-            "heatmap_data": heatmap_data,
-            "final_regime": analyzer.classify_market_regime(),
-            "total_signals": len(analyzer.signals_history),
-            "total_snapshots": len(analyzer.snapshots)
+            'pattern_type': pattern_type,
+            'bias': bias,
+            'signal': signal,
+            'confidence_score': round(confidence),
+            'entry_window': entry_window,
+            'exit_trigger': exit_trigger,
+            'support_level': round(support_level, 4),
+            'resistance_level': round(resistance_level, 4),
+            'stop_zone': round(stop_zone, 4),
+            'tp_low': round(tp_low, 4),
+            'tp_high': round(tp_high, 4),
+            'rr_ratio': round(rr_ratio, 2),
+            'order_flow_imbalance': round(ofi, 3),
+            'spread_pct': round(spread_pct, 4),
+            'bid_concentration': round(bid_concentration, 3),
+            'ask_concentration': round(ask_concentration, 3),
+            'total_bid_volume': round(bid_volume, 2),
+            'total_ask_volume': round(ask_volume, 2)
         }
+    
+    def _analyze_volume_patterns(self, df: pd.DataFrame) -> Optional[Dict]:
+        """Fallback analysis using OHLCV volume patterns."""
+        if len(df) < 10:
+            return None
         
-    except Exception as e:
-        logger.error(f"Error during analysis: {e}")
-        analyzer.stop_streaming()
+        recent_df = df.tail(10)
+        current_price = df['close'].iloc[-1]
         
-        # Ensure all tasks are cancelled
-        if 'stream_task' in locals() and not stream_task.done():
-            stream_task.cancel()
-            try:
-                await stream_task
-            except asyncio.CancelledError:
-                pass
+        # Volume analysis
+        avg_volume = recent_df['volume'].mean()
+        current_volume = recent_df['volume'].iloc[-1]
+        volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1
         
-        raise
+        # Price action
+        price_change = (current_price - recent_df['close'].iloc[-2]) / recent_df['close'].iloc[-2]
+        
+        signal = 'HOLD'
+        bias = 'NEUTRAL'
+        confidence = 30
+        
+        if volume_ratio > 2 and price_change > 0.01:
+            signal = 'BUY'
+            bias = 'BULLISH'
+            confidence = min(70, 30 + volume_ratio * 15)
+        elif volume_ratio > 2 and price_change < -0.01:
+            signal = 'SELL'
+            bias = 'BEARISH'
+            confidence = min(70, 30 + volume_ratio * 15)
+        
+        return {
+            'pattern_type': 'Volume Pattern Analysis',
+            'bias': bias,
+            'signal': signal,
+            'confidence_score': round(confidence),
+            'entry_window': "Volume-based signal" if signal != 'HOLD' else "No clear pattern",
+            'exit_trigger': "Volume decline or reversal",
+            'support_level': round(current_price * 0.99, 4),
+            'resistance_level': round(current_price * 1.01, 4),
+            'stop_zone': round(current_price * 0.985, 4),
+            'tp_low': round(current_price * 1.015, 4),
+            'tp_high': round(current_price * 1.03, 4),
+            'rr_ratio': 1.5,
+            'volume_ratio': round(volume_ratio, 2),
+            'price_change_pct': round(price_change * 100, 3)
+        }
 
