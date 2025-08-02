@@ -924,23 +924,3 @@ async def run_analysis(symbol: str = 'XRP/USDT', duration_minutes: int = 60, **k
         
         raise
 
-if __name__ == "__main__":
-    # Example usage
-    async def main():
-        print("Starting Order Book Heatmap Analysis...")
-        
-        result = await run_analysis(
-            symbol='XRP/USDT',
-            duration_minutes=1,  # 5 minute test run
-            snapshot_interval_ms=250,
-            depth_levels=50
-        )
-        
-        print(f"Analysis complete:")
-        print(f"- Market regime: {result['final_regime']}")
-        print(f"- Signals detected: {result['total_signals']}")
-        print(f"- Snapshots captured: {result['total_snapshots']}")
-        print(f"- Data exported to: {result['export_path']}")
-    
-    # Run with asyncio
-    asyncio.run(main())

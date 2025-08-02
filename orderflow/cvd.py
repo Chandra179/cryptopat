@@ -342,13 +342,15 @@ def display_buyer_seller_pressure(symbol: str, limit: int = 300):
     Args:
         symbol: Trading pair symbol (e.g., 'BTC/USDT')
         limit: Number of recent trades to analyze
+        
+    Returns:
+        Formatted analysis string
     """
     analyzer = CVDAnalyzer()
     cvd_data = analyzer.calculate_cvd(symbol, limit)
     
     if 'error' in cvd_data:
-        print(f"\n❌ Error analyzing {symbol}: {cvd_data['error']}")
-        return
+        return f"\n❌ Error analyzing {symbol}: {cvd_data['error']}"
     
     # Extract data
     buy_pct = cvd_data['buy_percentage']
@@ -365,44 +367,44 @@ def display_buyer_seller_pressure(symbol: str, limit: int = 300):
     method = cvd_data['classification_method']
     accuracy = cvd_data['classification_accuracy']
     
-    # Display header
-    print(f"\n{'='*70}")
-    print(f"CVD BUYER/SELLER PRESSURE ANALYSIS: {symbol}")
-    print(f"{'='*70}")
-    print(f"💰 Current Price: ${price:.4f}")
-    print(f"📊 Method: {method.title()} | Trades: {trades_count}")
+    # Build output string
+    output = f"\n{'='*70}\n"
+    output += f"CVD BUYER/SELLER PRESSURE ANALYSIS: {symbol}\n"
+    output += f"{'='*70}\n"
+    output += f"💰 Current Price: ${price:.4f}\n"
+    output += f"📊 Method: {method.title()} | Trades: {trades_count}\n"
     if method == 'price-based':
-        print(f"🎯 Classification Accuracy: {accuracy:.1f}%")
+        output += f"🎯 Classification Accuracy: {accuracy:.1f}%\n"
     
     # Buyer/Seller percentages with visual bars
-    print(f"\n📈 BUYER/SELLER PRESSURE")
-    print(f"{'─'*40}")
+    output += f"\n📈 BUYER/SELLER PRESSURE\n"
+    output += f"{'─'*40}\n"
     
     # Visual bar representation (max 30 chars)
     buy_bar = '█' * int(buy_pct * 30 / 100) 
     sell_bar = '█' * int(sell_pct * 30 / 100)
     
-    print(f"🟢 Buyers:  {buy_bar:<30} {buy_pct:.1f}%")
-    print(f"🔴 Sellers: {sell_bar:<30} {sell_pct:.1f}%")
+    output += f"🟢 Buyers:  {buy_bar:<30} {buy_pct:.1f}%\n"
+    output += f"🔴 Sellers: {sell_bar:<30} {sell_pct:.1f}%\n"
     
     # Volume details
-    print(f"\n📊 VOLUME BREAKDOWN")
-    print(f"{'─'*40}")
-    print(f"🟢 Buy Volume:    {buy_vol:>10.2f} ({buy_pct:.1f}%)")
-    print(f"🔴 Sell Volume:   {sell_vol:>10.2f} ({sell_pct:.1f}%)")
-    print(f"📊 Total Volume:  {total_vol:>10.2f}")
+    output += f"\n📊 VOLUME BREAKDOWN\n"
+    output += f"{'─'*40}\n"
+    output += f"🟢 Buy Volume:    {buy_vol:>10.2f} ({buy_pct:.1f}%)\n"
+    output += f"🔴 Sell Volume:   {sell_vol:>10.2f} ({sell_pct:.1f}%)\n"
+    output += f"📊 Total Volume:  {total_vol:>10.2f}\n"
     
     # CVD and bias
-    print(f"\n⚖️  CVD ANALYSIS")
-    print(f"{'─'*40}")
+    output += f"\n⚖️  CVD ANALYSIS\n"
+    output += f"{'─'*40}\n"
     cvd_formatted = f"{cvd:+.2f}K" if abs(cvd) >= 1000 else f"{cvd:+.2f}"
-    print(f"📊 CVD Value: {cvd_formatted}")
-    print(f"🎯 {dominant_flow}")
-    print(f"📈 {bias} | Confidence: {confidence}")
+    output += f"📊 CVD Value: {cvd_formatted}\n"
+    output += f"🎯 {dominant_flow}\n"
+    output += f"📈 {bias} | Confidence: {confidence}\n"
     
     # Market sentiment
-    print(f"\n🔍 MARKET SENTIMENT")
-    print(f"{'─'*40}")
+    output += f"\n🔍 MARKET SENTIMENT\n"
+    output += f"{'─'*40}\n"
     if buy_pct > sell_pct:
         sentiment = "🟢 BULLISH" if buy_pct - sell_pct > 10 else "🟡 SLIGHTLY BULLISH"
         pressure = f"Buyers dominating by {buy_pct - sell_pct:.1f}%"
@@ -410,11 +412,8 @@ def display_buyer_seller_pressure(symbol: str, limit: int = 300):
         sentiment = "🔴 BEARISH" if sell_pct - buy_pct > 10 else "🟡 SLIGHTLY BEARISH" 
         pressure = f"Sellers dominating by {sell_pct - buy_pct:.1f}%"
     
-    print(f"📊 Sentiment: {sentiment}")
-    print(f"⚡ Pressure: {pressure}")
+    output += f"📊 Sentiment: {sentiment}\n"
+    output += f"⚡ Pressure: {pressure}"
+    
+    return output
 
-if __name__ == "__main__":
-    # Example usage
-    import sys
-    symbol = sys.argv[1] if len(sys.argv) > 1 else "BTC/USDT"
-    display_buyer_seller_pressure(symbol)

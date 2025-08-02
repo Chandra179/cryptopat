@@ -756,15 +756,3 @@ def format_imbalance_results(results: Dict) -> str:
     
     return "\n".join(output)
 
-if __name__ == "__main__":
-    import sys
-    import asyncio
-    
-    symbol = sys.argv[1] if len(sys.argv) > 1 else "XRP/USDT"
-    duration = int(sys.argv[2]) if len(sys.argv) > 2 else 30
-    
-    async def main():
-        results = await run_imbalance_analysis(symbol, duration)
-        print(format_imbalance_results(results))
-    
-    asyncio.run(main())

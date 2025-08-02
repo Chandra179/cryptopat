@@ -4,7 +4,9 @@
 A Python-based system for detecting chart patterns in cryptocurrency data using historical price, volume, and order book information. No frontend - pure data analysis and pattern detection.
 
 ## Current implementation 
-
+atr_adx, bollinger bands, ema 9/21, macd, obv, rsi14, smart money concept, supertrend, Volume Weighted Average Price,
+butterfly pattern, double bottom, double top, elliot wave, flag, head and shoulder, inverse head and shoulder, shart pattern,
+triangle pattern, wedge pattern
 
 ## CCXT Public API Data Available
 ### OHCLV Open, High, Low, Close, Volume candlestick data
@@ -56,82 +58,3 @@ A Python-based system for detecting chart patterns in cryptocurrency data using 
 4. bullish trend start if EMA 9 crosses above EMA 21, Close is above both EMAs, with Volume spike
 5. bearish trend start if EMA 9 crosses below EMA 21, Close is below both EMAs, with Volume spike
 6. Confirmation = crossover + follow-through over next candles
-### Input in terminal
-> ema_9_21 s=XRP/USDT t=1d/1h/4h... l=30
-- t = timeframe
-- s = symbol
-- l = limit to 30 candles
-- data fetch is defaulting to current days
-### Output example in terminal
-[TIMESTAMP] <METRIC_1>: value | <METRIC_2>: value | ... | Signal: ACTION | 📈/📉/➖ Trend Label or Emoji
-### CLI
-Make sure to add new handler to the cli. /cli/ema_9_21_handler.py
-
-
-## Phase 2: Stop Run & Liquidity Sweep Detection
-1. Create file `/orderflow/stop_sweep.py`  
-2. Use **real-time L2 market depth** (`collector.py → fetch_orderbook_stream`) **and** **tick trade data** (`collector.py → fetch_trades_stream`)  
-3. Define key S/R levels or swing points via ZigZag/fractal logic (`zz=3%`)  
-4. Monitor for **price probing** beyond these levels by `x` ticks (e.g., 1–3 ticks)  
-5. Detect **Stop Run** when:
-   - Price breaks past a swing high/low  
-   - Within `w` seconds, a **volume spike** (≥ `vol_th`) occurs  
-   - Followed by quick **reversal** back inside level  
-6. Detect **Liquidity Sweep** when:
-   - Large resting liquidity (order book wall) at level is consumed  
-   - Trade volume ≥ `wall_volume_th` at that price  
-   - Price does not sustain beyond—reverses within `s` seconds  
-7. Interpret signals:
-   - **Bullish Stop Run**: Below support, swept stops → reversal long setup  
-   - **Bearish Stop Run**: Above resistance, swept stops → reversal short setup  
-   - **Sweep Confirmation**: Price closes back inside level + delta divergence  
-8. Optional:
-   - Correlate stop/sweep events with SMC breaker blocks or Fibonacci zones  
-   - Emit alerts on detected events  
-### Input in terminal
-> stop_sweep s=ETH/USDT t=1m zz=3 vol_th=5000 wall_vol_th=10000 w=5 s=3  
-- `s` = symbol  
-- `t` = timeframe (for swing detection)  
-- `zz` = ZigZag threshold (%)  
-- `vol_th` = minimum trade volume for spike  
-- `wall_vol_th` = min resting volume at swept price  
-- `w` = window (seconds) to detect spike+reversal  
-- `s` = sustain time (seconds) to confirm reversal  
-### Output example in terminal
-[2025-07-31 14:05:10] ETH/USDT | TF: 1m
-Level: Support @ 1,850.00 (swing low)
-Stop Run Detected: Price → 1,852.50 (+2.5 ticks)
-• Volume Spike: 6,200 trades in 2s (vol_th=5000)
-• Liquidity Wall (10,500) consumed @ 1,852.50
-• Reversal: closed back inside level in 3s → ✅ Confirmed
-
-Signal: LONG entry at 1,850.00 | SL: 1,847.50 | TP: 1,865.00
-Confidence: HIGH
-### CLI
-Add handler to `/cli/stop_sweep_handler.py`  
-- Implement `handle_stop_sweep_command(command: str)`  
-- Integrate into main CLI dispatcher in `cli.py`  
-
-## Phase 3: Output format Patterns Analysis
-the output could be used for trend or pattern analysis, use only whats needed
-```
-\n
-===============================================================
-{TECHNICAL ANALYSIS NAME}
-===============================================================
-<METRICS_1>: 1.16:1 | <METRICS_2>: ✓ (0.72) | <METRICS_3>: 7.1%  
-<METRICS_4>: INSUFFICIENT_DATA | <METRICS_5>: $2.9707 | <METRICS_6>: 0.00%  
-<METRICS_7>: 2025-06-30 19:00:00 | <METRICS_8>: 2025-07-04 23:00:00  
-
-SUMMARY: (i.e: RSI recovering from oversold + bullish divergence confirmed)
-CONFIDENCE_SCORE: 83% | Based on pattern + volume + volatility match  
-TREND_DIRECTION: Bullish | MOMENTUM_STATE: Accelerating  
-ENTRY_WINDOW: Optimal in next 3 bars  
-EXIT_TRIGGER: Cross below EMA 21 OR RSI > 85  
-
-SUPPORT: $2.8600 | RESISTANCE: $3.0400  
-STOP_ZONE: Below $2.8100 | TP_ZONE: $3.1200–$3.2000  
-RR_RATIO: 2.4:1 | MAX_DRAWDOWN: -4.2% expected  
-
-ACTION: BUY | SELL | NEUTRAL | WAITING FOR PATTERN | WAITING FOR BREAKOUT
-```
