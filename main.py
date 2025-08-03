@@ -156,53 +156,15 @@ History:
                         print("Type 'help' for usage information")
                         continue
                     
-                    # Check if chart is requested
-                    if params.get('show_chart', False):
-                        try:
-                            from chart_visualizer import ChartVisualizer
-                            
-                            print(f"\n📊 Creating chart for {params['symbol']} {params['timeframe']} ({params['length']} candles)...")
-                            
-                            visualizer = ChartVisualizer()
-                            chart_filename = f"{params['symbol'].replace('/', '_')}_{params['timeframe']}_{params['length']}.png"
-                            
-                            # Create chart and save to file (no interactive display in CLI)
-                            result = visualizer.create_chart(
-                                params['symbol'], 
-                                params['timeframe'], 
-                                params['length'], 
-                                save_path=chart_filename,
-                                show_chart=False  # Don't show interactive chart in CLI
-                            )
-                            
-                            if result['success']:
-                                print(f"✅ Chart created and saved as: {chart_filename}")
-                                print(f"📈 Resistance levels: {len(result['resistance_levels'])}")
-                                if result['resistance_levels']:
-                                    for i, level in enumerate(result['resistance_levels'], 1):
-                                        print(f"   R{i}: ${level:.4f}")
-                                
-                                print(f"📉 Support levels: {len(result['support_levels'])}")
-                                if result['support_levels']:
-                                    for i, level in enumerate(result['support_levels'], 1):
-                                        print(f"   S{i}: ${level:.4f}")
-                            else:
-                                print(f"❌ Chart creation failed: {result['error']}")
-                                
-                        except ImportError:
-                            print("❌ Chart visualization not available. Install required packages:")
-                            print("   pip install mplfinance matplotlib scipy")
-                        except Exception as e:
-                            print(f"❌ Error creating chart: {str(e)}")
-                    else:
-                        # Execute comprehensive analysis
-                        print(f"\n🔍 Running comprehensive analysis for {params['symbol']} {params['timeframe']} ({params['length']} candles)...")
+                    
+                    # Execute comprehensive analysis
+                    print(f"\n🔍 Running comprehensive analysis for {params['symbol']} {params['timeframe']} ({params['length']} candles)...")
                         
-                        # Run the comprehensive market analysis and get formatted output
-                        formatted_output = self.analyzer.analyze_comprehensive(params['symbol'], params['timeframe'], params['length'])
+                    # Run the comprehensive market analysis and get formatted output
+                    formatted_output = self.analyzer.analyze_comprehensive(params['symbol'], params['timeframe'], params['length'])
                         
-                        # Display the beautiful formatted report
-                        print("\n" + formatted_output)
+                    # Display the beautiful formatted report
+                    print("\n" + formatted_output)
                     
                 except KeyboardInterrupt:
                     print("\nUse 'exit' or 'quit' to exit")
