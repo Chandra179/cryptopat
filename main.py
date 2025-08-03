@@ -41,7 +41,7 @@ class CryptoPatCLI:
             print(f"Warning: Could not save history: {e}")
     
     def parse_command(self, command):
-        """Parse command string for s, t, l parameters"""
+        """Parse command string for s, t, l parameters and chart flag"""
         params = {}
         
         # Parse s=symbol
@@ -58,6 +58,10 @@ class CryptoPatCLI:
         l_match = re.search(r'l=([0-9]+)', command)
         if l_match:
             params['length'] = int(l_match.group(1))
+        
+        # Check for chart command
+        if 'chart' in command.lower() or command.lower().startswith('c '):
+            params['show_chart'] = True
         
         return params
     
@@ -91,14 +95,25 @@ Parameters:
   t = Timeframe (1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 3d, 1w, 1M)
   l = Number of candles (positive integer)
 
-Examples:
-  s=BTC/USDT t=1h l=100
-  s=ETH/USDT t=4h l=50
+Analysis Examples:
+  s=BTC/USDT t=1h l=100          # Run comprehensive technical analysis
+  s=ETH/USDT t=4h l=50           # Analyze ETH with 50 4h candles
+
+Chart Examples:
+  chart s=BTC/USDT t=1d l=100    # Create candlestick chart with support/resistance
+  c s=ETH/USDT t=4h l=50         # Short chart command
 
 Commands:
   help - Show this help
   exit, quit - Exit the CLI
   clear - Clear screen
+  chart - Create candlestick chart with support/resistance levels
+  
+Chart Features:
+  📊 Candlestick visualization
+  📈 Resistance level detection (red dashed lines)
+  📉 Support level detection (green dashed lines)
+  💾 Charts saved as PNG files in current directory
   
 History:
   Use arrow keys to navigate command history
@@ -141,14 +156,53 @@ History:
                         print("Type 'help' for usage information")
                         continue
                     
-                    # Execute comprehensive analysis
-                    print(f"\n🔍 Running comprehensive analysis for {params['symbol']} {params['timeframe']} ({params['length']} candles)...")
-                    
-                    # Run the comprehensive market analysis and get formatted output
-                    formatted_output = self.analyzer.analyze_comprehensive(params['symbol'], params['timeframe'], params['length'])
-                    
-                    # Display the beautiful formatted report
-                    print("\n" + formatted_output)
+                    # Check if chart is requested
+                    if params.get('show_chart', False):
+                        try:
+                            from chart_visualizer import ChartVisualizer
+                            
+                            print(f"\n📊 Creating chart for {params['symbol']} {params['timeframe']} ({params['length']} candles)...")
+                            
+                            visualizer = ChartVisualizer()
+                            chart_filename = f"{params['symbol'].replace('/', '_')}_{params['timeframe']}_{params['length']}.png"
+                            
+                            # Create chart and save to file (no interactive display in CLI)
+                            result = visualizer.create_chart(
+                                params['symbol'], 
+                                params['timeframe'], 
+                                params['length'], 
+                                save_path=chart_filename,
+                                show_chart=False  # Don't show interactive chart in CLI
+                            )
+                            
+                            if result['success']:
+                                print(f"✅ Chart created and saved as: {chart_filename}")
+                                print(f"📈 Resistance levels: {len(result['resistance_levels'])}")
+                                if result['resistance_levels']:
+                                    for i, level in enumerate(result['resistance_levels'], 1):
+                                        print(f"   R{i}: ${level:.4f}")
+                                
+                                print(f"📉 Support levels: {len(result['support_levels'])}")
+                                if result['support_levels']:
+                                    for i, level in enumerate(result['support_levels'], 1):
+                                        print(f"   S{i}: ${level:.4f}")
+                            else:
+                                print(f"❌ Chart creation failed: {result['error']}")
+                                
+                        except ImportError:
+                            print("❌ Chart visualization not available. Install required packages:")
+                            print("   pip install mplfinance matplotlib scipy")
+                        except Exception as e:
+                            print(f"❌ Error creating chart: {str(e)}")
+                    else:
+                        # Execute comprehensive analysis
+                        print(f"\n🔍 Running comprehensive analysis for {params['symbol']} {params['timeframe']} ({params['length']} candles)...")
+                        
+                        # Run the comprehensive market analysis and get formatted output
+                        formatted_output = self.analyzer.analyze_comprehensive(params['symbol'], params['timeframe'], params['length'])
+                        
+                        # Display the beautiful formatted report
+                        print("\n" + formatted_output)
                     
                 except KeyboardInterrupt:
                     print("\nUse 'exit' or 'quit' to exit")

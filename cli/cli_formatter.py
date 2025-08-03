@@ -263,13 +263,18 @@ Market Regime: {'BULL_MARKET' if overall_bias == 'BULLISH' else 'BEAR_MARKET' if
                     if 'tp_high' in data and data['tp_high'] > 0:
                         targets.append((data['tp_high'], level_strength))
         
-        # Industry-standard price clustering (within 1.5% considered same level)
-        def cluster_levels(levels_with_weights, cluster_threshold=0.015):
+        # Industry-standard price clustering (within 1% considered same level for more precision)
+        def cluster_levels(levels_with_weights, cluster_threshold=0.01):
             if not levels_with_weights:
                 return 0
             
+            # Filter out invalid levels (zero or negative prices)
+            valid_levels = [(price, weight) for price, weight in levels_with_weights if price > 0 and weight > 0]
+            if not valid_levels:
+                return 0
+            
             # Sort by price
-            sorted_levels = sorted(levels_with_weights, key=lambda x: x[0])
+            sorted_levels = sorted(valid_levels, key=lambda x: x[0])
             clusters = []
             
             for price, weight in sorted_levels:
@@ -292,25 +297,75 @@ Market Regime: {'BULL_MARKET' if overall_bias == 'BULLISH' else 'BEAR_MARKET' if
             strongest_cluster = max(clusters, key=lambda c: sum(w for p, w in c))
             # Return weighted average of strongest cluster
             total_weight = sum(w for p, w in strongest_cluster)
-            return sum(p * w for p, w in strongest_cluster) / total_weight if total_weight > 0 else 0
+            weighted_avg = sum(p * w for p, w in strongest_cluster) / total_weight if total_weight > 0 else 0
+            
+            # Validate result against current price to ensure reasonableness
+            if current_price > 0 and weighted_avg > 0:
+                # Support should be below current price, resistance should be above
+                distance_ratio = abs(weighted_avg - current_price) / current_price
+                # Only return levels that are at least 0.5% away from current price
+                if distance_ratio >= 0.005:
+                    return weighted_avg
+            
+            return 0
         
-        # Calculate clustered levels
-        avg_support = cluster_levels(supports)
-        avg_resistance = cluster_levels(resistances)
-        avg_stop = cluster_levels(stop_losses)
+        # Calculate clustered levels with validation
+        raw_support = cluster_levels(supports)
+        raw_resistance = cluster_levels(resistances) 
+        raw_stop = cluster_levels(stop_losses)
         
-        # Determine current price for proper target ordering
-        current_price = 0
-        for category in [results.techin_results, results.pattern_results, results.orderflow_results]:
-            for name, data in category.items():
-                if isinstance(data, dict) and data.get('success', False):
-                    current_price = data.get('current_price', current_price)
-                    break
-            if current_price > 0:
-                break
+        # Validate support and resistance levels
+        if current_price > 0:
+            # Support should be below current price
+            if raw_support > 0 and raw_support < current_price * 0.99:
+                avg_support = raw_support
+            else:
+                avg_support = 0  # Invalid support level
+                
+            # Resistance should be above current price
+            if raw_resistance > 0 and raw_resistance > current_price * 1.01:
+                avg_resistance = raw_resistance
+            else:
+                avg_resistance = 0  # Invalid resistance level
+        else:
+            avg_support = raw_support
+            avg_resistance = raw_resistance
         
-        # Determine market bias for proper target ordering
+        # Validate and adjust stop loss based on market bias and position
         overall_bias, _ = self.calculate_overall_bias(results)
+        
+        if current_price > 0:
+            if overall_bias == 'BULLISH':
+                # For bullish bias (long position), stop loss should be below current price
+                if raw_stop > 0 and raw_stop < current_price * 0.98:  # At least 2% below
+                    avg_stop = raw_stop
+                elif avg_support > 0 and avg_support < current_price * 0.98:
+                    avg_stop = avg_support * 0.995  # Slightly below support
+                else:
+                    avg_stop = current_price * 0.95  # 5% stop loss as fallback
+                    
+            elif overall_bias == 'BEARISH':
+                # For bearish bias (short position), stop loss should be above current price
+                if raw_stop > 0 and raw_stop > current_price * 1.02:  # At least 2% above
+                    avg_stop = raw_stop
+                elif avg_resistance > 0 and avg_resistance > current_price * 1.02:
+                    avg_stop = avg_resistance * 1.005  # Slightly above resistance
+                else:
+                    avg_stop = current_price * 1.05  # 5% stop loss as fallback
+            else:
+                # Neutral bias: use closest reasonable stop level
+                if raw_stop > 0:
+                    distance_ratio = abs(raw_stop - current_price) / current_price
+                    if 0.02 <= distance_ratio <= 0.10:  # Between 2% and 10%
+                        avg_stop = raw_stop
+                    else:
+                        avg_stop = current_price * 0.95  # Default to 5% below
+                else:
+                    avg_stop = current_price * 0.95  # Default to 5% below
+        else:
+            avg_stop = raw_stop
+        
+        # Market bias already determined above for stop loss validation
         
         # Sort targets appropriately based on market bias and current price
         if targets and current_price > 0:
@@ -319,25 +374,41 @@ Market Regime: {'BULL_MARKET' if overall_bias == 'BULLISH' else 'BEAR_MARKET' if
             
             if overall_bias == 'BULLISH':
                 # For bullish bias: targets should be above current price
-                valid_targets = [t for t in target_prices if t > current_price * 1.005]  # At least 0.5% above
+                valid_targets = [t for t in target_prices if t > current_price * 1.01]  # At least 1% above
                 valid_targets.sort()  # Ascending order: TP1 closer, TP2 further
+                
+                # If no valid targets above current price, generate reasonable bullish targets
+                if not valid_targets:
+                    tp1 = current_price * 1.02  # 2% above current price
+                    tp2 = current_price * 1.05  # 5% above current price
+                else:
+                    tp1 = valid_targets[0] if len(valid_targets) > 0 else current_price * 1.02
+                    tp2 = valid_targets[1] if len(valid_targets) > 1 else current_price * 1.05
+                    
             elif overall_bias == 'BEARISH':
                 # For bearish bias: targets should be below current price  
-                valid_targets = [t for t in target_prices if t < current_price * 0.995]  # At least 0.5% below
+                valid_targets = [t for t in target_prices if t < current_price * 0.99]  # At least 1% below
                 valid_targets.sort(reverse=True)  # Descending order: TP1 closer, TP2 further
+                
+                # If no valid targets below current price, generate reasonable bearish targets
+                if not valid_targets:
+                    tp1 = current_price * 0.98  # 2% below current price
+                    tp2 = current_price * 0.95  # 5% below current price
+                else:
+                    tp1 = valid_targets[0] if len(valid_targets) > 0 else current_price * 0.98
+                    tp2 = valid_targets[1] if len(valid_targets) > 1 else current_price * 0.95
             else:
-                # Neutral: use closest targets regardless of direction
-                valid_targets = [t for t in target_prices if abs(t - current_price) > 0.005 * current_price]
+                # Neutral: use closest targets regardless of direction but ensure they make sense
+                valid_targets = [t for t in target_prices if abs(t - current_price) > 0.01 * current_price]
                 valid_targets.sort(key=lambda x: abs(x - current_price))
-            
-            if valid_targets:
-                tp1 = valid_targets[0] if len(valid_targets) > 0 else 0
-                tp2 = valid_targets[1] if len(valid_targets) > 1 else 0
-            else:
-                # Fallback: use clustered targets if no valid targets found
-                clustered_target = cluster_levels(targets)
-                tp1 = clustered_target if clustered_target > 0 else 0
-                tp2 = 0
+                
+                if valid_targets:
+                    tp1 = valid_targets[0] if len(valid_targets) > 0 else 0
+                    tp2 = valid_targets[1] if len(valid_targets) > 1 else 0
+                else:
+                    # For neutral bias, provide both upside and downside targets
+                    tp1 = current_price * 1.015  # 1.5% above
+                    tp2 = current_price * 0.985  # 1.5% below
         else:
             tp1 = tp2 = 0
         

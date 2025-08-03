@@ -310,13 +310,13 @@ class MACDStrategy:
             'divergence_ratio': round(macd_signal_ratio, 2),
             'histogram_strength': round(histogram_strength, 6),
             
-            # Price levels
+            # Price levels (direction-aware)
             'current_price': round(latest_close, 4),
             'support_level': round(support, 4),
             'resistance_level': round(resistance, 4),
-            'stop_zone': round(support * 0.98, 4),
-            'tp_low': round(resistance * 1.02, 4),
-            'tp_high': round(resistance * 1.05, 4),
+            'stop_zone': round(support * 0.98 if action == 'BUY' else (resistance * 1.02 if action == 'SELL' else support * 0.98), 4),
+            'tp_low': round(resistance * 1.02 if action == 'BUY' else (support * 0.98 if action == 'SELL' else resistance * 1.02), 4),
+            'tp_high': round(resistance * 1.05 if action == 'BUY' else (support * 0.95 if action == 'SELL' else resistance * 1.05), 4),
             
             # Trading analysis
             'signal': action,

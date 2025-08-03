@@ -5,6 +5,9 @@ Handles OHLCV data, order books, and ticker information using CCXT library.
 
 import ccxt
 import logging
+import csv
+import os
+from datetime import datetime
 from typing import List, Dict, Optional
 
 # Configure logging
@@ -265,3 +268,65 @@ class DataCollector(DataCollectorSingleton):
         except Exception as e:
             logger.error(f"Error fetching tick trades for {symbol}: {e}")
             raise RuntimeError(f"Failed to fetch tick trades for {symbol}: {e}")
+    
+    def export_ohlcv_to_csv(self, symbol: str, timeframe: str = '1d', 
+                           limit: int = 999, since: Optional[int] = None,
+                           output_dir: str = 'data/csv_exports') -> str:
+        """
+        Export OHLCV data to CSV file, replacing any existing file.
+        
+        Args:
+            symbol: Trading pair symbol (e.g., 'BTC/USDT')
+            timeframe: Timeframe for data ('1d', '4h', etc.)
+            limit: Number of candles to fetch
+            since: Start timestamp in milliseconds
+            output_dir: Directory to save CSV files (will be created if doesn't exist)
+            
+        Returns:
+            Path to the created CSV file
+        """
+        try:
+            # Fetch OHLCV data
+            ohlcv_data = self.fetch_ohlcv_data(symbol, timeframe, limit, since)
+            
+            # Create output directory if it doesn't exist
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Generate filename with timestamp to avoid conflicts
+            safe_symbol = symbol.replace('/', '_')
+            filename = f"{safe_symbol}_{timeframe}_{limit}candles.csv"
+            filepath = os.path.join(output_dir, filename)
+            
+            # Write to CSV file (this will replace existing file)
+            with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # Write header
+                writer.writerow(['timestamp', 'datetime', 'open', 'high', 'low', 'close', 'volume'])
+                
+                # Write data rows
+                for candle in ohlcv_data:
+                    timestamp = candle[0]
+                    # Convert timestamp to readable datetime
+                    dt = datetime.fromtimestamp(timestamp / 1000)
+                    datetime_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    row = [
+                        timestamp,      # Raw timestamp
+                        datetime_str,   # Human readable datetime
+                        candle[1],      # Open
+                        candle[2],      # High
+                        candle[3],      # Low
+                        candle[4],      # Close
+                        candle[5]       # Volume
+                    ]
+                    writer.writerow(row)
+            
+            logger.info(f"OHLCV data exported to: {filepath}")
+            logger.info(f"Exported {len(ohlcv_data)} candles for {symbol} ({timeframe})")
+            
+            return filepath
+            
+        except Exception as e:
+            logger.error(f"Error exporting OHLCV to CSV for {symbol}: {e}")
+            raise RuntimeError(f"Failed to export OHLCV data to CSV for {symbol}: {e}")

@@ -483,11 +483,25 @@ class EMA9_21Strategy:
         resistance = max(recent_highs) if recent_highs else current_price * 1.02
         support = min(recent_lows) if recent_lows else current_price * 0.98
         
-        # Stop loss and take profit zones
+        # Stop loss and take profit zones (direction-aware)
         atr_val = latest_signal['atr']
-        stop_zone = current_price - (atr_val * 2) if atr_val > 0 else support * 0.99
-        tp_zone_low = current_price + (atr_val * 2.5) if atr_val > 0 else resistance * 1.01
-        tp_zone_high = current_price + (atr_val * 3.5) if atr_val > 0 else resistance * 1.05
+        signal_direction = latest_signal['signal']
+        
+        if signal_direction == 'BUY':
+            # For BUY signals: targets above current price, stop below
+            stop_zone = current_price - (atr_val * 2) if atr_val > 0 else support * 0.99
+            tp_zone_low = current_price + (atr_val * 2.5) if atr_val > 0 else resistance * 1.01
+            tp_zone_high = current_price + (atr_val * 3.5) if atr_val > 0 else resistance * 1.05
+        elif signal_direction == 'SELL':
+            # For SELL signals: targets below current price, stop above
+            stop_zone = current_price + (atr_val * 2) if atr_val > 0 else resistance * 1.01
+            tp_zone_low = current_price - (atr_val * 2.5) if atr_val > 0 else support * 0.99
+            tp_zone_high = current_price - (atr_val * 3.5) if atr_val > 0 else support * 0.95
+        else:
+            # For HOLD/NEUTRAL signals: use support/resistance levels
+            stop_zone = current_price - (atr_val * 2) if atr_val > 0 else support * 0.99
+            tp_zone_low = resistance * 1.01
+            tp_zone_high = resistance * 1.05
         
         # Risk/Reward ratio
         risk = abs(current_price - stop_zone)

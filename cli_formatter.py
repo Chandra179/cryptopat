@@ -197,23 +197,32 @@ Market Regime: {'BULL_MARKET' if overall_bias == 'BULLISH' else 'BEAR_MARKET' if
             if current_price > 0:
                 break
         
-        # Sort targets appropriately based on current price
-        if targets:
-            targets.sort()
-            # For proper target ordering: TP1 should be closer to current price than TP2
-            if current_price > 0:
-                # Filter targets that make sense (above current price for long, below for short)
-                valid_targets = [t for t in targets if abs(t - current_price) > 0.01 * current_price]  # At least 1% away
-                if valid_targets:
-                    valid_targets.sort(key=lambda x: abs(x - current_price))  # Sort by distance from current price
-                    tp1 = valid_targets[0] if valid_targets else 0
-                    tp2 = valid_targets[1] if len(valid_targets) > 1 else valid_targets[-1] if valid_targets else 0
-                else:
-                    tp1 = targets[0] if targets else 0
-                    tp2 = targets[-1] if len(targets) > 1 else 0
+        # Get overall market bias for intelligent target selection
+        overall_bias, confidence = self.calculate_overall_bias(results)
+        
+        # Filter targets based on market bias and current price
+        if targets and current_price > 0:
+            if overall_bias == 'BULLISH':
+                # For bullish bias, use targets above current price
+                valid_targets = [t for t in targets if t > current_price * 1.01]  # At least 1% above
+            elif overall_bias == 'BEARISH':
+                # For bearish bias, use targets below current price  
+                valid_targets = [t for t in targets if t < current_price * 0.99]  # At least 1% below
             else:
-                tp1 = targets[0] if targets else 0
-                tp2 = targets[-1] if len(targets) > 1 else 0
+                # For neutral bias, prefer targets above current price but allow both
+                above_targets = [t for t in targets if t > current_price * 1.01]
+                below_targets = [t for t in targets if t < current_price * 0.99]
+                # Prefer upside targets for neutral bias (common trading practice)
+                valid_targets = above_targets if above_targets else below_targets
+            
+            if valid_targets:
+                valid_targets.sort(key=lambda x: abs(x - current_price))  # Sort by distance from current price
+                tp1 = valid_targets[0] if valid_targets else 0
+                tp2 = valid_targets[1] if len(valid_targets) > 1 else valid_targets[-1] if valid_targets else 0
+            else:
+                # Fallback: if no valid targets, use resistance levels
+                tp1 = avg_resistance * 1.02 if avg_resistance > current_price else 0
+                tp2 = avg_resistance * 1.05 if avg_resistance > current_price else 0
         else:
             tp1 = tp2 = 0
         
