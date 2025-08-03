@@ -4,7 +4,7 @@ Uses Relative Strength Index to detect overbought/oversold conditions and trend 
 """
 
 from datetime import datetime, timezone
-from typing import List, Dict
+from typing import List, Dict, Optional
 from data import get_data_collector
 
 
@@ -130,7 +130,7 @@ class RSI14Strategy:
         
         return signals
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Perform RSI(14) analysis and return results as structured data.
         
@@ -138,12 +138,14 @@ class RSI14Strategy:
             symbol: Trading pair (e.g., 'XRP/USDT')
             timeframe: Timeframe (e.g., '1d', '4h', '1h')
             limit: Number of candles to analyze
+            ohlcv_data: Optional pre-fetched OHLCV data
             
         Returns:
             Dictionary containing analysis results
         """
-        # Fetch OHLCV data
-        ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+        # Fetch OHLCV data if not provided
+        if ohlcv_data is None:
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
         
         if len(ohlcv_data) < 20:
             return {
@@ -257,8 +259,6 @@ class RSI14Strategy:
         # Return structured analysis results
         return {
             'success': True,
-            'symbol': symbol,
-            'timeframe': timeframe,
             'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
             'timestamp': timestamps[timestamp_idx],
             

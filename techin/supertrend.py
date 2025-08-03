@@ -4,7 +4,7 @@ Uses ATR-based dynamic support/resistance levels for trend identification.
 """
 
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from data import get_data_collector
 
 
@@ -199,7 +199,7 @@ class SupertrendStrategy:
             else:
                 return "HOLD", "⚠️ Price Near Resistance"
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> dict:
         """
         Perform Supertrend analysis and return results as structured data.
         
@@ -207,13 +207,15 @@ class SupertrendStrategy:
             symbol: Trading pair (e.g., 'BTC/USDT')
             timeframe: Timeframe (e.g., '1h', '4h')
             limit: Number of candles to analyze
+            ohlcv_data: Optional pre-fetched OHLCV data
             
         Returns:
             Dictionary containing analysis results
         """
         try:
-            # Fetch OHLCV data
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Fetch OHLCV data if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
             if not ohlcv_data or len(ohlcv_data) < 30:
                 return {
@@ -337,8 +339,6 @@ class SupertrendStrategy:
             
             return {
                 'success': True,
-                'symbol': symbol,
-                'timeframe': timeframe,
                 'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
                 'timestamp': timestamps[latest_idx],
                 

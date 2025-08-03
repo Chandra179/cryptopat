@@ -273,7 +273,7 @@ class ElliottWaveStrategy:
         return pattern_type, direction
     
     def analyze_elliott_wave(self, symbol: str, timeframe: str, limit: int = 150, 
-                           zigzag_threshold: float = 5.0) -> Optional[ElliottWavePattern]:
+                           zigzag_threshold: float = 5.0, ohlcv_data: Optional[List] = None) -> Optional[ElliottWavePattern]:
         """
         Complete Elliott Wave analysis for given symbol and timeframe
         
@@ -287,8 +287,9 @@ class ElliottWaveStrategy:
             ElliottWavePattern object or None if analysis fails
         """
         try:
-            # Fetch OHLCV data
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Fetch OHLCV data if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             if ohlcv_data is None or len(ohlcv_data) < 10:
                 return None
                 
@@ -594,7 +595,7 @@ class ElliottWaveStrategy:
         
         return output
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Analyze Elliott Wave patterns for given symbol and timeframe
         
@@ -607,7 +608,9 @@ class ElliottWaveStrategy:
             Analysis results dictionary
         """
         try:
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Fetch OHLCV data if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
             if not ohlcv_data or len(ohlcv_data) < 50:
                 return {

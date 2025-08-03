@@ -6,7 +6,7 @@ A double top is a bearish reversal pattern consisting of two swing highs
 at approximately the same level, separated by an intervening valley.
 """
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 from datetime import datetime
 import numpy as np
 from data import get_data_collector
@@ -21,7 +21,7 @@ class DoubleTopStrategy:
         self.min_time_separation = min_time_separation
         self.collector = get_data_collector()
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Analyze Double Top patterns for given symbol and timeframe
         
@@ -34,7 +34,9 @@ class DoubleTopStrategy:
             Analysis results dictionary
         """
         try:
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Fetch OHLCV data if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
             if not ohlcv_data or len(ohlcv_data) < 50:
                 return {

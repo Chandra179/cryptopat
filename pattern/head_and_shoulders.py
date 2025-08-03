@@ -262,7 +262,7 @@ class HeadAndShouldersStrategy:
         
         return None
 
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Analyze Head and Shoulders pattern for given symbol and timeframe
         
@@ -275,7 +275,9 @@ class HeadAndShouldersStrategy:
             Analysis results dictionary
         """
         try:
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Fetch OHLCV data if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
             if not ohlcv_data or len(ohlcv_data) < 80:
                 return {

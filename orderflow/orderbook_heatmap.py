@@ -867,7 +867,7 @@ class OrderBookHeatmapStrategy:
     def __init__(self):
         self.collector = get_data_collector()
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Analyze order book heatmap patterns for given symbol and timeframe.
         
@@ -880,8 +880,9 @@ class OrderBookHeatmapStrategy:
             Analysis results dictionary
         """
         try:
-            # Get OHLCV data for baseline analysis
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Get OHLCV data for baseline analysis if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
             if not ohlcv_data or len(ohlcv_data) < 20:
                 return {

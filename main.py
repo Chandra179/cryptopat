@@ -15,12 +15,14 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from data import get_data_collector
+from comprehensive_analyzer import ComprehensiveAnalyzer
 
 class CryptoPatCLI:
     def __init__(self):
         self.history_file = os.path.expanduser("~/.cryptopat_history")
         self.setup_history()
         self.valid_timeframes = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '3d', '1w', '1M']
+        self.analyzer = ComprehensiveAnalyzer()
         
     def setup_history(self):
         """Setup readline history for command persistence"""
@@ -79,41 +81,11 @@ class CryptoPatCLI:
         
         return errors
     
-    def fetch_data(self, symbol, timeframe, length):
-        """Fetch OHLCV data using DataCollector"""
-        try:
-            collector = get_data_collector()
-            print(f"Fetching {length} candles of {symbol} at {timeframe} timeframe...")
-            
-            data = collector.fetch_ohlcv_data(symbol, timeframe, length)
-            
-            if data and len(data) > 0:
-                print(f"Successfully fetched {len(data)} candles")
-                print(f"Date range: {data[0][0]} to {data[-1][0]}")
-                print(f"Latest close price: {data[-1][4]}")
-                
-                # Show last 5 candles
-                print("\nLast 5 candles (timestamp, open, high, low, close, volume):")
-                for candle in data[-5:]:
-                    timestamp = candle[0]
-                    print(f"  {timestamp}: O={candle[1]}, H={candle[2]}, L={candle[3]}, C={candle[4]}, V={candle[5]}")
-                
-                return data
-            else:
-                print("No data received")
-                return None
-                
-        except Exception as e:
-            print(f"Error fetching data: {e}")
-            return None
-    
     def show_help(self):
         """Display help information"""
         print("""
 CryptoPat Interactive CLI
 ========================
-
-Usage: s=<symbol> t=<timeframe> l=<candles>
 
 Parameters:
   s = Symbol (e.g., BTC/USDT, ETH/USDT, SOL/USDT)
@@ -123,7 +95,6 @@ Parameters:
 Examples:
   s=BTC/USDT t=1h l=100
   s=ETH/USDT t=4h l=50
-  s=SOL/USDT t=1d l=30
 
 Commands:
   help - Show this help
@@ -171,9 +142,14 @@ History:
                         print("Type 'help' for usage information")
                         continue
                     
-                    # Execute data fetch
-                    self.fetch_data(params['symbol'], params['timeframe'], params['length'])
-                    print()
+                    # Execute comprehensive analysis
+                    print(f"\n🔍 Running comprehensive analysis for {params['symbol']} {params['timeframe']} ({params['length']} candles)...")
+                    
+                    # Run the comprehensive market analysis and get formatted output
+                    formatted_output = self.analyzer.analyze_comprehensive(params['symbol'], params['timeframe'], params['length'])
+                    
+                    # Display the beautiful formatted report
+                    print("\n" + formatted_output)
                     
                 except KeyboardInterrupt:
                     print("\nUse 'exit' or 'quit' to exit")

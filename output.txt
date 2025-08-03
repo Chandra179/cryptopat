@@ -65,17 +65,12 @@ INFO:data.collector:Fetching ticker for BTC/USDT
   Running absorption...
     ✅ absorption completed successfully
   Running stop_sweep...
-INFO:data.collector:Fetching ticker for BTC/USDT
-INFO:data.collector:Fetching order book for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
+ERROR:orderflow.stop_sweep:Error in enhanced stop sweep analysis: cannot access local variable 'ohlcv_data' where it is not associated with a value
     ✅ stop_sweep completed successfully
   Running footprint...
-INFO:orderflow.footprint:Fetched 200 candles and 1000 trades for BTC/USDT
-    ✅ footprint completed successfully
+ERROR:orderflow.footprint:Error fetching footprint data for BTC/USDT: cannot access local variable 'ohlcv_data' where it is not associated with a value
+ERROR:orderflow.footprint:Error in footprint analysis for BTC/USDT: cannot access local variable 'ohlcv_data' where it is not associated with a value
+    Warning: footprint analysis failed: Analysis failed: cannot access local variable 'ohlcv_data' where it is not associated with a value
   Running orderbook_heatmap...
 INFO:data.collector:Fetching order book for BTC/USDT
     ✅ orderbook_heatmap completed successfully
@@ -87,30 +82,27 @@ INFO:data.collector:Fetching order book for BTC/USDT
 ===============================================================================
                         CRYPTOPAT ANALYSIS REPORT                            
 ===============================================================================
-Symbol: BTC/USDT | Timeframe: 1d | Candles: 200 | Analysis Time: 2025-08-03 10:13:00
-Current Price: $113,465.99 | 24h Change: +0.0% ($0.000000)
+Symbol: BTC/USDT | Timeframe: 1d | Candles: 200 | Analysis Time: 2025-08-03 09:58:54
+Current Price: $113,499.99 | 24h Change: +0.0% ($0.000000)
 ===============================================================================
 
 📊 MARKET OVERVIEW
-Overall Bias: 🟡 NEUTRAL (Confidence: 42%)
+Overall Bias: 🟢 BULLISH (Confidence: 43%)
 Primary Signal: ⚪ WEAK_BUY
 Risk/Reward: 1:1.2
-Market Regime: SIDEWAYS (Moderate Volatility)
+Market Regime: BULL_MARKET (Moderate Volatility)
 
 🎯 KEY LEVELS
-Support: $107,889.75
-Resistance: $113,614.15
-Stop Loss: $105,448.72
+Support: $107,507.30
+Resistance: $113,546.44
+Stop Loss: $105,463.36
 Targets: $103,644.79 (TP1) | $125,682.36 (TP2)
 
 📈 TECHNICAL INDICATORS
 
 MOMENTUM INDICATORS
-RSI-14:       43.5 (SIDEWAYS)
-ATR/ADX:      ATR: 2777 | ADX: 0.0 (MODERATE Trend)
 
 VOLUME INDICATORS
-OBV:          NEUTRAL (+218.1K)
 
 CHART PATTERNS
 ❌ Bull Flag: Not Detected
@@ -127,7 +119,7 @@ CHoCH (Change of Character): ❌ None
 Order Block Hit: ❌ None │ Liquidity Sweep: ❌ None
 
 VOLUME PROFILE
-CVD (Cumulative Volume Delta): -1 (📉 Short Setup)
+CVD (Cumulative Volume Delta): +1 (📈 Long Setup)
 Volume Imbalance: No significant gaps
 Absorption: No significant levels
 Stop Sweep: None detected
@@ -138,7 +130,3 @@ Stop Sweep: None detected
 🟡 MEDIUM: DOUBLE_BOTTOM indicating BUY (63%)
 🟡 MEDIUM: ELLIOTT_WAVE indicating BUY (73%)
 🟡 MEDIUM: SMC indicating SELL (60%)
-
-===============================================================================
-                    Analysis Complete - Trade Safely!                     
-===============================================================================

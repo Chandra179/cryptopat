@@ -4,7 +4,7 @@ Uses MACD line, signal line, and histogram to detect trend changes and momentum 
 """
 
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from data import get_data_collector
 
 
@@ -172,7 +172,7 @@ class MACDStrategy:
         
         return signals
     
-    def analyze(self, symbol: str, timeframe: str, limit: int):
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None):
         """
         Perform MACD analysis and return results as structured data.
         
@@ -180,12 +180,14 @@ class MACDStrategy:
             symbol: Trading pair (e.g., 'XRP/USDT')
             timeframe: Timeframe (e.g., '4h', '1d', '1h')
             limit: Number of candles to analyze
+            ohlcv_data: Optional pre-fetched OHLCV data
             
         Returns:
             Dictionary containing analysis results
         """
-        # Fetch OHLCV data
-        ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+        # Fetch OHLCV data if not provided
+        if ohlcv_data is None:
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
         
         if len(ohlcv_data) < 50:
             return {
@@ -291,8 +293,6 @@ class MACDStrategy:
         
         return {
             'success': True,
-            'symbol': symbol,
-            'timeframe': timeframe,
             'analysis_time': latest_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
             'timestamp': timestamps[-1],
             

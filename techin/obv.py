@@ -4,7 +4,7 @@ Uses volume and price relationship to detect bullish and bearish trend signals.
 """
 
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from data import get_data_collector
 
 
@@ -109,7 +109,7 @@ class OBVStrategy:
         
         return signals
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> dict:
         """
         Perform OBV analysis and return results as structured data.
         
@@ -117,12 +117,14 @@ class OBVStrategy:
             symbol: Trading pair (e.g., 'BTC/USDT')
             timeframe: Timeframe (e.g., '1d', '4h', '1h')
             limit: Number of candles to analyze
+            ohlcv_data: Optional pre-fetched OHLCV data
             
         Returns:
             Dictionary containing analysis results
         """
-        # Fetch OHLCV data
-        ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+        # Fetch OHLCV data if not provided
+        if ohlcv_data is None:
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
         
         if len(ohlcv_data) < 50:
             return {
@@ -218,8 +220,6 @@ class OBVStrategy:
         # Return structured analysis results
         return {
             'success': True,
-            'symbol': symbol,
-            'timeframe': timeframe,
             'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
             'timestamp': timestamps[timestamp_idx],
             
@@ -252,8 +252,7 @@ class OBVStrategy:
             # Additional data
             'all_signals': signals,
             'raw_data': {
-                'obv_values': obv,
-                'ohlcv_data': ohlcv_data
+                'obv_values': obv
             }
         }
 

@@ -606,7 +606,7 @@ class EnhancedStopSweepDetector:
     def analyze_enhanced_stop_sweep(self, symbol: str, timeframe: str = '1m',
                                   zigzag_threshold: float = 3.0, volume_threshold: float = 5000,
                                   wall_volume_threshold: float = 10000, spike_window: int = 5,
-                                  sustain_seconds: int = 3, limit: int = 100) -> str:
+                                  sustain_seconds: int = 3, limit: int = 100, ohlcv_data: Optional[List] = None) -> str:
         """
         Complete enhanced stop run and liquidity sweep analysis with advanced features.
         
@@ -624,8 +624,9 @@ class EnhancedStopSweepDetector:
             Enhanced formatted analysis output with delta, ATR, confluence, and regime data
         """
         try:
-            # Fetch data
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Fetch data if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             if len(ohlcv_data) < 20:
                 return f"Insufficient OHLCV data for {symbol}"
             
@@ -813,7 +814,7 @@ class StopSweepStrategy:
         """Initialize strategy."""
         self.detector = EnhancedStopSweepDetector()
     
-    def analyze(self, symbol: str, timeframe: str = '1m', limit: int = 100) -> Dict:
+    def analyze(self, symbol: str, timeframe: str = '1m', limit: int = 100, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Analyze stop run and liquidity sweep patterns.
         
@@ -829,7 +830,8 @@ class StopSweepStrategy:
             result = self.detector.analyze_enhanced_stop_sweep(
                 symbol=symbol,
                 timeframe=timeframe,
-                limit=limit
+                limit=limit,
+                ohlcv_data=ohlcv_data
             )
             
             return {

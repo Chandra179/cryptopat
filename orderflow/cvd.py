@@ -16,7 +16,7 @@ class CVDAnalyzer:
     def __init__(self):
         self.collector = get_data_collector()
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Analyze CVD patterns for given symbol and timeframe.
         
@@ -24,6 +24,7 @@ class CVDAnalyzer:
             symbol: Trading pair symbol
             timeframe: Timeframe for analysis (not used in CVD but kept for consistency)
             limit: Number of recent trades to analyze
+            ohlcv_data: Optional pre-fetched OHLCV data (not used in CVD analysis)
             
         Returns:
             Analysis results dictionary

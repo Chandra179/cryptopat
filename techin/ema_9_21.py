@@ -4,7 +4,7 @@ Uses exponential moving averages to detect bullish and bearish trend signals.
 """
 
 from datetime import datetime
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 import pandas as pd
 import statistics
 from data import get_data_collector
@@ -382,7 +382,7 @@ class EMA9_21Strategy:
         
         return signals
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> dict:
         """
         Perform EMA 9/21 analysis and return structured results.
         
@@ -390,12 +390,14 @@ class EMA9_21Strategy:
             symbol: Trading pair (e.g., 'XRP/USDT')
             timeframe: Timeframe (e.g., '1d', '4h', '1h')
             limit: Number of candles to analyze
+            ohlcv_data: Optional pre-fetched OHLCV data
             
         Returns:
             dict: Structured analysis results
         """
-        # Fetch OHLCV data
-        ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+        # Fetch OHLCV data if not provided
+        if ohlcv_data is None:
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
         
         if len(ohlcv_data) < 30:
             return {
@@ -515,8 +517,6 @@ class EMA9_21Strategy:
         # Return structured analysis results
         return {
             'success': True,
-            'symbol': symbol,
-            'timeframe': timeframe,
             'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
             'timestamp': timestamps[timestamp_idx],
             

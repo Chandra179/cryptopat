@@ -5,7 +5,7 @@ Uses 20-period SMA with 2 standard deviation bands to detect volatility and reve
 
 import math
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from data import get_data_collector
 
 
@@ -215,7 +215,7 @@ class BollingerBandsStrategy:
         
         return signals
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> dict:
         """
         Perform Bollinger Bands analysis and return structured results.
         
@@ -223,12 +223,14 @@ class BollingerBandsStrategy:
             symbol: Trading pair (e.g., 'ETH/USDT')
             timeframe: Timeframe (e.g., '1d', '4h', '1h')
             limit: Number of candles to analyze
+            ohlcv_data: Optional pre-fetched OHLCV data
             
         Returns:
             Dictionary containing analysis results
         """
-        # Fetch OHLCV data
-        ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+        # Fetch OHLCV data if not provided
+        if ohlcv_data is None:
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
         
         if len(ohlcv_data) < 50:
             return {
@@ -265,8 +267,6 @@ class BollingerBandsStrategy:
         # Return structured analysis results
         return {
             'success': True,
-            'symbol': symbol,
-            'timeframe': timeframe,
             'analysis_time': datetime.fromtimestamp(timestamps[-1] / 1000).strftime('%Y-%m-%d %H:%M:%S'),
             'timestamp': timestamps[-1],
             

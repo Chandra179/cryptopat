@@ -38,7 +38,7 @@ class SharkStrategy:
         self.bc_extension = 1.13      # BC must be 1.13 extension of OX
         self.bc_tolerance = 0.05      # ±5% tolerance for BC
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Analyze Shark pattern for given symbol and timeframe.
         
@@ -51,8 +51,9 @@ class SharkStrategy:
             Dictionary with pattern analysis results
         """
         try:
-            # Fetch OHLCV data
-            ohlcv_data = self.data_collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Fetch OHLCV data if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.data_collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
             if not ohlcv_data or len(ohlcv_data) < 50:
                 return {
@@ -83,9 +84,6 @@ class SharkStrategy:
             dt = datetime.fromtimestamp(current_timestamp / 1000)
             
             result = {
-                'success': True,
-                'symbol': symbol,
-                'timeframe': timeframe,
                 'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
                 'timestamp': current_timestamp,
                 'total_candles': len(ohlcv_data),

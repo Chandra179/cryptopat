@@ -22,7 +22,7 @@ class FootprintStrategy:
         self.collector = get_data_collector()
         
     def fetch_footprint_data(self, symbol: str, timeframe: str = '5m', 
-                           limit: int = 50) -> Tuple[List[List], List[Dict]]:
+                           limit: int = 50, ohlcv_data: Optional[List] = None) -> Tuple[List[List], List[Dict]]:
         """
         Fetch OHLCV and trade data for footprint analysis.
         
@@ -30,13 +30,15 @@ class FootprintStrategy:
             symbol: Trading pair symbol (e.g., 'XRP/USDT')
             timeframe: Candle timeframe (e.g., '1m', '5m', '15m')
             limit: Number of candles to fetch
+            ohlcv_data: Optional pre-fetched OHLCV data
             
         Returns:
             Tuple of (ohlcv_data, trades_data)
         """
         try:
-            # Fetch OHLCV data for candle structure
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Fetch OHLCV data for candle structure if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
             # Fetch recent trades data for volume distribution
             # Calculate how many trades we need based on timeframe
@@ -386,7 +388,7 @@ class FootprintStrategy:
         
         return "\n".join(output)
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict[str, Any]:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict[str, Any]:
         """
         Analyze footprint patterns for given symbol and timeframe.
         
@@ -400,11 +402,11 @@ class FootprintStrategy:
         """
         try:
             # Fetch data
-            ohlcv_data, trades_data = self.fetch_footprint_data(symbol, timeframe, limit)
+            fetched_ohlcv_data, trades_data = self.fetch_footprint_data(symbol, timeframe, limit, ohlcv_data)
             
-            if not ohlcv_data or not trades_data:
+            if not fetched_ohlcv_data or not trades_data:
                 return {
-                    'error': f'Insufficient data for footprint analysis: OHLCV={len(ohlcv_data) if ohlcv_data else 0}, Trades={len(trades_data) if trades_data else 0}',
+                    'error': f'Insufficient data for footprint analysis: OHLCV={len(fetched_ohlcv_data) if fetched_ohlcv_data else 0}, Trades={len(trades_data) if trades_data else 0}',
                     'success': False,
                     'symbol': symbol,
                     'timeframe': timeframe
@@ -412,7 +414,7 @@ class FootprintStrategy:
             
             # Build footprint matrix with default bins
             num_bins = 40
-            footprint_data = self.build_footprint_matrix(ohlcv_data, trades_data, num_bins)
+            footprint_data = self.build_footprint_matrix(fetched_ohlcv_data, trades_data, num_bins)
             
             if not footprint_data:
                 return {
@@ -459,7 +461,7 @@ class FootprintStrategy:
                 'timeframe': timeframe,
                 'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
                 'timestamp': current_timestamp,
-                'total_candles': len(ohlcv_data),
+                'total_candles': len(fetched_ohlcv_data),
                 'current_price': round(current_price, 4),
                 'pattern_detected': len(signals['volume_exhaustion']) > 0 or len(signals['delta_imbalances']) > 0,
                 
@@ -485,7 +487,7 @@ class FootprintStrategy:
                 
                 # Raw data
                 'raw_data': {
-                    'ohlcv_data': ohlcv_data,
+                    'ohlcv_data': fetched_ohlcv_data,
                     'footprint_data': footprint_data,
                     'signals': signals
                 }

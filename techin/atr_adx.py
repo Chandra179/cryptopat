@@ -4,7 +4,7 @@ Measures volatility and trend strength for cryptocurrency trend analysis.
 """
 
 from datetime import datetime, timezone
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 from data import get_data_collector
 
 
@@ -303,7 +303,7 @@ class ATR_ADXStrategy:
         
         return signals
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Perform ATR+ADX analysis and return results as structured data.
         
@@ -311,12 +311,14 @@ class ATR_ADXStrategy:
             symbol: Trading pair (e.g., 'ETH/USDT')
             timeframe: Timeframe (e.g., '4h', '1d')
             limit: Number of candles to analyze
+            ohlcv_data: Optional pre-fetched OHLCV data
             
         Returns:
             Dictionary containing analysis results
         """
-        # Fetch OHLCV data
-        ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+        # Fetch OHLCV data if not provided
+        if ohlcv_data is None:
+            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
         
         if len(ohlcv_data) < 30:
             return {
@@ -470,8 +472,6 @@ class ATR_ADXStrategy:
         # Return structured analysis results
         return {
             'success': True,
-            'symbol': symbol,
-            'timeframe': timeframe,
             'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
             'timestamp': latest_signal['timestamp'],
             

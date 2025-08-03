@@ -120,7 +120,30 @@ def format_vwap_output(signals: List[dict]) -> str:
     return '\n'.join(output_lines)
 
 
-def analyze(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 100, anchor: Optional[str] = None) -> dict:
+class VWAPStrategy:
+    """VWAP (Volume Weighted Average Price) Strategy Class"""
+    
+    def __init__(self):
+        self.name = "VWAP Strategy"
+        
+    def analyze(self, symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 100, ohlcv_data: Optional[List] = None, anchor: Optional[str] = None) -> dict:
+        """
+        Run complete VWAP analysis
+        
+        Args:
+            symbol: Trading pair symbol (e.g., "BTC/USDT")
+            timeframe: Timeframe for analysis (e.g., "1h", "4h", "1d")
+            limit: Number of candles to analyze
+            ohlcv_data: Optional pre-fetched OHLCV data
+            anchor: Optional anchor timestamp for anchored VWAP (format: "2025-07-29T04:00:00")
+        
+        Returns:
+            Dictionary with analysis results
+        """
+        return analyze_vwap(symbol, timeframe, limit, anchor, ohlcv_data)
+
+
+def analyze_vwap(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 100, anchor: Optional[str] = None, ohlcv_data: Optional[List] = None) -> dict:
     """
     Run complete VWAP analysis
     
@@ -129,15 +152,16 @@ def analyze(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 100, a
         timeframe: Timeframe for analysis (e.g., "1h", "4h", "1d")
         limit: Number of candles to analyze
         anchor: Optional anchor timestamp for anchored VWAP (format: "2025-07-29T04:00:00")
+        ohlcv_data: Optional pre-fetched OHLCV data
     
     Returns:
         Dictionary with analysis results
     """
     try:
-        collector = get_data_collector()
-        
-        # Fetch OHLCV data
-        ohlcv_data = collector.fetch_ohlcv_data(symbol, timeframe, limit)
+        # Fetch OHLCV data if not provided
+        if ohlcv_data is None:
+            collector = get_data_collector()
+            ohlcv_data = collector.fetch_ohlcv_data(symbol, timeframe, limit)
         
         if not ohlcv_data:
             return f"Error: No data received for {symbol} {timeframe}"
@@ -184,8 +208,7 @@ def analyze(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 100, a
             bias_confidence = 50.0
         
         return {
-            'symbol': symbol,
-            'timeframe': timeframe,
+            'success': True,
             'latest_signal': latest_signal,
             'overall_bias': overall_bias,
             'bias_confidence': round(bias_confidence, 2),
@@ -204,3 +227,6 @@ def analyze(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 100, a
         }
 
 
+def analyze(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 100, anchor: Optional[str] = None) -> dict:
+    """Backward compatibility function for standalone analysis"""
+    return analyze_vwap(symbol, timeframe, limit, anchor)

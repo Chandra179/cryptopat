@@ -8,7 +8,7 @@ indicating potential support/resistance levels.
 
 import pandas as pd
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from data import get_data_collector
@@ -128,7 +128,7 @@ class AbsorptionStrategy:
         
         return None
 
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Analyze absorption patterns for given symbol and timeframe.
         
@@ -141,7 +141,9 @@ class AbsorptionStrategy:
             Analysis results dictionary
         """
         try:
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Fetch OHLCV data if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
             if not ohlcv_data or len(ohlcv_data) < 20:
                 return {

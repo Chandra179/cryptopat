@@ -4,7 +4,7 @@ Detects liquidity zones, order blocks, break of structure (BOS), and change of c
 """
 
 from datetime import datetime, timezone
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 from data import get_data_collector
 
 
@@ -436,7 +436,7 @@ class SMCStrategy:
         
         return signals
     
-    def analyze(self, symbol: str, timeframe: str, limit: int) -> Dict:
+    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> Dict:
         """
         Perform SMC analysis and return results.
         
@@ -452,8 +452,9 @@ class SMCStrategy:
             if limit < 200:
                 limit = 200
             
-            # Fetch OHLCV data
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
+            # Fetch OHLCV data if not provided
+            if ohlcv_data is None:
+                ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
             
             if not ohlcv_data or len(ohlcv_data) < 200:
                 return {
