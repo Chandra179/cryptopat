@@ -1,132 +1,81 @@
-cryptopat> s=BTC/USDT t=1d l=200
+For command: python main.py s=BTC/USDT t=1h l=100
 
-🔍 Running comprehensive analysis for BTC/USDT 1d (200 candles)...
-🚀 Starting comprehensive analysis for BTC/USDT 1d (200 candles)
-================================================================================
-
-📊 Fetching OHLCV data for BTC/USDT 1d...
-INFO:data.collector:Fetching 1d OHLCV data for BTC/USDT
-INFO:data.collector:Retrieved 200 candles for BTC/USDT
-✅ Successfully fetched 200 candles
-
-📈 Running technical indicators...
-  Running ema_9_21...
-    ✅ ema_9_21 completed successfully
-  Running macd...
-    ✅ macd completed successfully
-  Running supertrend...
-    ✅ supertrend completed successfully
-  Running bollinger_bands...
-    ✅ bollinger_bands completed successfully
-  Running rsi_14...
-    ✅ rsi_14 completed successfully
-  Running atr_adx...
-    ✅ atr_adx completed successfully
-  Running obv...
-    ✅ obv completed successfully
-  Running vwap...
-    ✅ vwap completed successfully
-
-📊 Running chart pattern analysis...
-  Running flag...
-    ✅ flag completed successfully
-  Running triangle...
-    ✅ triangle completed successfully
-  Running head_and_shoulders...
-    ✅ head_and_shoulders completed successfully
-  Running inverse_head_and_shoulders...
-    ✅ inverse_head_and_shoulders completed successfully
-  Running double_top...
-    ✅ double_top completed successfully
-  Running double_bottom...
-    ✅ double_bottom completed successfully
-  Running wedge...
-    ✅ wedge completed successfully
-  Running shark_pattern...
-    ✅ shark_pattern completed successfully
-  Running butterfly_pattern...
-    ✅ butterfly_pattern completed successfully
-  Running elliott_wave...
-INFO:data.collector:Fetching 1d OHLCV data for BTC/USDT
-INFO:data.collector:Retrieved 200 candles for BTC/USDT
-    ✅ elliott_wave completed successfully
-
-💰 Running order flow analysis...
-  Running smc...
-    ✅ smc completed successfully
-  Running cvd...
-INFO:data.collector:Fetching 200 recent trades for BTC/USDT
-INFO:data.collector:Retrieved 200 trades for BTC/USDT
-INFO:data.collector:Fetching order book for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-    ✅ cvd completed successfully
-  Running imbalance...
-    ✅ imbalance completed successfully
-  Running absorption...
-    ✅ absorption completed successfully
-  Running stop_sweep...
-ERROR:orderflow.stop_sweep:Error in enhanced stop sweep analysis: cannot access local variable 'ohlcv_data' where it is not associated with a value
-    ✅ stop_sweep completed successfully
-  Running footprint...
-ERROR:orderflow.footprint:Error fetching footprint data for BTC/USDT: cannot access local variable 'ohlcv_data' where it is not associated with a value
-ERROR:orderflow.footprint:Error in footprint analysis for BTC/USDT: cannot access local variable 'ohlcv_data' where it is not associated with a value
-    Warning: footprint analysis failed: Analysis failed: cannot access local variable 'ohlcv_data' where it is not associated with a value
-  Running orderbook_heatmap...
-INFO:data.collector:Fetching order book for BTC/USDT
-    ✅ orderbook_heatmap completed successfully
-
-📋 Formatting comprehensive report...
-✅ Analysis complete!
-
+CLI OUTPUT FORMAT:
 
 ===============================================================================
                         CRYPTOPAT ANALYSIS REPORT                            
 ===============================================================================
-Symbol: BTC/USDT | Timeframe: 1d | Candles: 200 | Analysis Time: 2025-08-03 09:58:54
-Current Price: $113,499.99 | 24h Change: +0.0% ($0.000000)
+Symbol: BTC/USDT | Timeframe: 1h | Candles: 100 | Analysis Time: 2025-08-03 14:30:00
+Current Price: $67,450.50 | 24h Change: +2.3% (+$1,520.30)
 ===============================================================================
 
 📊 MARKET OVERVIEW
-Overall Bias: 🟢 BULLISH (Confidence: 43%)
-Primary Signal: ⚪ WEAK_BUY
-Risk/Reward: 1:1.2
+Overall Bias: BULLISH (Confidence: 78.5%)
+Primary Signal: BUY
+Risk/Reward: 1:2.3
 Market Regime: BULL_MARKET (Moderate Volatility)
 
 🎯 KEY LEVELS
-Support: $107,507.30
-Resistance: $113,546.44
-Stop Loss: $105,463.36
-Targets: $103,644.79 (TP1) | $125,682.36 (TP2)
+Support: $65,200.00
+Resistance: $69,800.00
+Stop Loss: $64,500.00
+Targets: $68,500 (TP1) | $70,200 (TP2)
 
 📈 TECHNICAL INDICATORS
+EMA 9/21:     BUY (85%)    │ Distance: +$1,240.50
+MACD:         BUY (72%)    │ Histogram: +45.2 (Bullish Crossover)
+SuperTrend:   BUY (88%)    │ Trend: $66,800.00 (Price Above)
+Bollinger:    BUY (76%)    │ Position: 0.78 (Upper Band)
 
 MOMENTUM INDICATORS
+RSI-14:       68.5 (NEUTRAL) │ No Divergence
+ATR/ADX:      ATR: 1,250 | ADX: 32.5 (STRONG Trend)
 
 VOLUME INDICATORS
+OBV:          BULLISH (145M) │ No Divergence
+VWAP:         BUY (Price Above VWAP)
 
 CHART PATTERNS
-❌ Bull Flag: Not Detected
-✅ Triangle: 100% Confidence │ Target: $111,466.79
-❌ Head & Shoulders: Not Detected
-✅ Double Top: 95% Confidence │ Target: $114,219.60
-✅ Double Bottom: 63% Confidence │ Target: $105,717.69
-❌ Butterfly: Not Detected
-✅ Elliott Wave: 73% Confidence │ Target: $125,682.36
+✅ Bull Flag:          82% Confidence │ Breakout Target: $69,500
+✅ Ascending Triangle: 76% Confidence │ Apex Distance: 12 candles
+❌ Head & Shoulders:  Not Detected
+❌ Harmonic Patterns: No Shark/Butterfly
+
+ELLIOTT WAVE
+Current Wave: Wave 3 (65% Complete) │ Target: $69,500
 
 SMART MONEY CONCEPTS
-BOS (Break of Structure): ✅ Detected │ Confluence: 1 factors
+BOS (Break of Structure): ✅ Detected │ Confluence: 4 factors
 CHoCH (Change of Character): ❌ None
-Order Block Hit: ❌ None │ Liquidity Sweep: ❌ None
+Order Block Hit: ✅ Active │ Liquidity Sweep: ✅ Bullish
 
 VOLUME PROFILE
-CVD (Cumulative Volume Delta): +1 (📈 Long Setup)
-Volume Imbalance: No significant gaps
+CVD (Cumulative Volume Delta): +2,450,000 (BULLISH)
+Volume Imbalance: Fair Value Gap Detected
 Absorption: No significant levels
 Stop Sweep: None detected
 
 ⚠️  ALERTS & SIGNALS
-🔴 HIGH:   TRIANGLE showing strong WEAK_BUY signal (100%)
-🔴 HIGH:   DOUBLE_TOP showing strong NONE signal (95%)
-🟡 MEDIUM: DOUBLE_BOTTOM indicating BUY (63%)
-🟡 MEDIUM: ELLIOTT_WAVE indicating BUY (73%)
-🟡 MEDIUM: SMC indicating SELL (60%)
+🔴 HIGH:   BTC approaching key resistance at $69,800
+🟡 MEDIUM: Bull flag pattern 78% complete - Monitor breakout
+🟡 MEDIUM: CVD showing bullish divergence - Confirm with price action
+
+📋 TRADE SETUP
+Entry Type: Limit Order │ Zone: $67,200 - $67,400
+Confirmation: Required │ Confluence Threshold: 75%
+Stop Loss: $64,500 (4.3% risk) │ Position Size: 2% account risk
+Take Profit 1: $68,500 (1:1 RR) │ Take Profit 2: $70,200 (1:2.3 RR)
+Break Even: $67,800 │ Trailing Stop: Activated after TP1
+
+📊 CONFLUENCE ANALYSIS
+Overall Score: 78.5/100
+├─ Technical Indicators: 82% (6/8 bullish)
+├─ Pattern Recognition: 75% (2 major patterns)
+├─ Orderflow Signals: 76% (4 confluence factors)
+└─ Volume Confirmation: 81% (CVD + OBV aligned)
+
+💡 RECOMMENDATION
+Action: BUY on pullback to $67,200-$67,400 zone
+Timeframe: Hold for 2-5 days
+Confidence: HIGH (78.5%)
+Note: Strong bullish momentum with multiple confluence factors

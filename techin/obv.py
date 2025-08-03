@@ -28,7 +28,7 @@ class OBVStrategy:
         if len(closes) != len(volumes) or len(closes) < 2:
             return []
         
-        obv_values = [volumes[0]]  # Start with first volume as initial OBV
+        obv_values = [0]  # Start with 0 as initial OBV per industry standard
         
         for i in range(1, len(closes)):
             current_close = closes[i]

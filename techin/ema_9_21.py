@@ -74,14 +74,12 @@ class EMA9_21Strategy:
             true_ranges.append(tr)
         
         # Calculate ATR using simple moving average
-        atr_values = [None]  # First candle has no ATR
+        # We need 'period' candles to calculate the first ATR value
+        atr_values = [None] * period  # First 'period' candles have no ATR
+        
         for i in range(period - 1, len(true_ranges)):
             atr = sum(true_ranges[i-period+1:i+1]) / period
             atr_values.append(atr)
-        
-        # Pad to match ohlcv_data length
-        while len(atr_values) < len(ohlcv_data):
-            atr_values.append(None)
             
         return atr_values
     
@@ -157,6 +155,19 @@ class EMA9_21Strategy:
         # Base confidence from signal type
         if signal['signal'] in ['BUY', 'SELL']:
             confidence += 0.3
+        elif signal['signal'] == 'NONE':
+            # For NONE signals, provide base confidence based on trend clarity
+            if signal['trend'] in ['BULLISH', 'BEARISH']:
+                # Calculate trend strength based on EMA separation
+                ema_separation = abs(signal['ema9'] - signal['ema21']) / signal['ema21']
+                if ema_separation > 0.02:  # Strong trend
+                    confidence += 0.2
+                elif ema_separation > 0.01:  # Moderate trend
+                    confidence += 0.15
+                elif ema_separation > 0.005:  # Weak trend
+                    confidence += 0.1
+                else:  # Very weak trend
+                    confidence += 0.05
         
         # Volume confirmation bonus
         if signal.get('volume_spike', False):
@@ -370,6 +381,11 @@ class EMA9_21Strategy:
                 signal['trend'] = 'BULLISH'
             elif ema9[i] < ema21[i]:
                 signal['trend'] = 'BEARISH'
+            
+            # Calculate confidence for NONE signals as well
+            if signal['signal'] == 'NONE':
+                signal['confidence'] = self.calculate_signal_confidence(signal, market_regime, 
+                                                                       momentum_score, volume_context)
             
             signals.append(signal)
             

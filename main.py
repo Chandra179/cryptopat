@@ -14,7 +14,6 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
-from data import get_data_collector
 from comprehensive_analyzer import ComprehensiveAnalyzer
 
 class CryptoPatCLI:

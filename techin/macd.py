@@ -44,7 +44,12 @@ class MACDStrategy:
     
     def calculate_macd(self, prices: List[float]) -> Tuple[List[float], List[float], List[float]]:
         """
-        Calculate MACD line, signal line, and histogram using standard formula.
+        Calculate MACD line, signal line, and histogram using industry standard formula.
+        
+        Industry standard MACD calculation:
+        - MACD Line = EMA(12) - EMA(26)
+        - Signal Line = EMA(9) of MACD Line  
+        - Histogram = MACD Line - Signal Line
         
         Args:
             prices: List of closing prices
@@ -55,7 +60,7 @@ class MACDStrategy:
         if len(prices) < 34:  # Need 26 for EMA26 + 9 for signal = 35 minimum
             return [], [], []
         
-        # Calculate EMA(12) and EMA(26)
+        # Calculate EMA(12) and EMA(26) from same price data
         ema12 = self.calculate_ema(prices, 12)
         ema26 = self.calculate_ema(prices, 26)
         
@@ -63,26 +68,25 @@ class MACDStrategy:
             return [], [], []
         
         # MACD Line = EMA(12) - EMA(26)
-        # Standard alignment: both EMAs calculated from same price data
-        # EMA26 determines the start since it needs more data (26 vs 12)
-        ema26_start_idx = 25  # EMA26 starts at index 25 (26th price)
-        ema12_offset = ema26_start_idx - 11  # EMA12 starts at index 11, so offset is 14
-        
+        # Industry standard: align by matching the shorter EMA to longer EMA timeline
+        # EMA26 starts at index 25 (needs 26 periods), EMA12 starts at index 11 (needs 12 periods)
+        # So EMA12 has 14 extra values at the beginning (25-11=14)
         macd_line = []
         for i in range(len(ema26)):
-            macd_value = ema12[i + ema12_offset] - ema26[i]
+            # Skip the first 14 EMA12 values to align with EMA26 start
+            macd_value = ema12[i + 14] - ema26[i]
             macd_line.append(macd_value)
         
-        # Signal Line = EMA(9) of MACD Line
+        # Signal Line = EMA(9) of MACD Line  
         signal_line = self.calculate_ema(macd_line, 9)
         
-        # Histogram = MACD - Signal (properly aligned)
+        # Histogram = MACD Line - Signal Line
+        # Signal line starts 8 positions after MACD (needs 9 periods, so starts at index 8)
         histogram = []
         if signal_line:
-            # Signal line starts 8 positions after MACD line starts
-            signal_start_offset = 8
             for i in range(len(signal_line)):
-                hist_value = macd_line[i + signal_start_offset] - signal_line[i]
+                # Align signal line with corresponding MACD values
+                hist_value = macd_line[i + 8] - signal_line[i]
                 histogram.append(hist_value)
         
         return macd_line, signal_line, histogram
@@ -90,7 +94,7 @@ class MACDStrategy:
     def detect_crossovers(self, macd_line: List[float], signal_line: List[float], 
                          histogram: List[float], closes: List[float]) -> List[dict]:
         """
-        Detect MACD crossovers and generate signals.
+        Detect MACD crossovers and generate signals using industry standard approach.
         
         Args:
             macd_line: MACD line values
@@ -106,23 +110,26 @@ class MACDStrategy:
         if len(signal_line) < 2 or len(histogram) < 2:
             return signals
         
-        # Calculate base offset: EMA26 starts at index 25, signal starts 8 after MACD
-        base_offset = 25 + 8  # 33 total offset from original prices
+        # Industry standard offset calculation:
+        # EMA26 starts at index 25 (needs 26 periods)
+        # MACD starts when EMA26 starts (index 25)
+        # Signal starts 8 positions after MACD (index 25 + 8 = 33)
+        signal_start_in_prices = 25 + 8  # Index 33 in original price data
         
         for i in range(1, len(signal_line)):
-            # Align with original price data
-            close_idx = i + base_offset
-            macd_idx = i + 8  # Signal aligns to MACD with 8 offset
+            # Map signal index to original price data
+            price_idx = signal_start_in_prices + i
+            macd_idx = i + 8  # Signal is offset 8 from MACD start
             
             # Safety checks
-            if (close_idx >= len(closes) or 
+            if (price_idx >= len(closes) or 
                 macd_idx >= len(macd_line) or 
                 i >= len(histogram)):
                 break
             
             signal = {
                 'index': i,
-                'close': closes[close_idx],
+                'close': closes[price_idx],
                 'macd': macd_line[macd_idx],
                 'signal_line': signal_line[i],
                 'histogram': histogram[i],
@@ -135,12 +142,13 @@ class MACDStrategy:
             prev_macd = macd_line[macd_idx - 1] if macd_idx > 0 else macd_line[macd_idx]
             prev_signal = signal_line[i - 1]
             
+            # Industry standard crossover detection
             # Bullish crossover: MACD crosses above Signal
             if prev_macd <= prev_signal and signal['macd'] > signal['signal_line']:
                 signal['signal'] = 'BUY'
                 signal['trend'] = 'BULLISH'
                 
-                # Strong momentum if histogram is growing
+                # Strong momentum if histogram is growing (becoming more positive)
                 if i > 0 and histogram[i] > histogram[i-1]:
                     signal['momentum'] = 'STRONG'
                 else:
@@ -151,13 +159,13 @@ class MACDStrategy:
                 signal['signal'] = 'SELL'
                 signal['trend'] = 'BEARISH'
                 
-                # Strong momentum if histogram is growing (more negative)
+                # Strong momentum if histogram is growing more negative
                 if i > 0 and histogram[i] < histogram[i-1]:
                     signal['momentum'] = 'STRONG'
                 else:
                     signal['momentum'] = 'CONFIRMING'
             
-            # No crossover but check momentum
+            # No crossover - determine current trend and momentum
             else:
                 if signal['macd'] > signal['signal_line']:
                     signal['trend'] = 'BULLISH'
@@ -268,7 +276,6 @@ class MACDStrategy:
         
         # Get timestamps
         latest_timestamp = datetime.fromtimestamp(timestamps[-1] / 1000)
-        first_timestamp = datetime.fromtimestamp(timestamps[0] / 1000)
         
         # Determine trend direction
         trend_direction = "Bullish" if is_bullish else "Bearish"

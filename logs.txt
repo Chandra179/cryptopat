@@ -1,144 +1,48 @@
-cryptopat> s=BTC/USDT t=1d l=200
-
-🔍 Running comprehensive analysis for BTC/USDT 1d (200 candles)...
-🚀 Starting comprehensive analysis for BTC/USDT 1d (200 candles)
-================================================================================
-
-📊 Fetching OHLCV data for BTC/USDT 1d...
-INFO:data.collector:Fetching 1d OHLCV data for BTC/USDT
-INFO:data.collector:Retrieved 200 candles for BTC/USDT
-✅ Successfully fetched 200 candles
-
-📈 Running technical indicators...
-  Running ema_9_21...
-    ✅ ema_9_21 completed successfully
-  Running macd...
-    ✅ macd completed successfully
-  Running supertrend...
-    ✅ supertrend completed successfully
-  Running bollinger_bands...
-    ✅ bollinger_bands completed successfully
-  Running rsi_14...
-    ✅ rsi_14 completed successfully
-  Running atr_adx...
-    ✅ atr_adx completed successfully
-  Running obv...
-    ✅ obv completed successfully
-  Running vwap...
-    ✅ vwap completed successfully
-
-📊 Running chart pattern analysis...
-  Running flag...
-    ✅ flag completed successfully
-  Running triangle...
-    ✅ triangle completed successfully
-  Running head_and_shoulders...
-    ✅ head_and_shoulders completed successfully
-  Running inverse_head_and_shoulders...
-    ✅ inverse_head_and_shoulders completed successfully
-  Running double_top...
-    ✅ double_top completed successfully
-  Running double_bottom...
-    ✅ double_bottom completed successfully
-  Running wedge...
-    ✅ wedge completed successfully
-  Running shark_pattern...
-    ✅ shark_pattern completed successfully
-  Running butterfly_pattern...
-    ✅ butterfly_pattern completed successfully
-  Running elliott_wave...
-INFO:data.collector:Fetching 1d OHLCV data for BTC/USDT
-INFO:data.collector:Retrieved 200 candles for BTC/USDT
-    ✅ elliott_wave completed successfully
-
-💰 Running order flow analysis...
-  Running smc...
-    ✅ smc completed successfully
-  Running cvd...
-INFO:data.collector:Fetching 200 recent trades for BTC/USDT
-INFO:data.collector:Retrieved 200 trades for BTC/USDT
-INFO:data.collector:Fetching order book for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-    ✅ cvd completed successfully
-  Running imbalance...
-    ✅ imbalance completed successfully
-  Running absorption...
-    ✅ absorption completed successfully
-  Running stop_sweep...
-INFO:data.collector:Fetching ticker for BTC/USDT
-INFO:data.collector:Fetching order book for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-INFO:data.collector:Fetching ticker for BTC/USDT
-    ✅ stop_sweep completed successfully
-  Running footprint...
-INFO:orderflow.footprint:Fetched 200 candles and 1000 trades for BTC/USDT
-    ✅ footprint completed successfully
-  Running orderbook_heatmap...
-INFO:data.collector:Fetching order book for BTC/USDT
-    ✅ orderbook_heatmap completed successfully
-
-📋 Formatting comprehensive report...
-✅ Analysis complete!
-
-
-===============================================================================
-                        CRYPTOPAT ANALYSIS REPORT                            
-===============================================================================
-Symbol: BTC/USDT | Timeframe: 1d | Candles: 200 | Analysis Time: 2025-08-03 10:13:00
-Current Price: $113,465.99 | 24h Change: +0.0% ($0.000000)
-===============================================================================
-
 📊 MARKET OVERVIEW
-Overall Bias: 🟡 NEUTRAL (Confidence: 42%)
+Overall Bias: 🟡 NEUTRAL (Confidence: 34%)
 Primary Signal: ⚪ WEAK_BUY
-Risk/Reward: 1:1.2
+Risk/Reward: 1:2.4
 Market Regime: SIDEWAYS (Moderate Volatility)
 
 🎯 KEY LEVELS
-Support: $107,889.75
-Resistance: $113,614.15
-Stop Loss: $105,448.72
-Targets: $103,644.79 (TP1) | $125,682.36 (TP2)
+Support: $109,980.27
+Resistance: $116,527.88
+Stop Loss: $109,426.22
+Targets: $112,539.90 (TP1) | $115,570.73 (TP2)
 
 📈 TECHNICAL INDICATORS
+EMA 9/21:     ⚪ NONE (0.0%)    │ Distance: $1,979.71
+MACD:         ⚪ NEUTRAL (30%)    │ Histogram: -1020.5
+SuperTrend:   🟡 HOLD (85.0%)    │ Trend: $112,488.18
+Bollinger:    🟡 HOLD (0%)    │ Position: 4.91
 
 MOMENTUM INDICATORS
-RSI-14:       43.5 (SIDEWAYS)
-ATR/ADX:      ATR: 2777 | ADX: 0.0 (MODERATE Trend)
+RSI-14:       44.9 (SIDEWAYS)
+ATR/ADX:      ATR: 2776 | ADX: 22.0 (MODERATE Trend)
 
 VOLUME INDICATORS
-OBV:          NEUTRAL (+218.1K)
+OBV:          DOWNTREND (+64.8K)
 
 CHART PATTERNS
 ❌ Bull Flag: Not Detected
 ✅ Triangle: 100% Confidence │ Target: $111,466.79
 ❌ Head & Shoulders: Not Detected
-✅ Double Top: 95% Confidence │ Target: $114,219.60
-✅ Double Bottom: 63% Confidence │ Target: $105,717.69
+✅ Double Top: 100% Confidence │ Target: $114,219.60
+❌ Double Bottom: Not Detected
 ❌ Butterfly: Not Detected
 ✅ Elliott Wave: 73% Confidence │ Target: $125,682.36
 
 SMART MONEY CONCEPTS
-BOS (Break of Structure): ✅ Detected │ Confluence: 1 factors
-CHoCH (Change of Character): ❌ None
-Order Block Hit: ❌ None │ Liquidity Sweep: ❌ None
 
 VOLUME PROFILE
-CVD (Cumulative Volume Delta): -1 (📉 Short Setup)
+CVD (Cumulative Volume Delta): -2 (📉 Short Setup)
 Volume Imbalance: No significant gaps
 Absorption: No significant levels
 Stop Sweep: None detected
 
 ⚠️  ALERTS & SIGNALS
+🔴 HIGH:   SUPERTREND showing strong HOLD signal (85.0%)
 🔴 HIGH:   TRIANGLE showing strong WEAK_BUY signal (100%)
-🔴 HIGH:   DOUBLE_TOP showing strong NONE signal (95%)
-🟡 MEDIUM: DOUBLE_BOTTOM indicating BUY (63%)
+🔴 HIGH:   DOUBLE_TOP showing strong NONE signal (100%)
 🟡 MEDIUM: ELLIOTT_WAVE indicating BUY (73%)
-🟡 MEDIUM: SMC indicating SELL (60%)
-
-===============================================================================
-                    Analysis Complete - Trade Safely!                     
-===============================================================================
+🔴 HIGH:   CVD showing strong SELL signal (85%)

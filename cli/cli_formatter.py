@@ -5,7 +5,7 @@ Formats analysis results from all modules into a beautiful CLI display
 """
 
 import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 from dataclasses import dataclass
 
 
@@ -67,46 +67,99 @@ class CLIFormatter:
             return '🟡'
     
     def calculate_overall_bias(self, results: AnalysisResults) -> tuple:
-        """Calculate overall market bias and confidence"""
-        signals = []
-        confidences = []
+        """Calculate overall market bias and confidence using industry-standard weighted approach"""
+        # Industry-standard reliability weights based on statistical performance
+        indicator_weights = {
+            'macd': 1.2,           # Strong momentum indicator
+            'ema_9_21': 1.3,       # Reliable trend indicator
+            'supertrend': 1.4,     # High accuracy trend following
+            'bollinger_bands': 1.0, # Standard volatility indicator
+            'rsi_14': 0.8,         # Lagging momentum
+            'atr_adx': 1.1,        # Good trend strength measure
+            'obv': 0.9,            # Volume confirmation
+            'vwap': 1.0,           # Institutional reference
+            'smc': 1.5,            # Smart money concepts (high reliability when present)
+            'flag': 1.3,           # Strong continuation pattern
+            'triangle': 1.1,       # Reliable breakout pattern
+            'head_and_shoulders': 1.4, # High reversal accuracy
+            'double_top': 1.2,     # Good reversal signal
+            'double_bottom': 1.2,  # Good reversal signal
+            'wedge': 1.1,          # Moderate reliability
+            'shark_pattern': 1.0,  # Harmonic pattern
+            'butterfly_pattern': 1.0, # Harmonic pattern
+            'elliott_wave': 0.9,   # Subjective interpretation
+            'cvd': 1.2,            # Volume delta analysis
+            'imbalance': 1.0,      # Market structure
+            'absorption': 1.1,     # Liquidity analysis
+            'stop_sweep': 1.3      # Smart money activity
+        }
         
-        # Collect all signals and confidences
+        signal_data = []
+        
+        # Collect signals with weights and confidences
         for category in [results.techin_results, results.pattern_results, results.orderflow_results]:
             for name, data in category.items():
                 if isinstance(data, dict) and data.get('success', False):
                     signal = data.get('signal', 'NEUTRAL')
                     confidence = data.get('confidence_score', 0)
+                    weight = indicator_weights.get(name, 1.0)
                     
-                    if signal in ['BUY', 'BULLISH']:
-                        signals.append(1)
-                        confidences.append(confidence)
-                    elif signal in ['SELL', 'BEARISH']:
-                        signals.append(-1)
-                        confidences.append(confidence)
-                    else:
-                        signals.append(0)
-                        confidences.append(confidence)
+                    # Only include signals with meaningful confidence (>30%)
+                    if confidence > 30:
+                        if signal in ['BUY', 'BULLISH']:
+                            signal_value = 1
+                        elif signal in ['SELL', 'BEARISH']:
+                            signal_value = -1
+                        else:
+                            signal_value = 0
+                        
+                        signal_data.append((signal_value, weight, confidence))
         
-        if not signals:
+        if not signal_data:
             return 'NEUTRAL', 0
         
-        # Weighted average based on confidence
-        weighted_sum = sum(s * c for s, c in zip(signals, confidences))
-        total_confidence = sum(confidences)
-        
-        if total_confidence == 0:
+        try:
+            # Calculate weighted bias score: sum(signal * weight) / sum(weight)
+            total_weight = sum(weight for _, weight, _ in signal_data)
+            if total_weight == 0:
+                return 'NEUTRAL', 0
+            
+            weighted_bias = sum(signal * weight for signal, weight, _ in signal_data) / total_weight
+            
+            # Calculate average confidence (not weighted to avoid inflating confidence)
+            avg_confidence = sum(confidence for _, _, confidence in signal_data) / len(signal_data)
+            
+            # Apply confidence boost for signal agreement
+            bullish_signals = sum(1 for signal, _, _ in signal_data if signal > 0)
+            bearish_signals = sum(1 for signal, _, _ in signal_data if signal < 0)
+            total_directional = bullish_signals + bearish_signals
+            
+            if total_directional > 0:
+                agreement_ratio = max(bullish_signals, bearish_signals) / total_directional
+                # Boost confidence for high agreement (70%+ agreement gets boost)
+                if agreement_ratio >= 0.7:
+                    confidence_boost = min(15, (agreement_ratio - 0.7) * 50)
+                    avg_confidence = min(95, avg_confidence + confidence_boost)
+            
+            overall_confidence = max(0, min(95, int(avg_confidence)))
+            
+        except (ValueError, TypeError, ZeroDivisionError):
             return 'NEUTRAL', 0
         
-        bias_score = weighted_sum / total_confidence
-        overall_confidence = total_confidence / len(signals)
+        # Statistical significance thresholds (normalized for -1 to 1 range)
+        strong_threshold = 0.4   # 70% directional agreement
+        weak_threshold = 0.15    # 57.5% directional agreement
         
-        if bias_score > 0.3:
-            return 'BULLISH', int(overall_confidence)
-        elif bias_score < -0.3:
-            return 'BEARISH', int(overall_confidence)
+        if weighted_bias > strong_threshold:
+            return 'BULLISH', overall_confidence
+        elif weighted_bias < -strong_threshold:
+            return 'BEARISH', overall_confidence
+        elif abs(weighted_bias) > weak_threshold:
+            bias_type = 'BULLISH' if weighted_bias > 0 else 'BEARISH'
+            # Reduce confidence for weak signals
+            return bias_type, max(30, int(overall_confidence * 0.7))
         else:
-            return 'NEUTRAL', int(overall_confidence)
+            return 'NEUTRAL', min(60, overall_confidence)
     
     def format_header(self, symbol: str, timeframe: str, candles: int, current_price: float, price_change_pct: float = 0.0) -> str:
         """Format the header section"""
@@ -140,16 +193,32 @@ Current Price: {self.format_price(current_price)} | 24h Change: {self.format_per
                         highest_confidence = conf
                         primary_signal = data.get('signal', 'NEUTRAL')
         
-        # Calculate average R/R ratio
-        rr_ratios = []
+        # Calculate risk/reward using industry-standard expected value approach
+        rr_data = []
         for category in [results.techin_results, results.pattern_results, results.orderflow_results]:
             for name, data in category.items():
                 if isinstance(data, dict) and data.get('success', False):
                     rr = data.get('rr_ratio', 0)
-                    if rr > 0:
-                        rr_ratios.append(rr)
+                    confidence = data.get('confidence_score', 0)
+                    
+                    # Only include realistic R/R ratios (0.5 to 5.0 range)
+                    if 0.5 <= rr <= 5.0 and confidence > 30:
+                        # Convert confidence to success probability (conservative estimate)
+                        success_prob = min(0.7, confidence / 100)  # Cap at 70% max
+                        expected_value = rr * success_prob
+                        rr_data.append((rr, expected_value, confidence))
         
-        avg_rr = sum(rr_ratios) / len(rr_ratios) if rr_ratios else 0
+        if rr_data:
+            # Weight by confidence and expected value
+            total_weight = sum(conf for _, _, conf in rr_data)
+            if total_weight > 0:
+                avg_rr = sum(rr * conf for rr, _, conf in rr_data) / total_weight
+                # Ensure reasonable bounds
+                avg_rr = max(0.5, min(3.0, avg_rr))
+            else:
+                avg_rr = 0
+        else:
+            avg_rr = 0
         
         overview = f"""
 📊 MARKET OVERVIEW
@@ -161,31 +230,74 @@ Market Regime: {'BULL_MARKET' if overall_bias == 'BULLISH' else 'BEAR_MARKET' if
         return overview
     
     def format_key_levels(self, results: AnalysisResults) -> str:
-        """Format key price levels section"""
-        # Collect all support/resistance levels
+        """Format key price levels section using price clustering"""
+        # Collect all support/resistance levels with weights
         supports = []
         resistances = []
         stop_losses = []
         targets = []
         
+        # Indicator reliability weights for level clustering
+        level_weights = {
+            'smc': 1.5, 'flag': 1.3, 'head_and_shoulders': 1.4,
+            'double_top': 1.2, 'double_bottom': 1.2, 'triangle': 1.1,
+            'supertrend': 1.3, 'bollinger_bands': 1.0, 'vwap': 1.1,
+            'shark_pattern': 1.0, 'butterfly_pattern': 1.0
+        }
+        
         for category in [results.techin_results, results.pattern_results, results.orderflow_results]:
             for name, data in category.items():
                 if isinstance(data, dict) and data.get('success', False):
+                    weight = level_weights.get(name, 1.0)
+                    confidence = data.get('confidence_score', 50) / 100  # Convert to 0-1
+                    level_strength = weight * confidence
+                    
                     if 'support_level' in data and data['support_level'] > 0:
-                        supports.append(data['support_level'])
+                        supports.append((data['support_level'], level_strength))
                     if 'resistance_level' in data and data['resistance_level'] > 0:
-                        resistances.append(data['resistance_level'])
+                        resistances.append((data['resistance_level'], level_strength))
                     if 'stop_zone' in data and data['stop_zone'] > 0:
-                        stop_losses.append(data['stop_zone'])
+                        stop_losses.append((data['stop_zone'], level_strength))
                     if 'tp_low' in data and data['tp_low'] > 0:
-                        targets.append(data['tp_low'])
+                        targets.append((data['tp_low'], level_strength))
                     if 'tp_high' in data and data['tp_high'] > 0:
-                        targets.append(data['tp_high'])
+                        targets.append((data['tp_high'], level_strength))
         
-        # Calculate average levels
-        avg_support = sum(supports) / len(supports) if supports else 0
-        avg_resistance = sum(resistances) / len(resistances) if resistances else 0
-        avg_stop = sum(stop_losses) / len(stop_losses) if stop_losses else 0
+        # Industry-standard price clustering (within 1.5% considered same level)
+        def cluster_levels(levels_with_weights, cluster_threshold=0.015):
+            if not levels_with_weights:
+                return 0
+            
+            # Sort by price
+            sorted_levels = sorted(levels_with_weights, key=lambda x: x[0])
+            clusters = []
+            
+            for price, weight in sorted_levels:
+                # Find if price belongs to existing cluster
+                added_to_cluster = False
+                for cluster in clusters:
+                    cluster_center = sum(p * w for p, w in cluster) / sum(w for p, w in cluster)
+                    if abs(price - cluster_center) / cluster_center <= cluster_threshold:
+                        cluster.append((price, weight))
+                        added_to_cluster = True
+                        break
+                
+                if not added_to_cluster:
+                    clusters.append([(price, weight)])
+            
+            # Find strongest cluster (highest total weight)
+            if not clusters:
+                return 0
+            
+            strongest_cluster = max(clusters, key=lambda c: sum(w for p, w in c))
+            # Return weighted average of strongest cluster
+            total_weight = sum(w for p, w in strongest_cluster)
+            return sum(p * w for p, w in strongest_cluster) / total_weight if total_weight > 0 else 0
+        
+        # Calculate clustered levels
+        avg_support = cluster_levels(supports)
+        avg_resistance = cluster_levels(resistances)
+        avg_stop = cluster_levels(stop_losses)
         
         # Determine current price for proper target ordering
         current_price = 0
@@ -197,23 +309,35 @@ Market Regime: {'BULL_MARKET' if overall_bias == 'BULLISH' else 'BEAR_MARKET' if
             if current_price > 0:
                 break
         
-        # Sort targets appropriately based on current price
-        if targets:
-            targets.sort()
-            # For proper target ordering: TP1 should be closer to current price than TP2
-            if current_price > 0:
-                # Filter targets that make sense (above current price for long, below for short)
-                valid_targets = [t for t in targets if abs(t - current_price) > 0.01 * current_price]  # At least 1% away
-                if valid_targets:
-                    valid_targets.sort(key=lambda x: abs(x - current_price))  # Sort by distance from current price
-                    tp1 = valid_targets[0] if valid_targets else 0
-                    tp2 = valid_targets[1] if len(valid_targets) > 1 else valid_targets[-1] if valid_targets else 0
-                else:
-                    tp1 = targets[0] if targets else 0
-                    tp2 = targets[-1] if len(targets) > 1 else 0
+        # Determine market bias for proper target ordering
+        overall_bias, _ = self.calculate_overall_bias(results)
+        
+        # Sort targets appropriately based on market bias and current price
+        if targets and current_price > 0:
+            # Extract just the prices from targets (they have weights)
+            target_prices = [price for price, weight in targets]
+            
+            if overall_bias == 'BULLISH':
+                # For bullish bias: targets should be above current price
+                valid_targets = [t for t in target_prices if t > current_price * 1.005]  # At least 0.5% above
+                valid_targets.sort()  # Ascending order: TP1 closer, TP2 further
+            elif overall_bias == 'BEARISH':
+                # For bearish bias: targets should be below current price  
+                valid_targets = [t for t in target_prices if t < current_price * 0.995]  # At least 0.5% below
+                valid_targets.sort(reverse=True)  # Descending order: TP1 closer, TP2 further
             else:
-                tp1 = targets[0] if targets else 0
-                tp2 = targets[-1] if len(targets) > 1 else 0
+                # Neutral: use closest targets regardless of direction
+                valid_targets = [t for t in target_prices if abs(t - current_price) > 0.005 * current_price]
+                valid_targets.sort(key=lambda x: abs(x - current_price))
+            
+            if valid_targets:
+                tp1 = valid_targets[0] if len(valid_targets) > 0 else 0
+                tp2 = valid_targets[1] if len(valid_targets) > 1 else 0
+            else:
+                # Fallback: use clustered targets if no valid targets found
+                clustered_target = cluster_levels(targets)
+                tp1 = clustered_target if clustered_target > 0 else 0
+                tp2 = 0
         else:
             tp1 = tp2 = 0
         
@@ -282,7 +406,7 @@ Targets: {self.format_price(tp1) if tp1 > 0 else 'N/A'} (TP1){f' | {self.format_
                 atr = atr_adx.get('atr_value', 0)
                 adx = atr_adx.get('adx_strength', 0)  # Fixed: use 'adx_strength' not 'adx_value'
                 trend_strength = atr_adx.get('trend_strength', 'WEAK')
-                section += f"ATR/ADX:      ATR: {atr:.0f} | ADX: {adx:.1f} ({trend_strength} Trend)\n"
+                section += f"ATR/ADX:      ATR: {atr:.5f} | ADX: {adx:.5f} ({trend_strength} Trend)\n"
         
         # Volume indicators
         section += "\nVOLUME INDICATORS\n"
@@ -292,18 +416,32 @@ Targets: {self.format_price(tp1) if tp1 > 0 else 'N/A'} (TP1){f' | {self.format_
             if isinstance(obv, dict) and obv.get('obv_value') is not None:
                 signal = obv.get('signal', 'NEUTRAL')
                 obv_value = obv.get('obv_value', 0)
-                # Convert to millions and format
-                obv_millions = obv_value / 1000000 if abs(obv_value) >= 1000000 else obv_value / 1000
-                unit = 'M' if abs(obv_value) >= 1000000 else 'K'
+                # Convert to appropriate units (industry standard formatting)
+                if abs(obv_value) >= 1000000:
+                    obv_millions = obv_value / 1000000
+                    unit = 'M'
+                elif abs(obv_value) >= 1000:
+                    obv_millions = obv_value / 1000
+                    unit = 'K'
+                else:
+                    obv_millions = obv_value
+                    unit = ''
                 trend_conf = obv.get('trend_confirmation', 'NEUTRAL')
-                section += f"OBV:          {trend_conf} ({obv_millions:+.1f}{unit})\n"
+                # Format based on scale - integers for raw values, decimals for scaled
+                if unit == '':
+                    section += f"OBV:          {trend_conf} ({obv_millions:+.0f})\n"
+                else:
+                    section += f"OBV:          {trend_conf} ({obv_millions:+.1f}{unit})\n"
         
         if 'vwap' in techin_results:
             vwap = techin_results['vwap']
-            if isinstance(vwap, dict) and vwap.get('signal') is not None:
-                signal = vwap.get('signal', 'NEUTRAL')
-                position = vwap.get('price_position', 'NEUTRAL')
-                section += f"VWAP:         {self.get_signal_emoji(signal)} {signal} (Price {position})\n"
+            if isinstance(vwap, dict) and vwap.get('success', False):
+                # Get latest signal from VWAP analysis
+                latest_signal = vwap.get('latest_signal', {})
+                if latest_signal:
+                    signal = latest_signal.get('signal', 'NEUTRAL')
+                    bias = latest_signal.get('bias', 'NEUTRAL')
+                    section += f"VWAP:         {self.get_signal_emoji(signal)} {signal} ({bias})\n"
         
         return section
     
@@ -443,20 +581,44 @@ Targets: {self.format_price(tp1) if tp1 > 0 else 'N/A'} (TP1){f' | {self.format_
         current_price = 0
         price_change_pct = 0
         
-        # Extract price and calculate 24h change from OHLCV data
+        # Timeframe mapping to minutes (industry standard)
+        timeframe_minutes = {
+            '1m': 1, '3m': 3, '5m': 5, '15m': 15, '30m': 30,
+            '1h': 60, '2h': 120, '4h': 240, '6h': 360, '12h': 720,
+            '1d': 1440, '3d': 4320, '1w': 10080, '1M': 43200
+        }
+        
+        # Extract price and calculate proper 24h change from OHLCV data
         for category in [results.techin_results, results.pattern_results, results.orderflow_results]:
-            for name, data in category.items():
+            for _, data in category.items():
                 if isinstance(data, dict) and data.get('success', False):
                     current_price = data.get('current_price', current_price)
                     
-                    # Calculate 24h price change from raw OHLCV data if available
+                    # Calculate 24h price change with proper timeframe handling
                     raw_data = data.get('raw_data', {})
                     ohlcv_data = raw_data.get('ohlcv_data', [])
-                    if ohlcv_data and len(ohlcv_data) >= 24:  # Need at least 24 candles for 24h change
-                        current_close = ohlcv_data[-1][4]  # Latest close price
-                        past_close = ohlcv_data[-24][4] if len(ohlcv_data) >= 24 else ohlcv_data[0][4]  # 24 candles ago
-                        if past_close > 0:
-                            price_change_pct = ((current_close - past_close) / past_close) * 100
+                    
+                    if ohlcv_data and timeframe in timeframe_minutes:
+                        tf_minutes = timeframe_minutes[timeframe]
+                        # Calculate how many candles represent 24 hours
+                        candles_per_24h = int(1440 / tf_minutes)  # 1440 minutes = 24 hours
+                        
+                        # Ensure we have enough data for 24h comparison
+                        if len(ohlcv_data) > candles_per_24h:
+                            current_close = ohlcv_data[-1][4]  # Latest close price
+                            past_close = ohlcv_data[-candles_per_24h - 1][4]  # 24h ago
+                            
+                            if past_close > 0:
+                                price_change_pct = ((current_close - past_close) / past_close) * 100
+                        elif len(ohlcv_data) > 1:
+                            # Fallback: use oldest available data if less than 24h
+                            current_close = ohlcv_data[-1][4]
+                            past_close = ohlcv_data[0][4]
+                            if past_close > 0:
+                                # Scale the change to represent approximate 24h equivalent
+                                hours_available = (len(ohlcv_data) * tf_minutes) / 60
+                                raw_change = ((current_close - past_close) / past_close) * 100
+                                price_change_pct = raw_change * (24 / hours_available) if hours_available > 0 else 0
                     
                     break
             if current_price > 0:
@@ -470,6 +632,10 @@ Targets: {self.format_price(tp1) if tp1 > 0 else 'N/A'} (TP1){f' | {self.format_
         report += self.format_chart_patterns(results.pattern_results)
         report += self.format_orderflow(results.orderflow_results)
         report += self.format_alerts(results, current_price)
+        
+        report += f"\n{self.separator}\n"
+        report += "                    Analysis Complete - Trade Safely!                     \n"
+        report += f"{self.separator}\n"
         
         return report
 

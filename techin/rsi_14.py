@@ -86,7 +86,7 @@ class RSI14Strategy:
         signals = []
         
         for i in range(len(rsi_values)):
-            close_idx = i + 15  # RSI starts after period+1 price changes
+            close_idx = i + 14  # RSI starts after 14 price changes (index 14)
             signal = {
                 'index': i,
                 'close': closes[close_idx] if close_idx < len(closes) else closes[-1],
@@ -177,7 +177,7 @@ class RSI14Strategy:
         
         # Get latest signal for analysis
         latest_signal = signals[-1]
-        timestamp_idx = latest_signal['index'] + 15  # RSI starts after 15 periods
+        timestamp_idx = latest_signal['index'] + 14  # RSI starts after 14 price changes
         if timestamp_idx >= len(timestamps):
             timestamp_idx = len(timestamps) - 1
         
