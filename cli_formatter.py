@@ -314,6 +314,30 @@ Targets: {self.format_price(tp1) if tp1 > 0 else 'N/A'} (TP1){f' | {self.format_
                 position = vwap.get('price_position', 'NEUTRAL')
                 section += f"VWAP:         {self.get_signal_emoji(signal)} {signal} (Price {position})\n"
         
+        # Wyckoff Method analysis
+        if 'wyckoff' in techin_results:
+            wyckoff = techin_results['wyckoff']
+            if isinstance(wyckoff, dict) and wyckoff.get('success', False):
+                signal = wyckoff.get('signal', 'NEUTRAL')
+                phase = wyckoff.get('wyckoff_phase', 'UNKNOWN')
+                smart_money = wyckoff.get('smart_money_activity', 'NEUTRAL')
+                confidence = wyckoff.get('confidence_score', 0)
+                section += f"\nWYCKOFF METHOD\n"
+                section += f"Phase:        {phase} ({confidence}% confidence)\n"
+                section += f"Smart Money:  {smart_money}\n"
+                section += f"Signal:       {self.get_signal_emoji(signal)} {signal}\n"
+                
+                # Recent events
+                events = wyckoff.get('recent_events', [])
+                if events:
+                    latest_event = events[-1]
+                    section += f"Recent Event: {latest_event.get('type', 'NONE')} (Conf: {latest_event.get('confidence', 0)}%)\n"
+                
+                # Volume characteristics
+                vol_chars = wyckoff.get('volume_characteristics', {})
+                relative_vol = wyckoff.get('relative_volume', 1.0)
+                section += f"Volume:       {relative_vol:.1f}x avg (High: {vol_chars.get('high_volume_periods', 0)}, Low: {vol_chars.get('low_volume_periods', 0)})\n"
+        
         return section
     
     def format_chart_patterns(self, pattern_results: Dict[str, Any]) -> str:

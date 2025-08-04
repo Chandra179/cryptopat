@@ -70,6 +70,12 @@ try:
 except ImportError as e:
     print(f"Warning: Could not import VWAPStrategy: {e}")
 
+try:
+    from techin.wyckoff import WyckoffStrategy
+    available_techin['wyckoff'] = WyckoffStrategy
+except ImportError as e:
+    print(f"Warning: Could not import WyckoffStrategy: {e}")
+
 # Chart patterns
 try:
     from pattern.flag import FlagStrategy
