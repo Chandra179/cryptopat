@@ -1,1 +1,1 @@
-create new /techin/pivotpoint.py and handle the command on comprehensive_analyzer.py and cli_formatter.py
+create new /techin/keltnerchannel.py and handle the command on comprehensive_analyzer.py and cli_formatter.py

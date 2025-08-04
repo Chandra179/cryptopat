@@ -82,6 +82,12 @@ try:
 except ImportError as e:
     print(f"Warning: Could not import PivotPointAnalyzer: {e}")
 
+try:
+    from techin.keltnerchannel import KeltnerChannelStrategy
+    available_techin['keltnerchannel'] = KeltnerChannelStrategy
+except ImportError as e:
+    print(f"Warning: Could not import KeltnerChannelStrategy: {e}")
+
 # Chart patterns
 try:
     from pattern.flag import FlagStrategy

@@ -275,6 +275,14 @@ Targets: {self.format_price(tp1) if tp1 > 0 else 'N/A'} (TP1){f' | {self.format_
                 position = bb.get('band_position', 0)  # Fixed: use 'band_position' not 'bb_position'
                 section += f"Bollinger:    {self.get_signal_emoji(signal)} {signal} ({confidence}%)    │ Position: {position:.2f}\n"
         
+        if 'keltnerchannel' in techin_results:
+            kc = techin_results['keltnerchannel']
+            if kc.get('success', False):
+                signal = kc.get('signal', 'NEUTRAL')
+                confidence = kc.get('confidence_score', 0)
+                position = kc.get('channel_position', 0)
+                section += f"Keltner:      {self.get_signal_emoji(signal)} {signal} ({confidence}%)    │ Position: {position:.2f}\n"
+        
         # Momentum indicators
         section += "\nMOMENTUM INDICATORS\n"
         
