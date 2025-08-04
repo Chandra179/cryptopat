@@ -5,7 +5,7 @@ Formats analysis results from all modules into a beautiful CLI display
 """
 
 import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 from dataclasses import dataclass
 
 
