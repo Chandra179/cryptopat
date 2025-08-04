@@ -338,6 +338,43 @@ Targets: {self.format_price(tp1) if tp1 > 0 else 'N/A'} (TP1){f' | {self.format_
                 relative_vol = wyckoff.get('relative_volume', 1.0)
                 section += f"Volume:       {relative_vol:.1f}x avg (High: {vol_chars.get('high_volume_periods', 0)}, Low: {vol_chars.get('low_volume_periods', 0)})\n"
         
+        # Pivot Points analysis
+        if 'pivotpoint' in techin_results:
+            pivot = techin_results['pivotpoint']
+            if isinstance(pivot, dict) and pivot.get('success', False):
+                signal = pivot.get('signal', 'NEUTRAL')
+                confidence = pivot.get('pivot_strength', 0)
+                bias = pivot.get('analysis', {}).get('bias', 'neutral')
+                
+                section += f"\nPIVOT POINTS\n"
+                section += f"Signal:       {self.get_signal_emoji(signal)} {signal} (Strength: {confidence:.1f}%)\n"
+                section += f"Bias:         {self.get_bias_color(bias)} {bias.upper()}\n"
+                
+                # Display key pivot levels
+                standard_pivots = pivot.get('standard_pivots', {})
+                current_price = pivot.get('current_price', 0)
+                
+                if standard_pivots and current_price > 0:
+                    pp = standard_pivots.get('pivot', 0)
+                    r1 = standard_pivots.get('r1', 0)
+                    s1 = standard_pivots.get('s1', 0)
+                    
+                    section += f"Pivot Point:  {self.format_price(pp)}\n"
+                    section += f"Resistance:   {self.format_price(r1)} (R1)\n"
+                    section += f"Support:      {self.format_price(s1)} (S1)\n"
+                    
+                    # Show nearest level info
+                    analysis = pivot.get('analysis', {})
+                    nearest_support = analysis.get('nearest_support')
+                    nearest_resistance = analysis.get('nearest_resistance')
+                    support_dist_pct = analysis.get('support_distance_pct')
+                    resistance_dist_pct = analysis.get('resistance_distance_pct')
+                    
+                    if nearest_support and support_dist_pct is not None:
+                        section += f"Nearest Support: {self.format_price(nearest_support)} ({support_dist_pct:.2f}% away)\n"
+                    if nearest_resistance and resistance_dist_pct is not None:
+                        section += f"Nearest Resistance: {self.format_price(nearest_resistance)} ({resistance_dist_pct:.2f}% away)\n"
+        
         return section
     
     def format_chart_patterns(self, pattern_results: Dict[str, Any]) -> str:

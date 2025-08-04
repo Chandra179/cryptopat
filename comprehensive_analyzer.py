@@ -76,6 +76,12 @@ try:
 except ImportError as e:
     print(f"Warning: Could not import WyckoffStrategy: {e}")
 
+try:
+    from techin.pivotpoint import PivotPointAnalyzer
+    available_techin['pivotpoint'] = PivotPointAnalyzer
+except ImportError as e:
+    print(f"Warning: Could not import PivotPointAnalyzer: {e}")
+
 # Chart patterns
 try:
     from pattern.flag import FlagStrategy
