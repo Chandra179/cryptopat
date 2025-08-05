@@ -383,6 +383,164 @@ Targets: {self.format_price(tp1) if tp1 > 0 else 'N/A'} (TP1){f' | {self.format_
                     if nearest_resistance and resistance_dist_pct is not None:
                         section += f"Nearest Resistance: {self.format_price(nearest_resistance)} ({resistance_dist_pct:.2f}% away)\n"
         
+        # Parabolic SAR
+        if 'parabolicsar' in techin_results:
+            psar = techin_results['parabolicsar']
+            if isinstance(psar, dict) and psar.get('success', False):
+                signal = psar.get('signal', 'NEUTRAL')
+                strength = psar.get('strength', 'Weak')
+                current_sar = psar.get('current_sar', 0)
+                sar_distance_pct = psar.get('sar_distance_pct', 0)
+                acceleration_factor = psar.get('acceleration_factor', 0)
+                position = psar.get('position', 'unknown')
+                
+                section += f"\nPARABOLIC SAR\n"
+                section += f"Signal:       {self.get_signal_emoji(signal)} {signal} ({strength})\n"
+                section += f"SAR Value:    {self.format_price(current_sar)} ({position} price)\n"
+                section += f"Distance:     {sar_distance_pct:.2f}% from SAR\n"
+                section += f"Accel Factor: {acceleration_factor:.3f}\n"
+        
+        # Donchian Channels
+        if 'donchain' in techin_results:
+            dc = techin_results['donchain']
+            if isinstance(dc, dict) and dc.get('success', False):
+                signal = dc.get('signal', 'NEUTRAL')
+                strength = dc.get('strength', 'Weak')
+                current_price = dc.get('current_price', 0)
+                upper_channel = dc.get('upper_channel', 0)
+                lower_channel = dc.get('lower_channel', 0)
+                middle_channel = dc.get('middle_channel', 0)
+                position_in_channel = dc.get('position_in_channel', 0)
+                position_description = dc.get('position_description', 'unknown')
+                channel_width_pct = dc.get('channel_width_pct', 0)
+                volatility_description = dc.get('volatility_description', 'normal')
+                breakout_signals = dc.get('breakout_signals', [])
+                
+                section += f"\nDONCHIAN CHANNELS\n"
+                section += f"Signal:       {self.get_signal_emoji(signal)} {signal} ({strength})\n"
+                section += f"Upper:        {self.format_price(upper_channel)}\n"
+                section += f"Middle:       {self.format_price(middle_channel)}\n"
+                section += f"Lower:        {self.format_price(lower_channel)}\n"
+                section += f"Position:     {position_in_channel:.1%} ({position_description})\n"
+                section += f"Width:        {channel_width_pct:.2f}% ({volatility_description})\n"
+                
+                if breakout_signals:
+                    section += f"Breakouts:    {', '.join(breakout_signals)}\n"
+        
+        # Renko Chart
+        if 'renko' in techin_results:
+            renko = techin_results['renko']
+            if isinstance(renko, dict) and renko.get('success', False):
+                signal = renko.get('signal', 'NEUTRAL')
+                trend = renko.get('trend', 'unknown')
+                trend_strength = renko.get('trend_strength', 'weak')
+                brick_size = renko.get('brick_size', 0)
+                total_bricks = renko.get('total_bricks', 0)
+                pattern_analysis = renko.get('pattern_analysis', {})
+                consecutive_bricks = pattern_analysis.get('consecutive_bricks', 0)
+                bullish_bricks = pattern_analysis.get('bullish_bricks', 0)
+                bearish_bricks = pattern_analysis.get('bearish_bricks', 0)
+                reversal_signal = pattern_analysis.get('reversal_signal', False)
+                
+                section += f"\nRENKO CHART\n"
+                section += f"Signal:       {self.get_signal_emoji(signal)} {signal}\n"
+                section += f"Trend:        {trend.upper()} ({trend_strength.upper()})\n"
+                section += f"Brick Size:   {self.format_price(brick_size)}\n"
+                section += f"Total Bricks: {total_bricks} ({bullish_bricks}🟢 / {bearish_bricks}🔴)\n"
+                section += f"Consecutive:  {consecutive_bricks} {trend} bricks\n"
+                if reversal_signal:
+                    section += f"⚠️  Reversal signal detected!\n"
+                
+                # Show trend changes if available
+                trend_changes = renko.get('trend_changes', [])
+                if trend_changes:
+                    recent_change = trend_changes[-1]
+                    section += f"Last Change:  {recent_change.get('from_trend', '')} → {recent_change.get('to_trend', '')} at {self.format_price(recent_change.get('price', 0))}\n"
+        
+        # Chaikin Money Flow
+        if 'chaikin' in techin_results:
+            cmf = techin_results['chaikin']
+            if isinstance(cmf, dict) and cmf.get('success', False):
+                signal = cmf.get('signal', 'NEUTRAL')
+                current_cmf = cmf.get('current_cmf', 0)
+                trend = cmf.get('trend', 'neutral')
+                strength = cmf.get('interpretation', {}).get('strength', 'weak')
+                pressure_type = cmf.get('interpretation', {}).get('pressure_type', 'neutral')
+                description = cmf.get('interpretation', {}).get('description', 'no clear pressure')
+                
+                section += f"\nCHAIKIN MONEY FLOW\n"
+                section += f"Signal:       {self.get_signal_emoji(signal)} {signal}\n"
+                section += f"CMF Value:    {current_cmf:+.4f} ({strength.upper()} {pressure_type.upper()})\n"
+                section += f"Trend:        {trend.upper()}\n"
+                section += f"Analysis:     {description.capitalize()}\n"
+                
+                # Show divergences if any
+                divergences = cmf.get('divergences', [])
+                if divergences:
+                    latest_div = divergences[-1]
+                    section += f"Divergence:   {latest_div.get('type', 'Unknown')} - {latest_div.get('description', 'N/A')}\n"
+                
+                # Show CMF interpretation ranges
+                if current_cmf > 0.25:
+                    section += f"Status:       🟢 Very Strong Buying Pressure\n"
+                elif current_cmf > 0.1:
+                    section += f"Status:       🟢 Strong Buying Pressure\n"
+                elif current_cmf > 0:
+                    section += f"Status:       🟡 Weak Buying Pressure\n"
+                elif current_cmf > -0.1:
+                    section += f"Status:       🟡 Weak Selling Pressure\n"
+                elif current_cmf > -0.25:
+                    section += f"Status:       🔴 Strong Selling Pressure\n"
+                else:
+                    section += f"Status:       🔴 Very Strong Selling Pressure\n"
+        
+        # Ichimoku Cloud
+        if 'ichimoku' in techin_results:
+            ichimoku = techin_results['ichimoku']
+            if isinstance(ichimoku, dict) and ichimoku.get('success', False):
+                signals = ichimoku.get('signals', {})
+                overall_trend = signals.get('overall_trend', 'neutral')
+                price_position = signals.get('price_position', 'in_cloud')
+                cloud_trend = signals.get('cloud_trend', 'neutral')
+                recommendation = ichimoku.get('recommendation', 'hold')
+                trend_strength = ichimoku.get('trend_strength', 'weak')
+                
+                section += f"\nICHIMOKU CLOUD\n"
+                section += f"Overall Trend: {self.get_bias_color(overall_trend)} {overall_trend.replace('_', ' ').upper()}\n"
+                section += f"Price Position: {price_position.replace('_', ' ').title()}\n"
+                section += f"Cloud Trend:   {self.get_bias_color(cloud_trend)} {cloud_trend.upper()}\n"
+                section += f"Strength:      {trend_strength.replace('_', ' ').title()}\n"
+                section += f"Recommendation: {self.get_signal_emoji(recommendation)} {recommendation.replace('_', ' ').upper()}\n"
+                
+                # Show key levels
+                current_price = ichimoku.get('current_price', 0)
+                tenkan_sen = ichimoku.get('tenkan_sen', 0)
+                kijun_sen = ichimoku.get('kijun_sen', 0)
+                cloud_top = ichimoku.get('cloud_top', 0)
+                cloud_bottom = ichimoku.get('cloud_bottom', 0)
+                
+                if tenkan_sen > 0:
+                    section += f"Tenkan-sen:    {self.format_price(tenkan_sen)}\n"
+                if kijun_sen > 0:
+                    section += f"Kijun-sen:     {self.format_price(kijun_sen)}\n"
+                if cloud_top > 0 and cloud_bottom > 0:
+                    section += f"Cloud Range:   {self.format_price(cloud_bottom)} - {self.format_price(cloud_top)}\n"
+                    cloud_thickness = ichimoku.get('cloud_thickness', 0)
+                    if cloud_thickness > 0:
+                        section += f"Cloud Width:   {self.format_price(cloud_thickness)} ({cloud_thickness/current_price*100:.1f}%)\n"
+                
+                # Show specific signals
+                tenkan_kijun_cross = signals.get('tenkan_kijun_cross')
+                price_cloud_breakout = signals.get('price_cloud_breakout')
+                chikou_confirmation = signals.get('chikou_confirmation')
+                
+                if tenkan_kijun_cross:
+                    section += f"TK Cross:      {self.get_signal_emoji(tenkan_kijun_cross)} {tenkan_kijun_cross.upper()}\n"
+                if price_cloud_breakout:
+                    section += f"Cloud Break:   {self.get_signal_emoji(price_cloud_breakout)} {price_cloud_breakout.replace('_', ' ').title()}\n"
+                if chikou_confirmation:
+                    section += f"Chikou Conf:   {self.get_signal_emoji(chikou_confirmation)} {chikou_confirmation.upper()}\n"
+        
         return section
     
     def format_chart_patterns(self, pattern_results: Dict[str, Any]) -> str:

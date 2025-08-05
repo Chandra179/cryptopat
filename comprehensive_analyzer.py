@@ -88,6 +88,36 @@ try:
 except ImportError as e:
     print(f"Warning: Could not import KeltnerChannelStrategy: {e}")
 
+try:
+    from techin.parabolicsar import ParabolicSARStrategy
+    available_techin['parabolicsar'] = ParabolicSARStrategy
+except ImportError as e:
+    print(f"Warning: Could not import ParabolicSARStrategy: {e}")
+
+try:
+    from techin.donchain import DonchianChannelStrategy
+    available_techin['donchain'] = DonchianChannelStrategy
+except ImportError as e:
+    print(f"Warning: Could not import DonchianChannelStrategy: {e}")
+
+try:
+    from techin.renko import RenkoStrategy
+    available_techin['renko'] = RenkoStrategy
+except ImportError as e:
+    print(f"Warning: Could not import RenkoStrategy: {e}")
+
+try:
+    from techin.chaikin import ChaikinMoneyFlowAnalyzer
+    available_techin['chaikin'] = ChaikinMoneyFlowAnalyzer
+except ImportError as e:
+    print(f"Warning: Could not import ChaikinMoneyFlowAnalyzer: {e}")
+
+try:
+    from techin.ichimoku import IchimokuAnalysis
+    available_techin['ichimoku'] = IchimokuAnalysis
+except ImportError as e:
+    print(f"Warning: Could not import IchimokuAnalysis: {e}")
+
 # Chart patterns
 try:
     from pattern.flag import FlagStrategy
@@ -236,7 +266,12 @@ class ComprehensiveAnalyzer:
         for name, strategy in strategies.items():
             try:
                 print(f"  Running {name}...")
-                result = strategy.analyze(symbol, timeframe, candles, ohlcv_data=ohlcv_data)
+                # Try with ohlcv_data first, fallback to without if TypeError
+                try:
+                    result = strategy.analyze(symbol, timeframe, candles, ohlcv_data=ohlcv_data)
+                except TypeError:
+                    # Strategy doesn't accept ohlcv_data parameter, use standard signature
+                    result = strategy.analyze(symbol, timeframe, candles)
                 results[name] = result
                 
                 # Basic validation
