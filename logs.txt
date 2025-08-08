@@ -1,1 +1,134 @@
-create new /techin/ichimoku.py and handle the command on comprehensive_analyzer.py and cli_formatter.py
+update absorption implementation:
+"""
+Absorption Detection Module for CryptoPat.
+
+This module implements absorption detection using historical data
+to identify when large volumes are absorbed with minimal price movement,
+indicating potential support/resistance levels.
+"""
+
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+class AbsorptionStrategy:
+    """Absorption pattern detection strategy for cryptocurrency order flow analysis."""
+    
+    def __init__(self, 
+             symbol: str,
+             timeframe: str,
+             limit: int,
+             ob: dict,        
+             ohlcv: list,       
+             ticker: dict,
+             trades: dict,
+             rules: dict = None):    
+        self.rules = rules or {
+            # Minimum trade volume (units) to consider a trade as "large" or significant for absorption
+            "min_large_trade_volume": 1000.0,
+            # Maximum allowed price movement (fractional, e.g., 0.001 = 0.1%) during absorption window
+            "max_price_movement": 0.001,
+            # Time window (seconds) within which absorption is evaluated
+            "absorption_time_window_sec": 60,
+            # Minimum total bid (or ask) liquidity at best price level needed to consider absorption possible
+            "min_liquidity_at_best_price": 5000.0,
+            # Formula to calculate price movement:
+            # abs((price_after - price_before) / price_before)
+            "price_movement_formula": lambda price_before, price_after: abs(
+                (price_after - price_before) / price_before
+            )
+            if price_before and price_before != 0
+            else float("inf"),
+            # Formula to calculate absorption ratio:
+            # absorption_ratio = (total_volume_absorbed) / (large_trade_volume)
+            # Should be close to 1 to indicate full absorption
+            "absorption_ratio_formula": lambda volume_absorbed, large_trade_volume: (
+                volume_absorbed / large_trade_volume
+                if large_trade_volume and large_trade_volume != 0
+                else 0.0
+            ),
+            # Threshold for absorption ratio to declare absorption (e.g., >= 0.8 means 80% volume absorbed)
+            "min_absorption_ratio": 0.8,
+            # How many orderbook levels to consider by default when computing cumulative liquidity
+            "max_levels_to_check": 10,
+        }
+        self.ob = ob
+        self.ohlcv = ohlcv
+        self.ticker = ticker
+        self.trades = trades
+        self.symbol = symbol
+        self.timeframe = timeframe
+        self.limit = limit
+
+    def calculate(self) -> dict:
+        """ do the analysis calculation """
+        result = {}
+        self.print_output(result)
+
+    def print_output(self, result: dict):
+        """ print the analysis output """
+available data used for analysis:
+
+trades:
+[
+    {
+        'info':          { ... },                  // the original decoded JSON as is
+        'id':           '12345-67890:09876/54321', // string trade id
+        'timestamp':     1502962946216,            // Unix timestamp in milliseconds
+        'datetime':     '2017-08-17 12:42:48.000', // ISO8601 datetime with milliseconds
+        'symbol':       'ETH/BTC',                 // symbol
+        'order':        '12345-67890:09876/54321', // string order id or undefined/None/null
+        'type':         'limit',                   // order type, 'market', 'limit' or undefined/None/null
+        'side':         'buy',                     // direction of the trade, 'buy' or 'sell'
+        'takerOrMaker': 'taker',                   // string, 'taker' or 'maker'
+        'price':         0.06917684,               // float price in quote currency
+        'amount':        1.5,                      // amount of base currency
+        'cost':          0.10376526,               // total cost, `price * amount`,
+        'fee':           {                         // if provided by exchange or calculated by ccxt
+            'cost':  0.0015,                       // float
+            'currency': 'ETH',                     // usually base currency for buys, quote currency for sells
+            'rate': 0.002,                         // the fee rate (if available)
+        },
+        'fees': [                                  // an array of fees if paid in multiple currencies
+            {                                      // if provided by exchange or calculated by ccxt
+                'cost':  0.0015,                   // float
+                'currency': 'ETH',                 // usually base currency for buys, quote currency for sells
+                'rate': 0.002,                     // the fee rate (if available)
+            },
+        ]
+    },
+    ...
+]
+
+
+ohlcv:
+[
+    [
+        1504541580000, // UTC timestamp in milliseconds, integer
+        4235.4,        // (O)pen price, float
+        4240.6,        // (H)ighest price, float
+        4230.0,        // (L)owest price, float
+        4230.7,        // (C)losing price, float
+        37.72941911    // (V)olume float (usually in terms of the base currency, the exchanges docstring may list whether quote or base units are used)
+    ],
+    ...
+]
+
+orderbook:
+{
+    'bids': [
+        [ price, amount ], // [ float, float ]
+        [ price, amount ],
+        ...
+    ],
+    'asks': [
+        [ price, amount ],
+        [ price, amount ],
+        ...
+    ],
+    'symbol': 'ETH/BTC', // a unified market symbol
+    'timestamp': 1499280391811, // Unix Timestamp in milliseconds (seconds * 1000)
+    'datetime': '2017-07-05T18:47:14.692Z', // ISO8601 datetime string with milliseconds
+    'nonce': 1499280391811, // an increasing unique identifier of the orderbook snapshot
+}
