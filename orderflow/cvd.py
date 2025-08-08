@@ -147,7 +147,7 @@ class CVDAnalyzer:
         """
         try:
             # Fetch recent trades and order book
-            trades = self.collector.fetch_recent_trades(symbol, limit)
+            trades = self.collector.fetch_trades(symbol, limit)
             order_book = self.collector.fetch_order_book(symbol, limit=5)
             
             if not trades:

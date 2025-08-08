@@ -1,0 +1,16 @@
+{
+    'bids': [
+        [ price, amount ], // [ float, float ]
+        [ price, amount ],
+        ...
+    ],
+    'asks': [
+        [ price, amount ],
+        [ price, amount ],
+        ...
+    ],
+    'symbol': 'ETH/BTC', // a unified market symbol
+    'timestamp': 1499280391811, // Unix Timestamp in milliseconds (seconds * 1000)
+    'datetime': '2017-07-05T18:47:14.692Z', // ISO8601 datetime string with milliseconds
+    'nonce': 1499280391811, // an increasing unique identifier of the orderbook snapshot
+}
