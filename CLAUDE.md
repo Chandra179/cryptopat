@@ -4,75 +4,62 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CryptoPat is a Python-based cryptocurrency pattern recognition system for detecting chart patterns using historical market data. It's a backend-only data analysis tool focused on technical analysis and trend prediction.
+CryptoPat is a Python-based cryptocurrency analysis system for detecting chart patterns and order flow analysis using historical price, volume, and order book data. It's a pure data analysis system with no frontend - focuses on pattern detection and technical analysis.
 
-**Core Components:**
-- Data collection via CCXT library (Binance exchange by default)
-- Pattern detection and technical analysis algorithms
-- Trend prediction with bearish/bullish confidence scoring
-- Support for multiple cryptocurrencies and timeframes
+## Key Architecture
 
-## Development Commands
+### Core Components
+- **data/**: Data collection layer using CCXT library for exchange connectivity
+  - `collector.py`: Main orchestrator for all data fetching operations
+  - `*_fetcher.py`: Specialized fetchers for OHLCV, order book, ticker, and trades data
+  - All data gets exported to CSV files in `data/csv_exports/`
 
-**Environment Setup:**
+- **techin/**: Technical analysis indicators (ATR, ADX, Bollinger Bands, EMA, MACD, RSI, etc.)
+- **pattern/**: Chart pattern detection (double top/bottom, head & shoulders, Elliott wave, etc.)  
+- **orderflow/**: Order flow analysis strategies (absorption, CVD, footprint, SMC)
+
+### Data Flow
+1. CLI (`cli.py`) parses commands in format: `s=BTC/USDT t=1d l=100`
+2. `DataCollector` fetches data from Binance via CCXT
+3. Order flow strategies analyze the data and output results
+4. All data automatically exported to timestamped CSV files
+
+## Common Commands
+
+### Environment Setup
 ```bash
 # Activate virtual environment
 make act
-# OR manually: source venv/bin/activate
+# or
+source venv/bin/activate
 
-# Run setup script (installs dependencies, creates directories)
-./setup.sh
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-**Running the Application:**
+### CLI Usage
 ```bash
-# Main application entry point
-python main.py
+# Run the interactive CLI
+python cli.py
 
-# Direct data collection testing
-python -m data.collector
-
-# Test data fetching with CSV export
-python test_data_fetch.py
+# Example commands within CLI:
+s=BTC/USDT t=1d l=100    # Fetch BTC daily data, 100 candles
+s=PENGU/USDT t=1h l=50   # Fetch PENGU hourly data, 50 candles
 ```
 
-**Development Testing:**
-```bash
-# Example analysis commands from Makefile
-make pengu1  # Run PENGU/USDT analysis with SMA, EMA indicators
-```
+### Supported Data
+- **Symbols**: BTC/USDT, ETH/USDT, XRP/USDT, SOL/USDT, PENGU/USDT
+- **Timeframes**: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 3d, 1w, 1M
+- **Data Types**: OHLCV candlesticks, order books, ticker data, recent trades
 
-## Architecture
+## Key Dependencies
+- **ccxt**: Exchange connectivity and market data
+- **pandas/numpy**: Data manipulation and analysis
+- **matplotlib/mplfinance**: Charting capabilities
+- **python-dotenv**: Environment variable management
 
-**Project Structure:**
-- `main.py` - Application entry point with basic logging setup
-- `data/collector.py` - CCXT-based data collection from exchanges
-- `data/csv_exports/` - Directory for exported OHLCV data in CSV format
-- `test_data_fetch.py` - Testing script for data collection and CSV export
-- `trend/` - Directory for technical analysis modules (currently empty)
-- `Makefile` - Contains shortcuts for common development tasks
-
-**Key Classes:**
-- `DataCollector` (data/collector.py:37) - Singleton class that handles all market data fetching with rate limiting
-  - Uses singleton pattern to ensure only one exchange connection per application run
-  - `fetch_ohlcv_data()` - Gets candlestick data for specified symbols/timeframes
-  - `fetch_order_book()` - Gets bid/ask price levels
-  - `fetch_ticker()` - Gets current market prices and volume
-  - `get_market_info()` - Gets trading limits and fees
-- `get_data_collector()` (data/__init__.py:11) - Factory function that returns the singleton DataCollector instance
-
-**Data Flow:**
-1. DataCollector singleton initializes exchange connection with rate limiting (1.2s between requests)
-2. All trend analysis modules share the same DataCollector instance to avoid multiple exchange connections
-3. Fetches OHLCV, order book, and ticker data from Binance exchange
-4. Data exported to CSV files in `data/csv_exports/` for analysis
-5. Analysis modules process data for pattern detection using technical indicators
-
-**Supported Data Types:**
-- OHLCV candlestick data with configurable timeframes (1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 3d, 1w, 1M)
-- Order book depth data
-- Current ticker information
-- Default symbols: BTC/USDT, ETH/USDT, XRP/USDT, SOL/USDT, PENGU/USDT
-
-**Rate Limiting:**
-The DataCollector implements 1.2-second delays between API calls to respect exchange limits.
+## Development Notes
+- No formal test framework currently in place
+- Uses virtual environment (`venv/`) for dependency isolation  
+- Exchange data format follows CCXT standards for consistency
+- All fetched data automatically exported to CSV for analysis/debugging

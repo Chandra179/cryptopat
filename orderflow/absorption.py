@@ -19,6 +19,7 @@ class AbsorptionStrategy:
              timeframe: str,
              limit: int,
              ob: dict,        
+             ticker: dict,    
              ohlcv: List[List],       
              trades: List[Dict]):    
         self.rules = {
@@ -40,6 +41,7 @@ class AbsorptionStrategy:
             "max_levels_to_check": 10,
         }
         self.ob = ob
+        self.ticker = ticker
         self.ohlcv = ohlcv
         self.trades = trades
         self.symbol = symbol
@@ -110,7 +112,6 @@ class AbsorptionStrategy:
 
     def print_output(self, result: dict):
         """Print a compact summary of detected absorption events."""
-        print(f"\n=== ABSORPTION ANALYSIS: {result['symbol']} ({result['timeframe']}) ===")
         print(f"Total Absorption Events: {result['summary']['total_events']}")
         
         if result['summary']['total_events'] > 0:
@@ -129,7 +130,6 @@ class AbsorptionStrategy:
                       f"Price Movement: {event['price_movement']:.4f}%")
         else:
             print("No absorption events detected with current parameters.")
-        print("=" * 60)
 
     def _is_large_trade(self, trade: Dict) -> bool:
         """Check if trade volume exceeds minimum threshold."""
@@ -141,6 +141,134 @@ class AbsorptionStrategy:
         return time_diff <= self.rules["absorption_time_window_sec"]
     
     def _calculate_absorbed_volume(self, trade1: Dict, trade2: Dict) -> float:
-        """Calculate volume absorbed between two trades."""
-        # Simplified calculation - in real implementation would use order book data
-        return min(trade1.get('amount', 0), trade2.get('amount', 0))
+        """
+        Calculate volume absorbed using order book depth analysis.
+        
+        Real absorption occurs when:
+        1. Large volume hits resting liquidity at same price level
+        2. Price remains stable despite the volume impact
+        3. Liquidity may get replenished (iceberg orders)
+        """
+        if not self.ob or not self.ob.get('bids') or not self.ob.get('asks'):
+            # Fallback to simplified calculation if no order book data
+            return min(trade1.get('amount', 0), trade2.get('amount', 0))
+        
+        trade_price = trade1.get('price', 0)
+        trade_volume = trade1.get('amount', 0)
+        trade_side = trade1.get('side', 'unknown')
+        
+        # Calculate available liquidity at the trade price level
+        available_liquidity = self._get_liquidity_at_price(trade_price, trade_side)
+        
+        # Calculate multi-level absorption if trade exceeds single level
+        if trade_volume > available_liquidity:
+            absorbed_volume = self._calculate_multi_level_absorption(
+                trade_price, trade_volume, trade_side
+            )
+        else:
+            # Single level absorption
+            absorbed_volume = min(trade_volume, available_liquidity)
+        
+        # Check for liquidity replenishment patterns (iceberg detection)
+        replenishment_factor = self._detect_liquidity_replenishment(
+            trade_side, available_liquidity
+        )
+        
+        # Adjust absorption based on replenishment
+        effective_absorption = absorbed_volume * (1.0 + replenishment_factor)
+        
+        return min(effective_absorption, trade_volume)
+    
+    def _get_liquidity_at_price(self, price: float, side: str) -> float:
+        """Get available liquidity at specific price level."""
+        if side == 'buy':
+            # For buy orders, check ask side liquidity
+            for ask_price, ask_volume in self.ob.get('asks', []):
+                if abs(ask_price - price) / price < 0.0001:  # Price tolerance
+                    return ask_volume
+        elif side == 'sell':
+            # For sell orders, check bid side liquidity  
+            for bid_price, bid_volume in self.ob.get('bids', []):
+                if abs(bid_price - price) / price < 0.0001:  # Price tolerance
+                    return bid_volume
+        
+        return 0.0
+    
+    def _calculate_multi_level_absorption(self, trade_price: float, 
+                                        trade_volume: float, side: str) -> float:
+        """
+        Calculate absorption when trade volume exceeds single price level.
+        Simulates how large orders walk through multiple order book levels.
+        """
+        remaining_volume = trade_volume
+        total_absorbed = 0.0
+        price_tolerance = 0.001  # 0.1% price movement tolerance
+        
+        if side == 'buy':
+            # Walk through ask levels
+            for ask_price, ask_volume in self.ob.get('asks', []):
+                if remaining_volume <= 0:
+                    break
+                    
+                price_impact = abs(ask_price - trade_price) / trade_price
+                if price_impact > price_tolerance:
+                    break  # Exceeds absorption threshold
+                
+                level_absorption = min(remaining_volume, ask_volume)
+                total_absorbed += level_absorption
+                remaining_volume -= level_absorption
+                
+        elif side == 'sell':
+            # Walk through bid levels
+            for bid_price, bid_volume in reversed(self.ob.get('bids', [])):
+                if remaining_volume <= 0:
+                    break
+                    
+                price_impact = abs(trade_price - bid_price) / trade_price  
+                if price_impact > price_tolerance:
+                    break  # Exceeds absorption threshold
+                
+                level_absorption = min(remaining_volume, bid_volume)
+                total_absorbed += level_absorption
+                remaining_volume -= level_absorption
+        
+        return total_absorbed
+    
+    def _detect_liquidity_replenishment(self, side: str, 
+                                      initial_liquidity: float) -> float:
+        """
+        Detect potential iceberg orders by analyzing liquidity patterns.
+        
+        Returns replenishment factor (0.0-1.0):
+        - 0.0: No replenishment detected
+        - 0.5: Moderate replenishment (50% additional hidden liquidity)  
+        - 1.0: Strong replenishment (100% additional hidden liquidity)
+        """
+        if initial_liquidity < self.rules["min_liquidity_at_best_price"]:
+            return 0.0
+        
+        # Check for abnormally large liquidity at best price vs other levels
+        best_price_liquidity = initial_liquidity
+        avg_liquidity = self._calculate_average_book_depth(side)
+        
+        if avg_liquidity > 0:
+            liquidity_ratio = best_price_liquidity / avg_liquidity
+            
+            # Strong liquidity concentration suggests iceberg
+            if liquidity_ratio > 3.0:
+                return 0.8  # High replenishment probability
+            elif liquidity_ratio > 2.0:
+                return 0.4  # Moderate replenishment probability
+        
+        return 0.0
+    
+    def _calculate_average_book_depth(self, side: str) -> float:
+        """Calculate average liquidity depth for comparison."""
+        if side == 'buy' and self.ob.get('asks'):
+            volumes = [vol for _, vol in self.ob['asks'][:10]]
+        elif side == 'sell' and self.ob.get('bids'):  
+            volumes = [vol for _, vol in self.ob['bids'][:10]]
+        else:
+            return 0.0
+            
+        return sum(volumes) / len(volumes) if volumes else 0.0

@@ -7,6 +7,8 @@ import readline
 from typing import Dict
 from data import get_data_collector
 from orderflow.absorption import AbsorptionStrategy
+from orderflow.cvd import CVDStrategy
+from orderflow.footprint import VolumeFootprint
 
 class CryptoPatCLI:
     def __init__(self):
@@ -95,10 +97,13 @@ class CryptoPatCLI:
                 print(f"✓ Retrieved {len(trades)} recent trades")
                 print(f"✓ Latest trade: {trades[-1].get('price')} @ {trades[-1].get('amount')}")
 
-            # Run absorption analysis
-            print(f"\n🔍 Running absorption analysis...")
-            absorption = AbsorptionStrategy(symbol, timeframe, limit, order_book, ohlcv_data, trades)
+            absorption = AbsorptionStrategy(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
             absorption.calculate()
+            cvd = CVDStrategy(symbol, timeframe, limit, order_book, ohlcv_data, ticker, trades)
+            cvd.calculate()
+            footprint = VolumeFootprint(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            footprint.calculate()
+
                         
         except Exception as e:
             print(f"Error fetching data: {e}")

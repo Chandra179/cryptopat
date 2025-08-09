@@ -1,3 +1,4 @@
+"""
 ## Data structures
 **OHLCV Format:**
 [
@@ -86,5 +87,44 @@
     },
     ...
 ]
+"""
 
-what context do you need to implement the calculate() ? 
+class {METHOD_NAME_STRATEGY}:
+    
+    def __init__(self, 
+             symbol: str,
+             timeframe: str,
+             limit: int,
+             ob: dict,
+             ticker: dict,            
+             ohlcv: List[List],       
+             trades: List[Dict]):    
+        self.rules = {
+            """
+            create rules & formulas
+            example:
+                "min_large_trade_volume": 1000.0,
+                "price_movement_formula": lambda price_before, price_after: abs(
+                    (price_after - price_before) / price_before
+                )
+            """
+        }
+        self.ob = ob #order book data
+        self.ohlcv = ohlcv #ohlcv data
+        self.trades = trades #trades data
+        self.symbol = symbol
+        self.timeframe = timeframe
+        self.limit = limit
+    
+    def calculate(self):
+        """
+        Calculate {METHOD_NAME_STRATEGY} according to TradingView methodology.
+        """
+        result = {}
+        self.print_output(result)
+    
+    def print_output(self, result: dict):
+        """ print the output """
+
+
+based on context above i want to do Volume Footprint Chart analysis, create new file footprint.py at /orderflow
