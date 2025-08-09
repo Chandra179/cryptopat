@@ -1,232 +1,118 @@
-"""
-VWAP (Volume Weighted Average Price) Analysis
-Calculates VWAP and provides trading signals based on price position relative to VWAP
-"""
-
+from typing import List, Dict
 import pandas as pd
-from typing import List, Optional
-from data import get_data_collector
+import numpy as np
 
-
-def calculate_vwap(df: pd.DataFrame, anchor_index: Optional[int] = None) -> pd.DataFrame:
-    """
-    Calculate VWAP (Volume Weighted Average Price)
+class VWAP:
     
-    Args:
-        df: DataFrame with OHLCV data
-        anchor_index: Optional index to start VWAP calculation from (for anchored VWAP)
+    def __init__(self, 
+             symbol: str,
+             timeframe: str,
+             limit: int,
+             ob: dict,
+             ticker: dict,            
+             ohlcv: List[List],       
+             trades: List[Dict]):    
+        self.rules = {
+            "period_length": 20,  # VWAP calculation period
+            "deviation_threshold": 0.02,  # 2% deviation from VWAP considered significant
+            "volume_weight_formula": lambda price, volume: price * volume
+        }
+        self.ob = ob
+        self.ohlcv = ohlcv
+        self.trades = trades
+        self.symbol = symbol
+        self.timeframe = timeframe
+        self.limit = limit
     
-    Returns:
-        DataFrame with VWAP values added
-    """
-    df = df.copy()
-    
-    # Calculate typical price (H+L+C)/3
-    df['typical_price'] = (df['high'] + df['low'] + df['close']) / 3
-    
-    # Calculate price * volume
-    df['pv'] = df['typical_price'] * df['volume']
-    
-    # Set starting point for calculation
-    start_index = anchor_index if anchor_index is not None else 0
-    
-    # Initialize VWAP column
-    df['vwap'] = 0.0
-    
-    # Calculate cumulative VWAP from anchor point
-    cumulative_pv = 0
-    cumulative_volume = 0
-    
-    for i in range(start_index, len(df)):
-        cumulative_pv += df.iloc[i]['pv']
-        cumulative_volume += df.iloc[i]['volume']
-        
-        if cumulative_volume > 0:
-            df.iloc[i, df.columns.get_loc('vwap')] = cumulative_pv / cumulative_volume
-    
-    return df
-
-
-def analyze_vwap_signals(df: pd.DataFrame) -> List[dict]:
-    """
-    Analyze VWAP signals and generate trading recommendations
-    
-    Args:
-        df: DataFrame with OHLCV data and VWAP
-    
-    Returns:
-        List of signal dictionaries
-    """
-    signals = []
-    
-    for i in range(len(df)):
-        row = df.iloc[i]
-        close_price = row['close']
-        vwap_value = row['vwap']
-        timestamp = row['timestamp']
-        
-        # Determine signal based on price position relative to VWAP
-        if close_price > vwap_value:
-            signal = "BUY"
-            bias = "🟢 Price Above VWAP"
-        elif close_price < vwap_value:
-            signal = "SELL" 
-            bias = "🔻 Bearish Bias"
-        else:
-            signal = "NEUTRAL"
-            bias = "⚖️ At VWAP"
-        
-        signals.append({
-            'timestamp': timestamp,
-            'close': close_price,  
-            'vwap': vwap_value,
-            'signal': signal,
-            'bias': bias
-        })
-    
-    return signals
-
-
-def format_vwap_output(signals: List[dict]) -> str:
-    """
-    Format VWAP analysis output for terminal display
-    
-    Args:
-        signals: List of signal dictionaries
-    
-    Returns:
-        Formatted string for terminal output
-    """
-    output_lines = []
-    
-    for signal in signals:
-        timestamp = signal['timestamp']
-        close = signal['close']
-        vwap = signal['vwap']
-        signal_type = signal['signal']
-        bias = signal['bias']
-        
-        # Determine trend emoji based on signal
-        if signal_type == "BUY":
-            trend_emoji = "📈"
-        elif signal_type == "SELL":
-            trend_emoji = "📉"
-        else:
-            trend_emoji = "➖"
-        
-        line = f"[{timestamp}] Price: {close:.4f} | VWAP: {vwap:.4f} | Signal: {signal_type} | {trend_emoji} {bias}"
-        output_lines.append(line)
-    
-    return '\n'.join(output_lines)
-
-
-class VWAPStrategy:
-    """VWAP (Volume Weighted Average Price) Strategy Class"""
-    
-    def __init__(self):
-        self.name = "VWAP Strategy"
-        
-    def analyze(self, symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 100, ohlcv_data: Optional[List] = None, anchor: Optional[str] = None) -> dict:
+    def calculate(self):
         """
-        Run complete VWAP analysis
-        
-        Args:
-            symbol: Trading pair symbol (e.g., "BTC/USDT")
-            timeframe: Timeframe for analysis (e.g., "1h", "4h", "1d")
-            limit: Number of candles to analyze
-            ohlcv_data: Optional pre-fetched OHLCV data
-            anchor: Optional anchor timestamp for anchored VWAP (format: "2025-07-29T04:00:00")
-        
-        Returns:
-            Dictionary with analysis results
+        Calculate VWAP (Volume Weighted Average Price) according to TradingView methodology.
         """
-        return analyze_vwap(symbol, timeframe, limit, anchor, ohlcv_data)
-
-
-def analyze_vwap(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 100, anchor: Optional[str] = None, ohlcv_data: Optional[List] = None) -> dict:
-    """
-    Run complete VWAP analysis
-    
-    Args:
-        symbol: Trading pair symbol (e.g., "BTC/USDT")
-        timeframe: Timeframe for analysis (e.g., "1h", "4h", "1d")
-        limit: Number of candles to analyze
-        anchor: Optional anchor timestamp for anchored VWAP (format: "2025-07-29T04:00:00")
-        ohlcv_data: Optional pre-fetched OHLCV data
-    
-    Returns:
-        Dictionary with analysis results
-    """
-    try:
-        # Fetch OHLCV data if not provided
-        if ohlcv_data is None:
-            collector = get_data_collector()
-            ohlcv_data = collector.fetch_ohlcv_data(symbol, timeframe, limit)
+        if not self.ohlcv or len(self.ohlcv) == 0:
+            result = {"error": "No OHLCV data available for VWAP calculation"}
+            self.print_output(result)
+            return
         
-        if not ohlcv_data:
-            return f"Error: No data received for {symbol} {timeframe}"
+        # Convert OHLCV to DataFrame for easier manipulation
+        df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         
-        # Convert to DataFrame
-        df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        
-        # Convert timestamp to readable format
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Asia/Jakarta')
-        
-        # Find anchor index if anchor timestamp is provided
-        anchor_index = None
-        if anchor:
-            try:
-                anchor_dt = pd.to_datetime(anchor)
-                # Find closest timestamp to anchor
-                time_diffs = abs(df['timestamp'] - anchor_dt)
-                anchor_index = time_diffs.idxmin()
-            except Exception as e:
-                return f"Error parsing anchor timestamp: {e}"
+        # Calculate typical price (HLC/3)
+        df['typical_price'] = (df['high'] + df['low'] + df['close']) / 3
         
         # Calculate VWAP
-        df_with_vwap = calculate_vwap(df, anchor_index)
+        df['price_volume'] = df['typical_price'] * df['volume']
+        df['cumulative_pv'] = df['price_volume'].cumsum()
+        df['cumulative_volume'] = df['volume'].cumsum()
+        df['vwap'] = df['cumulative_pv'] / df['cumulative_volume']
         
-        # Analyze signals
-        signals = analyze_vwap_signals(df_with_vwap)
+        # Calculate rolling VWAP for specified period
+        period = self.rules["period_length"]
+        df['rolling_pv'] = df['price_volume'].rolling(window=period).sum()
+        df['rolling_volume'] = df['volume'].rolling(window=period).sum()
+        df['rolling_vwap'] = df['rolling_pv'] / df['rolling_volume']
         
-        # Get latest signal
-        latest_signal = signals[-1] if signals else None
+        # Calculate deviations
+        df['price_to_vwap_ratio'] = df['close'] / df['vwap']
+        df['deviation_from_vwap'] = (df['close'] - df['vwap']) / df['vwap']
+        df['rolling_deviation'] = (df['close'] - df['rolling_vwap']) / df['rolling_vwap']
         
-        # Calculate overall bias
-        buy_signals = sum(1 for s in signals if s['signal'] == 'BUY')
-        sell_signals = sum(1 for s in signals if s['signal'] == 'SELL')
-        total_signals = len(signals)
+        # Identify significant deviations
+        threshold = self.rules["deviation_threshold"]
+        df['above_vwap_threshold'] = df['deviation_from_vwap'] > threshold
+        df['below_vwap_threshold'] = df['deviation_from_vwap'] < -threshold
         
-        if buy_signals > sell_signals:
-            overall_bias = "Bullish"
-            bias_confidence = (buy_signals / total_signals) * 100
-        elif sell_signals > buy_signals:
-            overall_bias = "Bearish"
-            bias_confidence = (sell_signals / total_signals) * 100
+        # Get current values (last candle)
+        current = df.iloc[-1]
+        
+        result = {
+            "symbol": self.symbol,
+            "timeframe": self.timeframe,
+            "current_price": float(current['close']),
+            "current_vwap": float(current['vwap']),
+            "rolling_vwap": float(current['rolling_vwap']) if not pd.isna(current['rolling_vwap']) else None,
+            "deviation_from_vwap": float(current['deviation_from_vwap']),
+            "rolling_deviation": float(current['rolling_deviation']) if not pd.isna(current['rolling_deviation']) else None,
+            "price_to_vwap_ratio": float(current['price_to_vwap_ratio']),
+            "above_threshold": bool(current['above_vwap_threshold']),
+            "below_threshold": bool(current['below_vwap_threshold']),
+            "total_volume": float(df['volume'].sum()),
+            "avg_volume": float(df['volume'].mean()),
+            "vwap_trend": "bullish" if current['close'] > current['vwap'] else "bearish",
+            "period_used": period,
+            "data_points": len(df)
+        }
+        
+        self.print_output(result)
+        return result
+    
+    def print_output(self, result: dict):
+        """Print the VWAP analysis output"""
+        if "error" in result:
+            print(f"VWAP Error: {result['error']}")
+            return
+            
+        print(f"\n{'='*50}")
+        print(f"VWAP ANALYSIS")
+        print(f"{'='*50}")
+        print(f"Current Price: ${result['current_price']:.4f}")
+        print(f"Current VWAP: ${result['current_vwap']:.4f}")
+        if result['rolling_vwap']:
+            print(f"Rolling VWAP ({result['period_used']}): ${result['rolling_vwap']:.4f}")
+        
+        print(f"Deviation from VWAP: {result['deviation_from_vwap']:.4%}")
+        if result['rolling_deviation']:
+            print(f"Rolling Deviation: {result['rolling_deviation']:.4%}")
+        
+        print(f"Price/VWAP Ratio: {result['price_to_vwap_ratio']:.4f}")
+        print(f"VWAP Trend: {result['vwap_trend'].upper()}")
+        
+        if result['above_threshold']:
+            print("⚠️  Price significantly ABOVE VWAP (potential resistance)")
+        elif result['below_threshold']:
+            print("⚠️  Price significantly BELOW VWAP (potential support)")
         else:
-            overall_bias = "Neutral"
-            bias_confidence = 50.0
+            print("✅ Price near VWAP (fair value zone)")
         
-        return {
-            'success': True,
-            'latest_signal': latest_signal,
-            'overall_bias': overall_bias,
-            'bias_confidence': round(bias_confidence, 2),
-            'signals_analyzed': total_signals,
-            'buy_signals': buy_signals,
-            'sell_signals': sell_signals,
-            'formatted_output': format_vwap_output(signals),
-            'anchor_info': f" (Anchored from {anchor})" if anchor else ""
-        }
-        
-    except Exception as e:
-        return {
-            'error': f"Error in VWAP analysis: {str(e)}",
-            'symbol': symbol,
-            'timeframe': timeframe
-        }
-
-
-def analyze(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 100, anchor: Optional[str] = None) -> dict:
-    """Backward compatibility function for standalone analysis"""
-    return analyze_vwap(symbol, timeframe, limit, anchor)
+        print(f"Total Volume: {result['total_volume']:,.0f}")
+        print(f"Average Volume: {result['avg_volume']:,.0f}")
+        print(f"Data Points: {result['data_points']}")

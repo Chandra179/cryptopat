@@ -91,9 +91,8 @@
 
 from typing import List, Dict
 import pandas as pd
-import numpy as np
 
-class MACD:
+class KeltnerChannel:
     
     def __init__(self, 
              symbol: str,
@@ -104,158 +103,162 @@ class MACD:
              ohlcv: List[List],       
              trades: List[Dict]):    
         self.rules = {
-            "fast_period": 12,
-            "slow_period": 26,
-            "signal_period": 9,
-            "price_source": "close"
+            "ema_period": 20,
+            "atr_period": 10,
+            "multiplier": 2.0,
+            "min_periods": max(20, 10)
         }
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
+        self.ticker = ticker
         self.symbol = symbol
         self.timeframe = timeframe
         self.limit = limit
     
     def calculate_ema(self, prices: List[float], period: int) -> List[float]:
-        """Calculate Exponential Moving Average"""
         if len(prices) < period:
-            return [np.nan] * len(prices)
+            return [None] * len(prices)
         
-        ema_values = []
+        ema_values = [None] * len(prices)
         multiplier = 2 / (period + 1)
         
-        # First EMA value is SMA
-        sma = sum(prices[:period]) / period
-        ema_values.append(sma)
+        ema_values[period - 1] = sum(prices[:period]) / period
         
-        # Calculate subsequent EMA values
-        for i in range(1, len(prices) - period + 1):
-            ema = (prices[period + i - 1] * multiplier) + (ema_values[-1] * (1 - multiplier))
-            ema_values.append(ema)
+        for i in range(period, len(prices)):
+            ema_values[i] = (prices[i] * multiplier) + (ema_values[i-1] * (1 - multiplier))
         
-        # Pad with NaN for the initial period
-        return [np.nan] * (period - 1) + ema_values
+        return ema_values
+    
+    def calculate_true_range(self, high: float, low: float, prev_close: float) -> float:
+        return max(
+            high - low,
+            abs(high - prev_close),
+            abs(low - prev_close)
+        )
+    
+    def calculate_atr(self, highs: List[float], lows: List[float], closes: List[float], period: int) -> List[float]:
+        if len(highs) < period + 1:
+            return [None] * len(highs)
+        
+        true_ranges = [None]
+        for i in range(1, len(highs)):
+            tr = self.calculate_true_range(highs[i], lows[i], closes[i-1])
+            true_ranges.append(tr)
+        
+        atr_values = [None] * len(highs)
+        
+        first_atr = sum(true_ranges[1:period+1]) / period
+        atr_values[period] = first_atr
+        
+        multiplier = 1 / period
+        for i in range(period + 1, len(highs)):
+            atr_values[i] = (true_ranges[i] * multiplier) + (atr_values[i-1] * (1 - multiplier))
+        
+        return atr_values
     
     def calculate(self):
-        """
-        Calculate MACD according to TradingView methodology.
-        MACD = EMA(12) - EMA(26)
-        Signal Line = EMA(9) of MACD
-        Histogram = MACD - Signal Line
-        """
-        if not self.ohlcv or len(self.ohlcv) < self.rules["slow_period"]:
+        if len(self.ohlcv) < self.rules["min_periods"]:
             result = {
-                "error": f"Insufficient data: need at least {self.rules['slow_period']} candles for MACD calculation"
-            }
-            self.print_output(result)
-            return
-
-        # Extract closing prices
-        closes = [float(candle[4]) for candle in self.ohlcv]
-        
-        # Calculate EMAs
-        ema_fast = self.calculate_ema(closes, self.rules["fast_period"])
-        ema_slow = self.calculate_ema(closes, self.rules["slow_period"])
-        
-        # Calculate MACD line
-        macd_line = []
-        for i in range(len(closes)):
-            if pd.isna(ema_fast[i]) or pd.isna(ema_slow[i]):
-                macd_line.append(np.nan)
-            else:
-                macd_line.append(ema_fast[i] - ema_slow[i])
-        
-        # Remove NaN values for signal calculation
-        macd_clean = [x for x in macd_line if not pd.isna(x)]
-        
-        if len(macd_clean) < self.rules["signal_period"]:
-            result = {
-                "error": f"Insufficient MACD data for signal calculation: need at least {self.rules['signal_period']} values"
+                "error": f"Insufficient data. Need at least {self.rules['min_periods']} periods",
+                "data_length": len(self.ohlcv)
             }
             self.print_output(result)
             return
         
-        # Calculate signal line (EMA of MACD)
-        signal_line = self.calculate_ema(macd_clean, self.rules["signal_period"])
+        df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         
-        # Calculate histogram
-        histogram = []
-        signal_start_idx = len(macd_line) - len(signal_line)
+        closes = df['close'].tolist()
+        highs = df['high'].tolist()
+        lows = df['low'].tolist()
         
-        for i in range(len(macd_line)):
-            if i < signal_start_idx or pd.isna(macd_line[i]):
-                histogram.append(np.nan)
-            else:
-                signal_idx = i - signal_start_idx
-                if signal_idx < len(signal_line) and not pd.isna(signal_line[signal_idx]):
-                    histogram.append(macd_line[i] - signal_line[signal_idx])
-                else:
-                    histogram.append(np.nan)
+        ema_values = self.calculate_ema(closes, self.rules["ema_period"])
+        atr_values = self.calculate_atr(highs, lows, closes, self.rules["atr_period"])
         
-        # Get latest values
-        current_macd = macd_line[-1] if macd_line and not pd.isna(macd_line[-1]) else None
-        current_signal = signal_line[-1] if signal_line and not pd.isna(signal_line[-1]) else None
-        current_histogram = histogram[-1] if histogram and not pd.isna(histogram[-1]) else None
+        upper_band = []
+        lower_band = []
+        middle_line = []
         
-        # Determine trend and crossover signals
-        trend = None
-        crossover = None
-        
-        if current_macd is not None and current_signal is not None:
-            trend = "Bullish" if current_macd > current_signal else "Bearish"
-            
-            # Check for crossovers (need at least 2 values)
-            if len(macd_line) >= 2 and len(signal_line) >= 2:
-                prev_macd = macd_line[-2] if not pd.isna(macd_line[-2]) else None
-                prev_signal = signal_line[-2] if len(signal_line) >= 2 and not pd.isna(signal_line[-2]) else None
+        for i in range(len(df)):
+            if ema_values[i] is not None and atr_values[i] is not None:
+                middle = ema_values[i]
+                atr_offset = atr_values[i] * self.rules["multiplier"]
                 
-                if prev_macd is not None and prev_signal is not None:
-                    if prev_macd <= prev_signal and current_macd > current_signal:
-                        crossover = "Bullish Crossover"
-                    elif prev_macd >= prev_signal and current_macd < current_signal:
-                        crossover = "Bearish Crossover"
-
+                middle_line.append(middle)
+                upper_band.append(middle + atr_offset)
+                lower_band.append(middle - atr_offset)
+            else:
+                middle_line.append(None)
+                upper_band.append(None)
+                lower_band.append(None)
+        
+        current_price = closes[-1] if closes else None
+        current_upper = upper_band[-1] if upper_band[-1] is not None else None
+        current_lower = lower_band[-1] if lower_band[-1] is not None else None
+        current_middle = middle_line[-1] if middle_line[-1] is not None else None
+        
+        position = None
+        if current_price and current_upper and current_lower:
+            if current_price > current_upper:
+                position = "Above Upper Band"
+            elif current_price < current_lower:
+                position = "Below Lower Band"
+            else:
+                position = "Within Channel"
+        
         result = {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
-            "timestamp": self.ohlcv[-1][0] if self.ohlcv else None,
-            "current_price": closes[-1] if closes else None,
-            "macd_line": round(current_macd, 6) if current_macd is not None else None,
-            "signal_line": round(current_signal, 6) if current_signal is not None else None,
-            "histogram": round(current_histogram, 6) if current_histogram is not None else None,
-            "trend": trend,
-            "crossover": crossover,
+            "current_price": current_price,
+            "keltner_channel": {
+                "upper_band": current_upper,
+                "middle_line": current_middle,
+                "lower_band": current_lower,
+                "position": position,
+                "band_width": current_upper - current_lower if current_upper and current_lower else None
+            },
             "parameters": {
-                "fast_ema": self.rules["fast_period"],
-                "slow_ema": self.rules["slow_period"],
-                "signal_ema": self.rules["signal_period"]
+                "ema_period": self.rules["ema_period"],
+                "atr_period": self.rules["atr_period"],
+                "multiplier": self.rules["multiplier"]
+            },
+            "analysis": {
+                "trend_direction": "Bullish" if current_price and current_middle and current_price > current_middle else "Bearish",
+                "volatility": "High" if current_upper and current_lower and (current_upper - current_lower) > (current_middle * 0.1) else "Low"
             }
         }
         
         self.print_output(result)
     
     def print_output(self, result: dict):
-        """ print the output """
         print("\n" + "="*50)
-        print(f"MACD Analysis for {result.get('symbol', 'N/A')}")
+        print("KELTNER CHANNEL ANALYSIS")
         print("="*50)
         
         if "error" in result:
-            print(f"Error: {result['error']}")
+            print(f"ERROR: {result['error']}")
+            print(f"Data Length: {result['data_length']}")
             return
         
-        print(f"Timeframe: {result.get('timeframe', 'N/A')}")
-        print(f"Current Price: ${result.get('current_price', 'N/A')}")
-        print(f"MACD Line: {result.get('macd_line', 'N/A')}")
-        print(f"Signal Line: {result.get('signal_line', 'N/A')}")
-        print(f"Histogram: {result.get('histogram', 'N/A')}")
-        print(f"Trend: {result.get('trend', 'N/A')}")
+        print(f"Symbol: {result['symbol']}")
+        print(f"Timeframe: {result['timeframe']}")
+        print(f"Current Price: ${result['current_price']:.6f}")
         
-        if result.get('crossover'):
-            print(f"Signal: {result['crossover']}")
+        kc = result['keltner_channel']
+        print(f"\nKeltner Channel Values:")
+        print(f"  Upper Band:  ${kc['upper_band']:.6f}")
+        print(f"  Middle Line: ${kc['middle_line']:.6f}")
+        print(f"  Lower Band:  ${kc['lower_band']:.6f}")
+        print(f"  Position: {kc['position']}")
+        print(f"  Band Width: ${kc['band_width']:.6f}")
         
-        params = result.get('parameters', {})
+        params = result['parameters']
         print(f"\nParameters:")
-        print(f"  Fast EMA: {params.get('fast_ema', 'N/A')}")
-        print(f"  Slow EMA: {params.get('slow_ema', 'N/A')}")
-        print(f"  Signal EMA: {params.get('signal_ema', 'N/A')}")
+        print(f"  EMA Period: {params['ema_period']}")
+        print(f"  ATR Period: {params['atr_period']}")
+        print(f"  Multiplier: {params['multiplier']}")
+        
+        analysis = result['analysis']
+        print(f"\nAnalysis:")
+        print(f"  Trend Direction: {analysis['trend_direction']}")
+        print(f"  Volatility: {analysis['volatility']}")

@@ -20,6 +20,7 @@ class DonchianChannel:
         self.symbol = symbol
         self.timeframe = timeframe
         self.limit = limit
+        self.ticker = ticker
     
     def calculate(self):
         """

@@ -14,6 +14,15 @@ from orderflow.stopsweep import StopSweep
 from techin.bollingerbands import BollingerBands
 from techin.chaikin import ChaikinMoneyFlow
 from techin.donchain import DonchianChannel
+from techin.ichimoku import IchimokuCloud
+from techin.keltner import KeltnerChannel
+from techin.macd import MACD
+from techin.obv import OBV
+from techin.parabolicsar import ParabolicSAR
+from techin.pivotpoint import PivotPoint
+from techin.renko import Renko
+from techin.supertrend import Supertrend
+from techin.vwap import VWAP
 
 class CryptoPatCLI:
     def __init__(self):
@@ -108,6 +117,12 @@ class CryptoPatCLI:
             chaikinmoneyflow.calculate()
             donchain = DonchianChannel(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
             donchain.calculate()
+            ichimoku = IchimokuCloud(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            ichimoku.calculate()
+            keltner = KeltnerChannel(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            keltner.calculate()
+            macd = MACD(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            macd.calculate()
             absorption = AbsorptionStrategy(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
             absorption.calculate()
             cvd = CVDStrategy(symbol, timeframe, limit, order_book, ohlcv_data, ticker, trades)
@@ -118,6 +133,18 @@ class CryptoPatCLI:
             smartmoney.calculate()
             stopsweep = StopSweep(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
             stopsweep.calculate()
+            obv = OBV(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            obv.calculate()
+            parabolicsar = ParabolicSAR(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            parabolicsar.calculate()
+            pivotpoint = PivotPoint(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            pivotpoint.calculate()
+            renko = Renko(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            renko.calculate()
+            supertrend = Supertrend(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            supertrend.calculate()
+            vwap = VWAP(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            vwap.calculate()
 
                         
         except Exception as e:

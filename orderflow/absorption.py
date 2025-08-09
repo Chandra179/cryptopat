@@ -112,6 +112,10 @@ class AbsorptionStrategy:
 
     def print_output(self, result: dict):
         """Print a compact summary of detected absorption events."""
+
+        print("\n" + "="*60)
+        print("ABSORPTION analysis")
+        print("="*60)
         print(f"Total Absorption Events: {result['summary']['total_events']}")
         
         if result['summary']['total_events'] > 0:

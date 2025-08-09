@@ -1,259 +1,173 @@
 """
-OBV (On-Balance Volume) strategy implementation for cryptocurrency trend analysis.
-Uses volume and price relationship to detect bullish and bearish trend signals.
+On-Balance Volume (OBV) Strategy Analysis
+
+OBV is a technical analysis indicator that uses volume flow to predict changes in price.
+- When close > previous close: OBV = previous OBV + volume
+- When close < previous close: OBV = previous OBV - volume  
+- When close = previous close: OBV = previous OBV
 """
 
-from datetime import datetime
-from typing import List, Optional
-from data import get_data_collector
+from typing import List, Dict
 
-
-class OBVStrategy:
-    """OBV (On-Balance Volume) strategy for trend detection."""
+class OBV:
     
-    def __init__(self):
-        self.collector = get_data_collector()
-    
-    def calculate_obv(self, closes: List[float], volumes: List[float]) -> List[float]:
-        """
-        Calculate On-Balance Volume.
-        
-        Args:
-            closes: List of closing prices
-            volumes: List of volume values
-            
-        Returns:
-            List of OBV values
-        """
-        if len(closes) != len(volumes) or len(closes) < 2:
-            return []
-        
-        obv_values = [0]  # Start with 0 as initial OBV per industry standard
-        
-        for i in range(1, len(closes)):
-            current_close = closes[i]
-            previous_close = closes[i-1]
-            current_volume = volumes[i]
-            previous_obv = obv_values[-1]
-            
-            if current_close > previous_close:
-                # Price up, add volume
-                obv = previous_obv + current_volume
-            elif current_close < previous_close:
-                # Price down, subtract volume
-                obv = previous_obv - current_volume
-            else:
-                # Price unchanged, OBV unchanged
-                obv = previous_obv
-            
-            obv_values.append(obv)
-        
-        return obv_values
-    
-    def detect_obv_signals(self, obv: List[float], closes: List[float]) -> List[dict]:
-        """
-        Detect OBV trend signals.
-        
-        Args:
-            obv: OBV values
-            closes: Closing prices
-            
-        Returns:
-            List of signal dictionaries
-        """
-        signals = []
-        
-        for i in range(10, len(obv)):  # Need some history for trend detection
-            signal = {
-                'index': i,
-                'close': closes[i],
-                'obv': obv[i],
-                'signal': 'NONE',
-                'trend_confirmation': 'NEUTRAL',
-                'divergence': False
-            }
-            
-            # Look at OBV trend over last 5 periods
-            obv_trend_periods = 5
-            if i >= obv_trend_periods:
-                recent_obv = obv[i-obv_trend_periods:i+1]
-                recent_prices = closes[i-obv_trend_periods:i+1]
-                
-                # Calculate OBV trend (simple linear trend)
-                obv_trend = recent_obv[-1] - recent_obv[0]
-                price_trend = recent_prices[-1] - recent_prices[0]
-                
-                # Strong OBV threshold (adjust based on typical volumes)
-                obv_threshold = abs(sum(recent_obv)) * 0.05  # 5% of average OBV magnitude
-                
-                # Detect signals based on OBV trend
-                if obv_trend > obv_threshold:
-                    signal['signal'] = 'BUY'
-                    signal['trend_confirmation'] = 'UPTREND' if price_trend > 0 else 'CONFIRMED_UPTREND'
-                    
-                    # Check for divergence (price down, OBV up)
-                    if price_trend < 0:
-                        signal['divergence'] = True
-                        signal['trend_confirmation'] = 'BULLISH_DIVERGENCE'
-                        
-                elif obv_trend < -obv_threshold:
-                    signal['signal'] = 'SELL'
-                    signal['trend_confirmation'] = 'DOWNTREND' if price_trend < 0 else 'CONFIRMED_DOWNTREND'
-                    
-                    # Check for divergence (price up, OBV down)
-                    if price_trend > 0:
-                        signal['divergence'] = True
-                        signal['trend_confirmation'] = 'BEARISH_DIVERGENCE'
-            
-            signals.append(signal)
-        
-        return signals
-    
-    def analyze(self, symbol: str, timeframe: str, limit: int, ohlcv_data: Optional[List] = None) -> dict:
-        """
-        Perform OBV analysis and return results as structured data.
-        
-        Args:
-            symbol: Trading pair (e.g., 'BTC/USDT')
-            timeframe: Timeframe (e.g., '1d', '4h', '1h')
-            limit: Number of candles to analyze
-            ohlcv_data: Optional pre-fetched OHLCV data
-            
-        Returns:
-            Dictionary containing analysis results
-        """
-        # Fetch OHLCV data if not provided
-        if ohlcv_data is None:
-            ohlcv_data = self.collector.fetch_ohlcv_data(symbol, timeframe, limit)
-        
-        if len(ohlcv_data) < 50:
-            return {
-                'error': f"Need at least 50 candles for OBV calculation. Got {len(ohlcv_data)}",
-                'success': False
-            }
-        
-        # Extract closes and volumes
-        timestamps = [candle[0] for candle in ohlcv_data]
-        closes = [candle[4] for candle in ohlcv_data]
-        volumes = [candle[5] for candle in ohlcv_data]
-        
-        # Calculate OBV
-        obv = self.calculate_obv(closes, volumes)
-        
-        if not obv:
-            return {
-                'error': "Unable to calculate OBV",
-                'success': False
-            }
-        
-        # Detect signals
-        signals = self.detect_obv_signals(obv, closes)
-        
-        # Get latest signal for analysis
-        if not signals:
-            return {
-                'error': "No signals generated",
-                'success': False
-            }
-            
-        latest_signal = signals[-1]
-        timestamp_idx = latest_signal['index']
-        
-        if timestamp_idx >= len(timestamps):
-            return {
-                'error': "Invalid signal index",
-                'success': False
-            }
-            
-        dt = datetime.fromtimestamp(timestamps[timestamp_idx] / 1000)
-        
-        # Calculate additional metrics
-        current_obv = latest_signal['obv']
-        current_price = latest_signal['close']
-        obv_change = ((current_obv - obv[0]) / abs(obv[0]) * 100) if obv[0] != 0 else 0
-        
-        # Volume analysis
-        recent_volumes = volumes[-10:] if len(volumes) >= 10 else volumes
-        avg_volume = sum(recent_volumes) / len(recent_volumes)
-        volume_spike = (volumes[-1] / avg_volume) if avg_volume > 0 else 1
-        
-        # Trend strength calculation
-        obv_trend_strength = abs(obv_change)
-        confidence_score = min(95, max(20, 50 + (obv_trend_strength * 2) + (volume_spike - 1) * 10))
-        
-        # Determine trend direction and momentum
-        if latest_signal['signal'] == 'BUY':
-            trend_direction = "Bullish"
-            momentum_state = "Accelerating" if latest_signal['divergence'] else "Building"
-            action = "BUY"
-        elif latest_signal['signal'] == 'SELL':
-            trend_direction = "Bearish"
-            momentum_state = "Declining" if latest_signal['divergence'] else "Weakening"
-            action = "SELL"
-        else:
-            trend_direction = "Neutral"
-            momentum_state = "Consolidating"
-            action = "NEUTRAL"
-        
-        # Calculate support and resistance (simple approximation)
-        recent_prices = closes[-20:] if len(closes) >= 20 else closes
-        support = min(recent_prices)
-        resistance = max(recent_prices)
-        
-        # Risk/Reward calculation
-        if action == "BUY":
-            stop_zone = support * 0.98
-            tp_zone_low = resistance * 1.02
-            tp_zone_high = resistance * 1.05
-            rr_ratio = (tp_zone_low - current_price) / (current_price - stop_zone) if current_price > stop_zone else 0
-        elif action == "SELL":
-            stop_zone = resistance * 1.02
-            tp_zone_low = support * 0.95
-            tp_zone_high = support * 0.98
-            rr_ratio = (current_price - tp_zone_low) / (stop_zone - current_price) if stop_zone > current_price else 0
-        else:
-            stop_zone = support * 0.98
-            tp_zone_low = resistance * 1.02
-            tp_zone_high = resistance * 1.05
-            rr_ratio = 1.0
-        
-        # Return structured analysis results
-        return {
-            'success': True,
-            'analysis_time': dt.strftime('%Y-%m-%d %H:%M:%S'),
-            'timestamp': timestamps[timestamp_idx],
-            
-            # Core indicators
-            'obv_value': current_obv,
-            'obv_change': round(obv_change, 1),
-            'volume_spike': round(volume_spike, 2),
-            'divergence': latest_signal['divergence'],
-            'trend_confirmation': latest_signal['trend_confirmation'],
-            
-            # Price levels
-            'current_price': round(current_price, 4),
-            'support': round(support, 4),
-            'resistance': round(resistance, 4),
-            'stop_zone': round(stop_zone, 4),
-            'tp_low': round(tp_zone_low, 4),
-            'tp_high': round(tp_zone_high, 4),
-            
-            # Trading analysis
-            'signal': latest_signal['signal'],
-            'confidence_score': confidence_score,
-            'trend_direction': trend_direction,
-            'momentum_state': momentum_state,
-            'entry_window': 'Immediate' if action != 'NEUTRAL' else 'Wait for breakout',
-            'exit_trigger': 'OBV reversal' if action != 'NEUTRAL' else 'Clear trend signal',
-            'action': action,
-            'rr_ratio': round(rr_ratio, 1),
-            'max_drawdown': round((1-stop_zone/current_price)*100, 1),
-            
-            # Additional data
-            'all_signals': signals,
-            'raw_data': {
-                'obv_values': obv
-            }
+    def __init__(self, 
+                 symbol: str,
+                 timeframe: str,
+                 limit: int,
+                 ob: dict,
+                 ticker: dict,            
+                 ohlcv: List[List],       
+                 trades: List[Dict]):    
+        self.rules = {
+            "obv_divergence_threshold": 0.1,  # 10% divergence threshold
+            "trend_confirmation_periods": 5,   # periods to confirm trend
+            "volume_significance_multiplier": 1.5,  # volume must be X times average
         }
-
-
+        self.ob = ob
+        self.ohlcv = ohlcv
+        self.trades = trades
+        self.ticker = ticker
+        self.symbol = symbol
+        self.timeframe = timeframe
+        self.limit = limit
+    
+    def calculate(self):
+        """
+        Calculate OBV (On-Balance Volume) according to TradingView methodology.
+        """
+        if len(self.ohlcv) < 2:
+            result = {"error": "Insufficient data for OBV calculation"}
+            self.print_output(result)
+            return
+            
+        obv_values = []
+        obv = 0
+        
+        # Calculate OBV for each candle
+        for i, candle in enumerate(self.ohlcv):
+            timestamp, open_price, high, low, close, volume = candle
+            
+            if i == 0:
+                # First candle, set initial OBV to volume
+                obv = volume
+            else:
+                prev_close = self.ohlcv[i-1][4]  # Previous close price
+                
+                if close > prev_close:
+                    obv += volume  # Accumulation
+                elif close < prev_close:  
+                    obv -= volume  # Distribution
+                # If close == prev_close, OBV remains unchanged
+                
+            obv_values.append({
+                'timestamp': timestamp,
+                'close': close,
+                'volume': volume,
+                'obv': obv
+            })
+        
+        # Analysis
+        current_obv = obv_values[-1]['obv']
+        current_price = obv_values[-1]['close']
+        
+        # Calculate OBV trend (last 5 periods)
+        trend_periods = min(self.rules["trend_confirmation_periods"], len(obv_values))
+        recent_obv = [item['obv'] for item in obv_values[-trend_periods:]]
+        recent_prices = [item['close'] for item in obv_values[-trend_periods:]]
+        
+        obv_trend = "neutral"
+        price_trend = "neutral"
+        
+        if len(recent_obv) >= 2:
+            obv_change = (recent_obv[-1] - recent_obv[0]) / abs(recent_obv[0]) if recent_obv[0] != 0 else 0
+            price_change = (recent_prices[-1] - recent_prices[0]) / recent_prices[0] if recent_prices[0] != 0 else 0
+            
+            obv_trend = "bullish" if obv_change > 0.05 else "bearish" if obv_change < -0.05 else "neutral"
+            price_trend = "bullish" if price_change > 0.02 else "bearish" if price_change < -0.02 else "neutral"
+        
+        # Detect divergence
+        divergence = "none"
+        if obv_trend == "bullish" and price_trend == "bearish":
+            divergence = "bullish_divergence"  # OBV rising, price falling
+        elif obv_trend == "bearish" and price_trend == "bullish":
+            divergence = "bearish_divergence"  # OBV falling, price rising
+        
+        # Volume significance
+        avg_volume = sum([item['volume'] for item in obv_values]) / len(obv_values)
+        current_volume = obv_values[-1]['volume']
+        volume_significant = current_volume > (avg_volume * self.rules["volume_significance_multiplier"])
+        
+        result = {
+            "symbol": self.symbol,
+            "timeframe": self.timeframe,
+            "current_obv": current_obv,
+            "current_price": current_price,
+            "obv_trend": obv_trend,
+            "price_trend": price_trend,
+            "divergence": divergence,
+            "volume_significant": volume_significant,
+            "avg_volume": avg_volume,
+            "current_volume": current_volume,
+            "analysis_periods": len(obv_values),
+            "signal": self._generate_signal(obv_trend, price_trend, divergence, volume_significant)
+        }
+        
+        self.print_output(result)
+        return result
+    
+    def _generate_signal(self, obv_trend, price_trend, divergence, volume_significant):
+        """Generate trading signal based on OBV analysis"""
+        if divergence == "bullish_divergence" and volume_significant:
+            return "STRONG_BUY"
+        elif divergence == "bearish_divergence" and volume_significant:
+            return "STRONG_SELL"
+        elif obv_trend == "bullish" and price_trend == "bullish":
+            return "BUY"
+        elif obv_trend == "bearish" and price_trend == "bearish":
+            return "SELL"
+        elif divergence == "bullish_divergence":
+            return "WEAK_BUY"
+        elif divergence == "bearish_divergence":
+            return "WEAK_SELL"
+        else:
+            return "NEUTRAL"
+    
+    def print_output(self, result: dict):
+        """Print the OBV analysis output"""
+        if "error" in result:
+            print(f"❌ OBV Error: {result['error']}")
+            return
+            
+        print("\n" + "="*50)
+        print("📊 ON-BALANCE VOLUME (OBV) ANALYSIS")
+        print("="*50)
+        print(f"Symbol: {result['symbol']}")
+        print(f"Timeframe: {result['timeframe']}")
+        print(f"Analysis Periods: {result['analysis_periods']}")
+        print()
+        print(f"Current Price: ${result['current_price']:.6f}")
+        print(f"Current OBV: {result['current_obv']:,.0f}")
+        print()
+        print(f"OBV Trend: {result['obv_trend'].upper()}")
+        print(f"Price Trend: {result['price_trend'].upper()}")
+        print(f"Divergence: {result['divergence'].replace('_', ' ').upper()}")
+        print()
+        print(f"Current Volume: {result['current_volume']:,.0f}")
+        print(f"Average Volume: {result['avg_volume']:,.0f}")
+        print(f"Volume Significant: {'✅ YES' if result['volume_significant'] else '❌ NO'}")
+        print()
+        
+        # Signal output with colors/emojis
+        signal = result['signal']
+        signal_display = {
+            'STRONG_BUY': '🟢 STRONG BUY',
+            'BUY': '🟢 BUY', 
+            'WEAK_BUY': '🟡 WEAK BUY',
+            'NEUTRAL': '⚪ NEUTRAL',
+            'WEAK_SELL': '🟡 WEAK SELL',
+            'SELL': '🔴 SELL',
+            'STRONG_SELL': '🔴 STRONG SELL'
+        }
+        
+        print(f"📊 SIGNAL: {signal_display.get(signal, signal)}")
