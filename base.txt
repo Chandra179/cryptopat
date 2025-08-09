@@ -127,7 +127,7 @@ class {METHOD_NAME_STRATEGY}:
         """ print the output """
 
 
-based on context above i want to do VWAP (Volume Weighted Average Price) analysis,
-create new file vwap.py at /techin, then at cli.py function execute_fetch_command() add the stragegy, like this:
+based on context above i want to do butterfly pattern analysis,
+create new file butterfly.py at /pattern, then at cli.py function execute_fetch_command() add the stragegy, like this:
 methodname = METHOD_NAME_STRATEGY(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
 methodname.calculate()
