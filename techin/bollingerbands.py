@@ -89,7 +89,11 @@
 ]
 """
 
-class {METHOD_NAME_STRATEGY}:
+from typing import List, Dict
+import pandas as pd
+
+
+class BollingerBands:
     
     def __init__(self, 
              symbol: str,
@@ -100,34 +104,91 @@ class {METHOD_NAME_STRATEGY}:
              ohlcv: List[List],       
              trades: List[Dict]):    
         self.rules = {
-            """
-            create rules & formulas
-            example:
-                "min_large_trade_volume": 1000.0,
-                "price_movement_formula": lambda price_before, price_after: abs(
-                    (price_after - price_before) / price_before
-                )
-            """
+            "period": 20,
+            "std_dev_multiplier": 2.0,
+            "price_source": "close"
         }
-        self.ob = ob #order book data
-        self.ohlcv = ohlcv #ohlcv data
-        self.trades = trades #trades data
+        self.ob = ob
+        self.ohlcv = ohlcv
+        self.trades = trades
+        self.ticker = ticker
         self.symbol = symbol
         self.timeframe = timeframe
         self.limit = limit
     
     def calculate(self):
         """
-        Calculate {METHOD_NAME_STRATEGY} according to TradingView methodology.
+        Calculate Bollinger Bands according to TradingView methodology.
         """
-        result = {}
+        if not self.ohlcv or len(self.ohlcv) < self.rules["period"]:
+            result = {
+                "error": f"Insufficient data: need at least {self.rules['period']} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
+            }
+            self.print_output(result)
+            return
+            
+        df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['close'] = pd.to_numeric(df['close'])
+        
+        period = self.rules["period"]
+        multiplier = self.rules["std_dev_multiplier"]
+        
+        sma = df['close'].rolling(window=period).mean()
+        std = df['close'].rolling(window=period).std()
+        
+        upper_band = sma + (std * multiplier)
+        lower_band = sma - (std * multiplier)
+        
+        current_price = float(df['close'].iloc[-1])
+        current_sma = float(sma.iloc[-1])
+        current_upper = float(upper_band.iloc[-1])
+        current_lower = float(lower_band.iloc[-1])
+        
+        band_width = ((current_upper - current_lower) / current_sma) * 100
+        position_in_bands = ((current_price - current_lower) / (current_upper - current_lower)) * 100
+        
+        squeeze = band_width < 10
+        expansion = band_width > 25
+        
+        if current_price > current_upper:
+            signal = "OVERBOUGHT"
+        elif current_price < current_lower:
+            signal = "OVERSOLD"
+        elif current_price > current_sma:
+            signal = "BULLISH"
+        else:
+            signal = "BEARISH"
+        
+        result = {
+            "symbol": self.symbol,
+            "timeframe": self.timeframe,
+            "current_price": current_price,
+            "sma": current_sma,
+            "upper_band": current_upper,
+            "lower_band": current_lower,
+            "band_width_pct": round(band_width, 2),
+            "position_in_bands_pct": round(position_in_bands, 2),
+            "squeeze": squeeze,
+            "expansion": expansion,
+            "signal": signal,
+            "timestamp": df['timestamp'].iloc[-1]
+        }
+        
         self.print_output(result)
     
     def print_output(self, result: dict):
-        """ print the output """
-
-
-based on context above i want to do donchain channel analysis,
-create new file donchain.py at /techin, then at cli.py function execute_fetch_command() add the stragegy, like this:
-methodname = METHOD_NAME_STRATEGY(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-methodname.calculate()
+        """Print the Bollinger Bands analysis output"""
+        if "error" in result:
+            print(f"❌ Bollinger Bands Error: {result['error']}")
+            return
+            
+        print(f"\n🎯 Bollinger Bands Analysis - {result['symbol']} ({result['timeframe']})")
+        print(f"📊 Current Price: ${result['current_price']:.4f}")
+        print(f"📈 Upper Band: ${result['upper_band']:.4f}")
+        print(f"📊 SMA (20): ${result['sma']:.4f}")
+        print(f"📉 Lower Band: ${result['lower_band']:.4f}")
+        print(f"📏 Band Width: {result['band_width_pct']:.2f}%")
+        print(f"📍 Position in Bands: {result['position_in_bands_pct']:.2f}%")
+        print(f"🔄 Squeeze: {'Yes' if result['squeeze'] else 'No'}")
+        print(f"💥 Expansion: {'Yes' if result['expansion'] else 'No'}")
+        print(f"🚦 Signal: {result['signal']}")

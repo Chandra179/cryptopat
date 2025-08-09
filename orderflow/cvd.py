@@ -148,7 +148,9 @@ class CVDStrategy:
         if not result:
             return
             
-        print(f"\nCVD Analysis for {result.get('symbol', 'Unknown')} ({result.get('timeframe', 'Unknown')})")
+        print("\n" + "="*60)
+        print(f"CVD Analysis")
+        print("="*60)
         print(f"CVD: {result.get('cvd', 0):.4f}")
         print(f"Normalized CVD: {result.get('normalized_cvd', 0):.4f}")
         print(f"Total Volume: {result.get('total_volume', 0):.4f}")

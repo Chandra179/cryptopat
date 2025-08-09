@@ -201,7 +201,9 @@ class VolumeFootprint:
     
     def print_output(self, result: dict):
         """Print the footprint analysis output"""
-        print(f"\n=== Volume Footprint Analysis for {result['symbol']} ({result['timeframe']}) ===")
+        print("\n" + "="*50)
+        print(f"Volume Footprint Analysis")
+        print("="*50)
         print(f"Total Volume: {result['total_volume']:.4f}")
         print(f"Total Trades: {result['total_trades']}")
         
