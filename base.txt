@@ -123,11 +123,12 @@ class {METHOD_NAME_STRATEGY}:
         result = {}
         self.print_output(result)
     
-    def print_output(self, result: dict):
+    def print_output(self, result: dicCrypto Technical Analysis: Your One-Stop Guide tot):
         """ print the output """
 
 
-based on context above i want to do butterfly pattern analysis,
-create new file butterfly.py at /pattern, then at cli.py function execute_fetch_command() add the stragegy, like this:
+based on context above i want to do rsi(70+ for overbought, 30 oversold, 50 midline, bearish and bullish divergence, with confirmation
+breaking back above/below 50, price breaking support resistance, volume confirmation) analysis,
+create new file rsi.py at /techin, then at cli.py function execute_fetch_command() add the stragegy, like this:
 methodname = METHOD_NAME_STRATEGY(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
 methodname.calculate()
