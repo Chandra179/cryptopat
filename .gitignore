@@ -5,6 +5,12 @@ venv/
 /venv
 /data/csv_exports
 data/csv_exports/
+/data/__pycache__
+data/__pycache__/
+/orderflow/__pycache__
+orderflow/__pycache__/
+/techin/__pycache__
+techin/__pycache__/
 
 fetch_trades.csv
 fetch_data.csv

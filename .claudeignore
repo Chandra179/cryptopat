@@ -3,10 +3,10 @@
 .env.local
 .env.production
 .env.development
-test_schema_crypto_data.db
-test_offline_crypto_data.db
-setup.sh
-./data/__pycache__
+/data/__pycache__
+data/__pycache__/
+/orderflow/__pycache__
+orderflow/__pycache__/
+/techin/__pycache__
+techin/__pycache__/
 Makefile
-fetch_trades.csv
-fetch_data.csv
