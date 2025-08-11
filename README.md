@@ -1,16 +1,62 @@
-# Crypto Analysis
-## Overview
-A Python-based system for detecting chart patterns in cryptocurrency data using historical price, volume, and order book information. No frontend - pure data analysis and pattern detection.
+# CryptoPat
 
-## Current implementation 
-atr_adx, bollinger bands, ema 9/21, macd, obv, rsi14, smart money concept, supertrend, Volume Weighted Average Price,
-butterfly pattern, double bottom, double top, elliot wave, flag, head and shoulder, inverse head and shoulder, shark pattern,
-triangle pattern, wedge pattern
+A Python-based cryptocurrency pattern detection and technical analysis system that fetches market data through CCXT and analyzes it using various technical indicators and order flow strategies.
 
-## CCXT Public API Data Available
-### OHCLV Open, High, Low, Close, Volume candlestick data
-#### Timeframe
+## Features
+
+### Technical Indicators
+- ATR & ADX
+- Bollinger Bands
+- EMA (9/21 and other periods)
+- MACD
+- OBV (On-Balance Volume)
+- RSI (14-period)
+- Supertrend
+- VWAP (Volume Weighted Average Price)
+
+### Pattern Detection
+- Butterfly Pattern
+- Double Bottom/Top
+- Elliott Wave
+- Flag Patterns
+- Head and Shoulders (including Inverse)
+- Shark Pattern
+- Triangle Patterns
+- Wedge Patterns
+
+### Order Flow Analysis
+- Absorption Analysis
+- CVD (Cumulative Volume Delta)
+- Smart Money Concepts
+- Footprint
+- StopSweep
+
+## Quick Start
+
+### Environment Setup
+```bash
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
+
+### Running the Application
+```bash
+python cli.py
+```
+
+### CLI Commands
+Use the format: `s=SYMBOL t=TIMEFRAME l=LIMIT`
+
+Examples:
+```
+s=BTC/USDT t=1d l=100
+s=ETH/USDT t=4h l=50
+s=SOL/USDT t=1h l=200
+```
+
+#### Supported Timeframes
 | Key     | Meaning    |
 | ------- | ---------- |
 | `'1m'`  | 1 minute   |
@@ -28,41 +74,16 @@ triangle pattern, wedge pattern
 | `'1w'`  | 1 week     |
 | `'1M'`  | 1 month    |
 
-```
-#### Candlestick Limit
-```
-4 Hour timeframe
-2025-07-24 04:00:00,1753329600000,3.192,3.1965,2.9555,3.075,114510469.6
-2025-07-24 08:00:00,1753344000000,3.075,3.1788,3.055,3.1685,64732542.0
+## Architecture
 
-1 Days timeframe
-2025-06-30,1751241600000,2.2062,2.3271,2.165,2.2362,151525906.2
-2025-07-01,1751328000000,2.2362,2.2537,2.1475,2.172,123558690.1
+### Data Layer (`data/`)
+- **DataCollector**: Singleton pattern for fetching market data from exchanges (Binance by default)
+- **Fetchers**: Specialized classes for different data types (OHLCV, order book, ticker, trades)
+- Uses CCXT library for exchange connectivity
 
-3 Days timeframe
-2025-05-03,1746230400000,2.2093,2.22,2.1067,2.1306,236650634.9
-2025-05-06,1746489600000,2.1306,2.3297,2.0777,2.3272,422235051.4
-```
+### Analysis Modules
+- **Technical Indicators (`techin/`)**: Traditional TA indicators
+- **Order Flow Analysis (`orderflow/`)**: Advanced strategies and smart money analysis
 
-### Order Book: Bid/ask prices and volumes at different levels
-### Ticker Data: Current market prices, 24h volume, price changes
-### Trades: Recent trade history with price, volume, timestamp
-### Markets: Available trading pairs and exchange information
-
-
-## Phase 1: EMA 9/21
-1. create files /trend/ema_9_21.py
-2. Use only Close price from OHLCV data (via `collector.py → fetch_ohlcv_data`)
-3. Require at 50–100 closes for EMA calculation.
-4. bullish trend start if EMA 9 crosses above EMA 21, Close is above both EMAs, with Volume spike
-5. bearish trend start if EMA 9 crosses below EMA 21, Close is below both EMAs, with Volume spike
-6. Confirmation = crossover + follow-through over next candles
-
-## Phase 2: CLI
-```
-> s=BTC/USDT t=1h l=100
-
-s = coin symbol
-t = timeframe (15m, 1h, 4h, 1d, 3d, 1w, 1m)
-l = number of candles
-```
+## Development
+All analysis modules are executed automatically when data is fetched. The system uses a modular architecture where each analysis component follows a consistent pattern with `calculate()` methods and configuration stored in `self.rules` dictionaries.
