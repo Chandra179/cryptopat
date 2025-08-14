@@ -86,7 +86,6 @@ All analysis modules follow this pattern:
 - `techin/` - Technical analysis indicators
 - `orderflow/` - Order flow and smart money analysis
 - `requirements.txt` - Python dependencies
-- `Makefile` - Development shortcuts (activate venv)
 
 ## Dependencies
 

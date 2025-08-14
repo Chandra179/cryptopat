@@ -1,89 +1,107 @@
 # CryptoPat
 
-A Python-based cryptocurrency pattern detection and technical analysis system that fetches market data through CCXT and analyzes it using various technical indicators and order flow strategies.
+A Python-based cryptocurrency pattern detection and technical analysis system that fetches real-time market data and performs comprehensive analysis using technical indicators and advanced order flow strategies.
 
 ## Features
 
-### Technical Indicators
-- ATR & ADX
-- Bollinger Bands
-- EMA (9/21 and other periods)
-- MACD
-- OBV (On-Balance Volume)
-- RSI (14-period)
-- Supertrend
-- VWAP (Volume Weighted Average Price)
+### Technical Analysis Indicators
+- **Trend Indicators**: MACD, EMA (20/50), Parabolic SAR, Supertrend
+- **Volatility Indicators**: Bollinger Bands, Keltner Channel, Donchian Channel
+- **Volume Indicators**: OBV (On-Balance Volume), VWAP, Chaikin Money Flow
+- **Momentum Indicators**: RSI (Relative Strength Index)
+- **Support/Resistance**: Pivot Points, Ichimoku Cloud
+- **Alternative Charts**: Renko Charts
 
-### Pattern Detection
-- Butterfly Pattern
-- Double Bottom/Top
-- Elliott Wave
-- Flag Patterns
-- Head and Shoulders (including Inverse)
-- Shark Pattern
-- Triangle Patterns
-- Wedge Patterns
+### Advanced Order Flow Analysis
+- **Volume Footprint**: Analyze buying/selling pressure at price levels
+- **Cumulative Volume Delta (CVD)**: Track net volume flow
+- **Absorption Strategy**: Detect large order absorption patterns
+- **Smart Money Concepts**: Identify institutional trading patterns
+- **Stop Sweep Detection**: Find liquidity raids and stop hunts
 
-### Order Flow Analysis
-- Absorption Analysis
-- CVD (Cumulative Volume Delta)
-- Smart Money Concepts
-- Footprint
-- StopSweep
+### Real-Time Data Integration
+- **Exchange Support**: Binance (via CCXT library)
+- **Market Data**: OHLCV candlesticks, order books, ticker data, recent trades
+- **Multiple Timeframes**: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 3d, 1w, 1M
+- **Popular Pairs**: BTC/USDT, ETH/USDT, XRP/USDT, SOL/USDT, PENGU/USDT
 
-## Quick Start
+## 🚀 Quick Start
 
-### Environment Setup
-```bash
-source venv/bin/activate
+### Installation
 
-# Install dependencies
-pip install -r requirements.txt
-```
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd cryptopat
+   ```
 
-### Running the Application
+2. **Setup virtual environment**
+   ```bash
+   # or manually: source venv/bin/activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### Usage
+
+**Start the CLI**
 ```bash
 python cli.py
 ```
 
-### CLI Commands
-Use the format: `s=SYMBOL t=TIMEFRAME l=LIMIT`
+**Basic Commands**
+```bash
+# Fetch BTC/USDT daily data with 100 candles
+cryptopat> s=BTC/USDT t=1d l=100
 
-Examples:
+# Fetch ETH hourly data
+cryptopat> s=ETH/USDT t=1h l=200
+
+# Get help
+cryptopat> help
+
+# Clear screen
+cryptopat> clear
+
+# Exit
+cryptopat> exit
 ```
-s=BTC/USDT t=1d l=100
-s=ETH/USDT t=4h l=50
-s=SOL/USDT t=1h l=200
-```
 
-#### Supported Timeframes
-| Key     | Meaning    |
-| ------- | ---------- |
-| `'1m'`  | 1 minute   |
-| `'3m'`  | 3 minutes  |
-| `'5m'`  | 5 minutes  |
-| `'15m'` | 15 minutes |
-| `'30m'` | 30 minutes |
-| `'1h'`  | 1 hour     |
-| `'2h'`  | 2 hours    |
-| `'4h'`  | 4 hours    |
-| `'6h'`  | 6 hours    |
-| `'12h'` | 12 hours   |
-| `'1d'`  | 1 day      |
-| `'3d'`  | 3 days     |
-| `'1w'`  | 1 week     |
-| `'1M'`  | 1 month    |
+## 📊 Analysis Output
 
-## Architecture
+When you run a data fetch command, CryptoPat automatically executes all available analysis modules:
 
-### Data Layer (`data/`)
-- **DataCollector**: Singleton pattern for fetching market data from exchanges (Binance by default)
-- **Fetchers**: Specialized classes for different data types (OHLCV, order book, ticker, trades)
-- Uses CCXT library for exchange connectivity
+1. **Market Data Summary**
+   - Current price and 24h change
+   - Volume information
+   - Order book depth
+   - Recent trades count
 
-### Analysis Modules
-- **Technical Indicators (`techin/`)**: Traditional TA indicators
-- **Order Flow Analysis (`orderflow/`)**: Advanced strategies and smart money analysis
+2. **Technical Indicators**
+   - All 14 technical indicators run automatically
+   - Results logged with specific signals and values
 
-## Development
-All analysis modules are executed automatically when data is fetched. The system uses a modular architecture where each analysis component follows a consistent pattern with `calculate()` methods and configuration stored in `self.rules` dictionaries.
+3. **Order Flow Analysis**
+   - 5 advanced strategies execute in parallel
+   - Institutional activity detection
+   - Volume flow analysis
+
+## Configuration
+
+### Supported Exchanges
+- **Default**: Binance (configurable in DataCollector)
+- **Extensible**: CCXT supports 100+ exchanges
+
+### Timeframes
+- **Intraday**: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h
+- **Daily+**: 1d, 3d, 1w, 1M
+
+## 📝 Command History
+
+The CLI maintains command history with readline support:
+- **History File**: `~/.cryptopat_history`
+- **Navigation**: Use ↑/↓ arrows
+- **Completion**: Tab completion enabled
