@@ -301,3 +301,18 @@ class IchimokuCloud:
                 "displacement": displacement
             }
         }
+        
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print Ichimoku Cloud analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nIchimoku Cloud Error: {result['error']}")
+            return
+            
+        # One-line summary
+        cloud_info = f"{result['cloud_color']} cloud ({result['price_position']})"
+        summary = f"\nIchimoku Cloud: In {cloud_info}, trend: {result['trend']}, signal: {result['signal']}"
+        support_resistance = f"   S/R: Cloud Bottom ${result['cloud_bottom']:.4f} | Cloud Top ${result['cloud_top']:.4f} | Kijun ${result['kijun_sen']:.4f}"
+        print(summary)
+        print(support_resistance)

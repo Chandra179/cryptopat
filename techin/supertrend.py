@@ -283,4 +283,24 @@ class Supertrend:
             }
         }
         
-        return result
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print SuperTrend analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nSuperTrend Error: {result['error']}")
+            return
+            
+        # One-line summary
+        trend_info = f"{result['trend']} trend ({result['distance_pct']:.2f}% from SuperTrend)"
+        market_info = f" in {result['market_condition']} market" if result['market_condition'] != 'normal' else ""
+        summary = f"\nSuperTrend: In {trend_info}{market_info}, signal: {result['signal']}"
+        
+        # SuperTrend acts as dynamic S/R
+        if result['trend'] == 'up':
+            support_resistance = f"   S/R: Support ${result['supertrend']:.4f} | Upper Band ${result['upper_band']:.4f}"
+        else:
+            support_resistance = f"   S/R: Lower Band ${result['lower_band']:.4f} | Resistance ${result['supertrend']:.4f}"
+        
+        print(summary)
+        print(support_resistance)

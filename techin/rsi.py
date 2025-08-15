@@ -296,4 +296,16 @@ class RSI:
             }
         }
         
-        return result
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print RSI analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nRSI Error: {result['error']}")
+            return
+            
+        # One-line summary
+        zone = "overbought" if result["is_overbought"] else "oversold" if result["is_oversold"] else "neutral"
+        failure_info = f" ({result['failure_swing']})" if result['failure_swing'] else ""
+        summary = f"\nRSI: {result['rsi']:.1f} ({zone}), signal: {result['signal']}{failure_info}"
+        print(summary)

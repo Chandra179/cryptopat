@@ -186,3 +186,16 @@ class ChaikinMoneyFlow:
                 "strong_bearish": self.param["strong_bearish"]
             }
         }
+        
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print Chaikin Money Flow analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nChaikin Money Flow Error: {result['error']}")
+            return
+            
+        # One-line summary
+        flow_direction = "accumulation" if result["cmf"] > 0 else "distribution" if result["cmf"] < 0 else "neutral"
+        summary = f"\nChaikin Money Flow: {flow_direction} with CMF: {result['cmf']:.3f}, signal: {result['signal']}"
+        print(summary)

@@ -276,4 +276,16 @@ class OBV:
             }
         }
         
-        return result
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print OBV analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nOBV Error: {result['error']}")
+            return
+            
+        # One-line summary
+        volume_trend = "accumulation" if result["obv_trend"] > 0 else "distribution" if result["obv_trend"] < 0 else "neutral"
+        divergence_info = f" ({result['divergence']} divergence)" if result['divergence'] != "none" else ""
+        summary = f"\nOBV: {volume_trend}, OBV: {result['obv']:.0f}, signal: {result['signal']}{divergence_info}"
+        print(summary)

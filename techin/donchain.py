@@ -287,3 +287,18 @@ class DonchianChannel:
                 "reversal_zone_pct": self.param["reversal_zone_pct"]
             }
         }
+        
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print Donchian Channel analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nDonchian Channel Error: {result['error']}")
+            return
+            
+        # One-line summary
+        position = f"within channel ({result['price_position']:.0%})" if result['price_position'] <= 1 else "above upper" if result['upper_breakout'] else "below lower" if result['lower_breakout'] else "near bounds"
+        summary = f"\nDonchian Channel: Price is {position}, signal: {result['signal']}, trend: {result['trend_strength']:.2f}"
+        support_resistance = f"   S/R: Support ${result['lower_channel']:.4f} | Resistance ${result['upper_channel']:.4f}"
+        print(summary)
+        print(support_resistance)

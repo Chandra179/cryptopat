@@ -320,4 +320,25 @@ class PivotPoint:
             }
         }
         
-        return result
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print Pivot Point analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nPivot Point Error: {result['error']}")
+            return
+            
+        # One-line summary
+        position_info = f"{result['position']} ({result['distance_from_pivot_pct']:.2f}% from pivot)"
+        nearest = result['nearest_resistance']['level'] if result.get('nearest_resistance') else result['nearest_support']['level'] if result.get('nearest_support') else "none"
+        summary = f"\nPivot Point: {position_info}, nearest: {nearest}, signal: {result['signal']}"
+        
+        # Build S/R levels output
+        levels = result['levels']
+        support_levels = [f"S{i}: ${levels[f's{i}']:.4f}" for i in range(1, 4) if f's{i}' in levels]
+        resistance_levels = [f"R{i}: ${levels[f'r{i}']:.4f}" for i in range(1, 4) if f'r{i}' in levels]
+        pivot_info = f"Pivot: ${levels['pivot']:.4f}"
+        
+        support_resistance = f"   S/R: {' | '.join(support_levels)} | {pivot_info} | {' | '.join(resistance_levels)}"
+        print(summary)
+        print(support_resistance)

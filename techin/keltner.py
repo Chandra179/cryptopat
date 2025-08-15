@@ -265,7 +265,7 @@ class KeltnerChannel:
         elif current_squeeze:
             signal = "squeeze"
 
-        return {
+        result = {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
             "current_price": current_price,
@@ -292,3 +292,18 @@ class KeltnerChannel:
                 "channel_position_lower": self.param["channel_position_lower"]
             }
         }
+        
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print Keltner Channel analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nKeltner Channel Error: {result['error']}")
+            return
+            
+        # One-line summary
+        position = "above upper" if result["breakout_up"] else "below lower" if result["breakout_down"] else f"within channel ({result['channel_position']:.0%})"
+        summary = f"\nKeltner Channel: Price is {position}, signal: {result['signal']}, ATR: {result['atr']:.4f}"
+        support_resistance = f"   S/R: Support ${result['lower_channel']:.4f} | Resistance ${result['upper_channel']:.4f}"
+        print(summary)
+        print(support_resistance)

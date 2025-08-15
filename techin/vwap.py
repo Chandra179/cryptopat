@@ -313,4 +313,26 @@ class VWAP:
                 "multipliers": self.param["std_dev_multiplier"]
             }
         
-        return result
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print VWAP analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nVWAP Error: {result['error']}")
+            return
+            
+        # One-line summary
+        position = "above" if result["price_above_vwap"] else "below"
+        deviation = f"({result['price_deviation_pct']:.2f}% deviation)"
+        volume_info = " with volume spike" if result['volume_spike'] else ""
+        summary = f"\nVWAP: Price is {position} VWAP {deviation}{volume_info}, signal: {result['signal']}"
+        
+        # VWAP acts as dynamic S/R, add deviation bands if available
+        if 'deviation_bands' in result and result['deviation_bands']:
+            bands = result['deviation_bands']
+            support_resistance = f"   S/R: Lower Band ${bands['lower_bands'][0]:.4f} | VWAP ${result['vwap']:.4f} | Upper Band ${bands['upper_bands'][0]:.4f}"
+        else:
+            support_resistance = f"   S/R: VWAP ${result['vwap']:.4f} (dynamic support/resistance)"
+        
+        print(summary)
+        print(support_resistance)

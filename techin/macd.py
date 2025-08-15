@@ -287,4 +287,16 @@ class MACD:
             }
         }
         
-        return result
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print MACD analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nMACD Error: {result['error']}")
+            return
+            
+        # One-line summary
+        macd_direction = "above zero" if result["macd_line"] > 0 else "below zero"
+        histogram_trend = "increasing" if result["histogram_increasing"] else "decreasing" if result["histogram_decreasing"] else "flat"
+        summary = f"\nMACD: Line {macd_direction} ({result['macd_line']:.4f}), histogram {histogram_trend}, signal: {result['signal']}"
+        print(summary)

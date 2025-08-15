@@ -266,3 +266,16 @@ class EMA2050:
                 "volume_confirmation": self.param["volume_confirmation"]
             }
         }
+        
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print EMA 20/50 analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nEMA 20/50 Error: {result['error']}")
+            return
+            
+        # One-line summary
+        ema_trend = "fast above slow" if result["ema_fast"] > result["ema_slow"] else "fast below slow"
+        summary = f"\nEMA 20/50: {ema_trend} ({result['ema_distance_pct']:.2f}%), signal: {result['signal']}"
+        print(summary)

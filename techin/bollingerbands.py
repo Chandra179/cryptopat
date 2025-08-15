@@ -263,3 +263,21 @@ class BollingerBands:
                 "percent_b_oversold": self.param["percent_b_oversold"]
             }
         }
+        
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print Bollinger Bands analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nBollinger Bands Error: {result['error']}")
+            return
+            
+        # One-line summary
+        price_position = "above upper" if result["current_price"] > result["upper_band"] else \
+                        "below lower" if result["current_price"] < result["lower_band"] else \
+                        "within bands"
+        summary = f"\nBollinger Bands: Price is {price_position} band, signal: {result['signal']}, %B: {result['percent_b']:.2f}"
+        support_resistance = f"   S/R: Support ${result['lower_band']:.4f} | Resistance ${result['upper_band']:.4f}"
+        print(summary)
+        print(support_resistance)
+        

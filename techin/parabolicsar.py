@@ -330,4 +330,16 @@ class ParabolicSAR:
             }
         }
         
-        return result
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print Parabolic SAR analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nParabolic SAR Error: {result['error']}")
+            return
+            
+        # One-line summary
+        trend_info = f"{result['trend']} ({result['trend_strength']:.1%} strength)"
+        sar_distance = f"SAR {result['sar_distance_pct']:.2f}% away"
+        summary = f"\nParabolic SAR: In {trend_info}, {sar_distance}, signal: {result['signal']}"
+        print(summary)

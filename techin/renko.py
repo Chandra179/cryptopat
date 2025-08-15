@@ -236,7 +236,22 @@ class Renko:
             "renko_bricks": renko_data[-10:] if len(renko_data) >= 10 else renko_data  # Last 10 bricks
         }
         
-        return result
+        self.print_output(result)
+        
+    def print_output(self, result):
+        """Print Renko Chart analysis results with one-line summary"""
+        if "error" in result:
+            print(f"\nRenko Chart Error: {result['error']}")
+            return
+            
+        # One-line summary
+        brick_info = f"{result['consecutive_bricks']} consecutive {result['trend']} bricks"
+        alerts = []
+        if result['reversal_alert']: alerts.append("reversal")
+        if result['breakout_alert']: alerts.append("breakout")
+        alert_info = f" ({', '.join(alerts)} alert)" if alerts else ""
+        summary = f"\nRenko Chart: Has {brick_info}, signal: {result['signal']}{alert_info}"
+        print(summary)
     
     def _calculate_brick_size(self, df: pd.DataFrame, prices: pd.Series) -> float:
         """Calculate brick size based on the selected method."""
