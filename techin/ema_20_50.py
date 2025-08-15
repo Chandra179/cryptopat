@@ -1,170 +1,268 @@
-import pandas as pd
-import numpy as np
+"""
+## Data structures
+**OHLCV Format:**
+[
+    [
+        1504541580000, // UTC timestamp in milliseconds, integer
+        4235.4,        // (O)pen price, float
+        4240.6,        // (H)ighest price, float
+        4230.0,        // (L)owest price, float
+        4230.7,        // (C)losing price, float
+        37.72941911    // (V)olume float (usually in terms of the base currency, the exchanges docstring may list whether quote or base units are used)
+    ],
+    ...
+]
+
+**Order Book Format:**
+{
+    'bids': [
+        [ price, amount ], // [ float, float ]
+        [ price, amount ],
+        ...
+    ],
+    'asks': [
+        [ price, amount ],
+        [ price, amount ],
+        ...
+    ],
+    'symbol': 'ETH/BTC', // a unified market symbol
+    'timestamp': 1499280391811, // Unix Timestamp in milliseconds (seconds * 1000)
+    'datetime': '2017-07-05T18:47:14.692Z', // ISO8601 datetime string with milliseconds
+    'nonce': 1499280391811, // an increasing unique identifier of the orderbook snapshot
+}
+
+
+**Ticker Format:**
+{
+    'symbol':        string symbol of the market ('BTC/USD', 'ETH/BTC', ...)
+    'info':        { the original non-modified unparsed reply from exchange API },
+    'timestamp':     int (64-bit Unix Timestamp in milliseconds since Epoch 1 Jan 1970)
+    'datetime':      ISO8601 datetime string with milliseconds
+    'high':          float, // highest price
+    'low':           float, // lowest price
+    'bid':           float, // current best bid (buy) price
+    'bidVolume':     float, // current best bid (buy) amount (may be missing or undefined)
+    'ask':           float, // current best ask (sell) price
+    'askVolume':     float, // current best ask (sell) amount (may be missing or undefined)
+    'vwap':          float, // volume weighed average price
+    'open':          float, // opening price
+    'close':         float, // price of last trade (closing price for current period)
+    'last':          float, // same as `close`, duplicated for convenience
+    'previousClose': float, // closing price for the previous period
+    'change':        float, // absolute change, `last - open`
+    'percentage':    float, // relative change, `(change/open) * 100`
+    'average':       float, // average price, `(last + open) / 2`
+    'baseVolume':    float, // volume of base currency traded for last 24 hours
+    'quoteVolume':   float, // volume of quote currency traded for last 24 hours
+}
+
+
+**Trades Format:**
+[
+    {
+        'info':          { ... },                  // the original decoded JSON as is
+        'id':           '12345-67890:09876/54321', // string trade id
+        'timestamp':     1502962946216,            // Unix timestamp in milliseconds
+        'datetime':     '2017-08-17 12:42:48.000', // ISO8601 datetime with milliseconds
+        'symbol':       'ETH/BTC',                 // symbol
+        'order':        '12345-67890:09876/54321', // string order id or undefined/None/null
+        'type':         'limit',                   // order type, 'market', 'limit' or undefined/None/null
+        'side':         'buy',                     // direction of the trade, 'buy' or 'sell'
+        'takerOrMaker': 'taker',                   // string, 'taker' or 'maker'
+        'price':         0.06917684,               // float price in quote currency
+        'amount':        1.5,                      // amount of base currency
+        'cost':          0.10376526,               // total cost, `price * amount`,
+        'fee':           {                         // if provided by exchange or calculated by ccxt
+            'cost':  0.0015,                       // float
+            'currency': 'ETH',                     // usually base currency for buys, quote currency for sells
+            'rate': 0.002,                         // the fee rate (if available)
+        },
+        'fees': [                                  // an array of fees if paid in multiple currencies
+            {                                      // if provided by exchange or calculated by ccxt
+                'cost':  0.0015,                   // float
+                'currency': 'ETH',                 // usually base currency for buys, quote currency for sells
+                'rate': 0.002,                     // the fee rate (if available)
+            },
+        ]
+    },
+    ...
+]
+"""
+
 from typing import List, Dict
-import logging
+import pandas as pd
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-class EMA_20_50:
+class EMA2050:
     
     def __init__(self, 
-                 symbol: str,
-                 timeframe: str,
-                 limit: int,
-                 ob: dict,
-                 ticker: dict,            
-                 ohlcv: List[List],       
-                 trades: List[Dict]):    
+             symbol: str,
+             timeframe: str,
+             limit: int,
+             ob: dict,
+             ticker: dict,            
+             ohlcv: List[List],       
+             trades: List[Dict]):    
         self.param = {
-            "ema_short_period": 20,
-            "ema_long_period": 50,
-            "trend_strength_threshold": 0.02,  # 2% difference for strong trend
-            "signal_confirmation_periods": 3,   # periods to confirm trend change
+            # Standard EMA Crossover Parameters (Source: TradingView, Investopedia, Fidelity)
+            "ema_fast_period": 20,               # Fast EMA period (commonly used short-term)
+            "ema_slow_period": 50,               # Slow EMA period (commonly used medium-term)
+            "price_source": "close",             # Standard price source for calculation
+            "smoothing_factor_fast": 2.0 / (20 + 1),  # Alpha for 20-period EMA
+            "smoothing_factor_slow": 2.0 / (50 + 1),  # Alpha for 50-period EMA
+            
+            # Signal Parameters
+            "crossover_confirmation_periods": 2,  # Periods to confirm crossover
+            "trend_strength_threshold": 0.001,   # Minimum percentage difference for trend strength
+            "volume_confirmation": False,        # Optional volume confirmation
+            "volume_ma_period": 20,             # Volume moving average period
+            "divergence_lookback": 10,          # Periods to look back for divergence
+            
+            # Position and Risk Management
+            "position_threshold_pct": 0.5,      # Position threshold percentage
+            "stop_loss_atr_multiplier": 2.0,    # ATR multiplier for stop loss
+            "take_profit_ratio": 2.0,           # Risk/reward ratio for take profit
+            "max_lookback_periods": 100,        # Maximum periods for historical analysis
+            
+            # Confidence Scoring Weights
+            "confidence_weights": {
+                "crossover_strength": 0.4,      # Weight for crossover momentum
+                "trend_consistency": 0.3,       # Weight for trend direction consistency  
+                "volume_confirmation": 0.2,     # Weight for volume support
+                "divergence_absence": 0.1       # Weight for lack of divergence
+            }
         }
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
+        self.ticker = ticker
         self.symbol = symbol
         self.timeframe = timeframe
         self.limit = limit
     
-    def calculate_ema(self, prices: List[float], period: int) -> List[float]:
-        """Calculate Exponential Moving Average"""
-        if len(prices) < period:
-            return []
-        
-        # Convert to pandas Series for easier calculation
-        price_series = pd.Series(prices)
-        ema = price_series.ewm(span=period, adjust=False).mean()
-        return ema.tolist()
-    
-    def get_trend_signal(self, ema_20: float, ema_50: float, price: float) -> str:
-        """Determine trend signal based on EMA relationship"""
-        if ema_20 > ema_50 and price > ema_20:
-            return "STRONG_BULLISH"
-        elif ema_20 > ema_50 and price > ema_50:
-            return "BULLISH"
-        elif ema_20 < ema_50 and price < ema_20:
-            return "STRONG_BEARISH"
-        elif ema_20 < ema_50 and price < ema_50:
-            return "BEARISH"
-        else:
-            return "NEUTRAL"
-    
-    def detect_crossover(self, ema_20_values: List[float], ema_50_values: List[float]) -> str:
-        """Detect EMA crossover signals"""
-        if len(ema_20_values) < 2 or len(ema_50_values) < 2:
-            return "NO_SIGNAL"
-        
-        # Current and previous values
-        current_20, previous_20 = ema_20_values[-1], ema_20_values[-2]
-        current_50, previous_50 = ema_50_values[-1], ema_50_values[-2]
-        
-        # Golden Cross: EMA 20 crosses above EMA 50
-        if previous_20 <= previous_50 and current_20 > current_50:
-            return "GOLDEN_CROSS"
-        
-        # Death Cross: EMA 20 crosses below EMA 50
-        if previous_20 >= previous_50 and current_20 < current_50:
-            return "DEATH_CROSS"
-        
-        return "NO_CROSSOVER"
-    
-    def calculate_trend_strength(self, ema_20: float, ema_50: float) -> float:
-        """Calculate trend strength as percentage difference between EMAs"""
-        if ema_50 == 0:
-            return 0
-        return abs((ema_20 - ema_50) / ema_50) * 100
-    
     def calculate(self):
         """
-        Calculate EMA 20/50 analysis according to TradingView methodology.
-        """
-        if not self.ohlcv or len(self.ohlcv) < self.param["ema_long_period"]:
-            logger.warning(f"Insufficient data for EMA calculation. Need at least {self.param['ema_long_period']} periods")
-            return
+        Calculate EMA 20/50 crossover strategy signals.
         
-        # Extract closing prices
-        closes = [float(candle[4]) for candle in self.ohlcv]
-        current_price = closes[-1]
+        Formula (Source: TradingView, Investopedia, Fidelity):
+        EMA = (Close - EMA_previous) × Smoothing Factor + EMA_previous
+        
+        Where Smoothing Factor = 2 / (Period + 1)
+        
+        Standard Parameters:
+        - Fast EMA: 20 periods (Short-term trend)
+        - Slow EMA: 50 periods (Medium-term trend)
+        - Source: Close price
+        
+        Signals:
+        - Golden Cross: Fast EMA crosses above Slow EMA (Bullish)
+        - Death Cross: Fast EMA crosses below Slow EMA (Bearish)
+        - Trend: Fast EMA above/below Slow EMA indicates trend direction
+        
+        References:
+        - TradingView: https://www.tradingview.com/support/solutions/43000502589-exponential-moving-average-ema/
+        - Investopedia: https://www.investopedia.com/terms/e/ema.asp
+        - Fidelity: https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/ema
+        - Wikipedia: https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average
+
+        Advantages over SMA:
+        - More responsive to recent price changes
+        - Reduces lag in trend identification
+        - Better for volatile markets
+        """
+        fast_period = self.param["ema_fast_period"]
+        slow_period = self.param["ema_slow_period"]
+        
+        if not self.ohlcv or len(self.ohlcv) < slow_period:
+            result = {
+                "error": f"Insufficient data: need at least {slow_period} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
+            }
+            self.print_output(result)
+            return
+            
+        df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['close'] = pd.to_numeric(df['close'])
+        df['volume'] = pd.to_numeric(df['volume'])
         
         # Calculate EMAs
-        ema_20_values = self.calculate_ema(closes, self.param["ema_short_period"])
-        ema_50_values = self.calculate_ema(closes, self.param["ema_long_period"])
+        ema_fast = df['close'].ewm(span=fast_period).mean()
+        ema_slow = df['close'].ewm(span=slow_period).mean()
         
-        if not ema_20_values or not ema_50_values:
-            logger.warning("Unable to calculate EMAs")
-            return
+        # Calculate crossover signals
+        crossover_up = (ema_fast > ema_slow) & (ema_fast.shift(1) <= ema_slow.shift(1))
+        crossover_down = (ema_fast < ema_slow) & (ema_fast.shift(1) >= ema_slow.shift(1))
         
-        # Current EMA values
-        current_ema_20 = ema_20_values[-1]
-        current_ema_50 = ema_50_values[-1]
+        # Trend identification
+        trend_bullish = ema_fast > ema_slow
+        trend_bearish = ema_fast < ema_slow
         
-        # Analysis
-        trend_signal = self.get_trend_signal(current_ema_20, current_ema_50, current_price)
-        crossover_signal = self.detect_crossover(ema_20_values, ema_50_values)
-        trend_strength = self.calculate_trend_strength(current_ema_20, current_ema_50)
+        # Calculate EMA distance (trend strength)
+        ema_distance = (ema_fast - ema_slow) / ema_slow * 100  # Percentage difference
         
-        # Support/Resistance levels
-        support_level = min(current_ema_20, current_ema_50)
-        resistance_level = max(current_ema_20, current_ema_50)
+        # Crossover confirmation
+        confirmation_periods = self.param["crossover_confirmation_periods"]
+        confirmed_bullish = crossover_up.rolling(window=confirmation_periods).sum() > 0
+        confirmed_bearish = crossover_down.rolling(window=confirmation_periods).sum() > 0
         
-        # Distance from EMAs
-        distance_from_ema20 = ((current_price - current_ema_20) / current_ema_20) * 100
-        distance_from_ema50 = ((current_price - current_ema_50) / current_ema_50) * 100
+        # Volume confirmation if enabled
+        volume_confirmed = True
+        if self.param["volume_confirmation"]:
+            volume_ma = df['volume'].rolling(window=self.param["volume_ma_period"]).mean()
+            volume_confirmed = df['volume'].iloc[-1] > volume_ma.iloc[-1]
+        
+        # Current values
+        current_price = float(df['close'].iloc[-1])
+        current_ema_fast = float(ema_fast.iloc[-1])
+        current_ema_slow = float(ema_slow.iloc[-1])
+        current_ema_distance = float(ema_distance.iloc[-1])
+        current_trend_bullish = bool(trend_bullish.iloc[-1])
+        current_trend_bearish = bool(trend_bearish.iloc[-1])
+        current_crossover_up = bool(crossover_up.iloc[-1])
+        current_crossover_down = bool(crossover_down.iloc[-1])
+        current_confirmed_bullish = bool(confirmed_bullish.iloc[-1])
+        current_confirmed_bearish = bool(confirmed_bearish.iloc[-1])
+        
+        # Signal generation
+        signal = "neutral"
+        if current_crossover_up and volume_confirmed:
+            signal = "golden_cross"
+        elif current_crossover_down and volume_confirmed:
+            signal = "death_cross"
+        elif current_confirmed_bullish and abs(current_ema_distance) > self.param["trend_strength_threshold"]:
+            signal = "bullish_trend"
+        elif current_confirmed_bearish and abs(current_ema_distance) > self.param["trend_strength_threshold"]:
+            signal = "bearish_trend"
+        elif abs(current_ema_distance) < self.param["trend_strength_threshold"]:
+            signal = "consolidation"
+        
+        # Trend strength classification
+        trend_strength = "weak"
+        if abs(current_ema_distance) > 2.0:
+            trend_strength = "strong"
+        elif abs(current_ema_distance) > 1.0:
+            trend_strength = "moderate"
         
         result = {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
-            "current_price": round(current_price, 6),
-            "ema_20": round(current_ema_20, 6),
-            "ema_50": round(current_ema_50, 6),
-            "trend_signal": trend_signal,
-            "crossover_signal": crossover_signal,
-            "trend_strength_percent": round(trend_strength, 2),
-            "support_level": round(support_level, 6),
-            "resistance_level": round(resistance_level, 6),
-            "distance_from_ema20_percent": round(distance_from_ema20, 2),
-            "distance_from_ema50_percent": round(distance_from_ema50, 2),
-            "is_strong_trend": trend_strength > self.param["trend_strength_threshold"]
+            "current_price": current_price,
+            "ema_fast": current_ema_fast,
+            "ema_slow": current_ema_slow,
+            "ema_distance_pct": current_ema_distance,
+            "trend_bullish": current_trend_bullish,
+            "trend_bearish": current_trend_bearish,
+            "crossover_up": current_crossover_up,
+            "crossover_down": current_crossover_down,
+            "confirmed_bullish": current_confirmed_bullish,
+            "confirmed_bearish": current_confirmed_bearish,
+            "signal": signal,
+            "trend_strength": trend_strength,
+            "volume_confirmed": volume_confirmed,
+            "parameters": {
+                "ema_fast_period": fast_period,
+                "ema_slow_period": slow_period,
+                "confirmation_periods": confirmation_periods,
+                "trend_strength_threshold": self.param["trend_strength_threshold"],
+                "volume_confirmation": self.param["volume_confirmation"]
+            }
         }
-        
-        self.print_output(result)
-        return result
-    
-    def print_output(self, result: dict):
-        """Print the EMA 20/50 analysis output"""
-        print("\n" + "="*60)
-        print(f"📈 EMA 20/50 ANALYSIS - {result['symbol']} ({result['timeframe']})")
-        print("="*60)
-        print(f"Current Price:     ${result['current_price']}")
-        print(f"EMA 20:           ${result['ema_20']}")
-        print(f"EMA 50:           ${result['ema_50']}")
-        print("-"*60)
-        print(f"Trend Signal:      {result['trend_signal']}")
-        print(f"Crossover Signal:  {result['crossover_signal']}")
-        print(f"Trend Strength:    {result['trend_strength_percent']}%")
-        print("-"*60)
-        print(f"Support Level:     ${result['support_level']}")
-        print(f"Resistance Level:  ${result['resistance_level']}")
-        print("-"*60)
-        print(f"Distance from EMA20: {result['distance_from_ema20_percent']:+.2f}%")
-        print(f"Distance from EMA50: {result['distance_from_ema50_percent']:+.2f}%")
-        
-        # Trading interpretation
-        print("\n📊 INTERPRETATION:")
-        if result['crossover_signal'] == 'GOLDEN_CROSS':
-            print("🟢 GOLDEN CROSS detected - Potential bullish momentum")
-        elif result['crossover_signal'] == 'DEATH_CROSS':
-            print("🔴 DEATH CROSS detected - Potential bearish momentum")
-        
-        if result['trend_signal'] == 'STRONG_BULLISH':
-            print("🚀 Strong bullish trend - Price above both EMAs")
-        elif result['trend_signal'] == 'STRONG_BEARISH':
-            print("📉 Strong bearish trend - Price below both EMAs")
-        elif result['trend_signal'] == 'NEUTRAL':
-            print("⚖️  Neutral/Consolidation phase")
-        
-        if result['is_strong_trend']:
-            print(f"💪 Strong trend confirmed ({result['trend_strength_percent']}% separation)")

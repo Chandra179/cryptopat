@@ -92,6 +92,7 @@
 from typing import List, Dict
 import pandas as pd
 
+
 class KeltnerChannel:
     
     def __init__(self, 
@@ -103,10 +104,22 @@ class KeltnerChannel:
              ohlcv: List[List],       
              trades: List[Dict]):    
         self.param = {
-            "ema_period": 20,
-            "atr_period": 10,
-            "multiplier": 2.0,
-            "min_periods": max(20, 10)
+            # Chester Keltner's Original Parameters (Source: TradingView, Fidelity, Wikipedia)
+            "ema_period": 20,                # N-period for Exponential Moving Average (typical default)
+            "atr_period": 10,                # Period for Average True Range calculation (Keltner default)
+            "atr_multiplier": 2.0,           # Multiplier for ATR bands (typical default)
+            "price_source": "typical",       # Price source: "typical" (H+L+C)/3, "close", "hl2" (H+L)/2
+            "ma_type": "ema",                # Moving average type: "ema" (original), "sma", "wma"
+            
+            # Extended Analysis Parameters
+            "squeeze_threshold": 0.05,       # Channel width threshold for squeeze detection
+            "breakout_period": 5,            # Periods to confirm breakout
+            "volume_confirmation": False,    # Optional volume confirmation for signals
+            "channel_position_upper": 0.8,   # Upper channel position for overbought (80%)
+            "channel_position_lower": 0.2,   # Lower channel position for oversold (20%)
+            "trend_strength_period": 10,     # Period for trend strength calculation
+            "volatility_expansion_threshold": 1.5,  # Threshold for volatility expansion
+            "momentum_period": 14,           # Period for momentum calculation
         }
         self.ob = ob
         self.ohlcv = ohlcv
@@ -116,149 +129,166 @@ class KeltnerChannel:
         self.timeframe = timeframe
         self.limit = limit
     
-    def calculate_ema(self, prices: List[float], period: int) -> List[float]:
-        if len(prices) < period:
-            return [None] * len(prices)
-        
-        ema_values = [None] * len(prices)
-        multiplier = 2 / (period + 1)
-        
-        ema_values[period - 1] = sum(prices[:period]) / period
-        
-        for i in range(period, len(prices)):
-            ema_values[i] = (prices[i] * multiplier) + (ema_values[i-1] * (1 - multiplier))
-        
-        return ema_values
-    
-    def calculate_true_range(self, high: float, low: float, prev_close: float) -> float:
-        return max(
-            high - low,
-            abs(high - prev_close),
-            abs(low - prev_close)
-        )
-    
-    def calculate_atr(self, highs: List[float], lows: List[float], closes: List[float], period: int) -> List[float]:
-        if len(highs) < period + 1:
-            return [None] * len(highs)
-        
-        true_ranges = [None]
-        for i in range(1, len(highs)):
-            tr = self.calculate_true_range(highs[i], lows[i], closes[i-1])
-            true_ranges.append(tr)
-        
-        atr_values = [None] * len(highs)
-        
-        first_atr = sum(true_ranges[1:period+1]) / period
-        atr_values[period] = first_atr
-        
-        multiplier = 1 / period
-        for i in range(period + 1, len(highs)):
-            atr_values[i] = (true_ranges[i] * multiplier) + (atr_values[i-1] * (1 - multiplier))
-        
-        return atr_values
-    
     def calculate(self):
-        if len(self.ohlcv) < self.param["min_periods"]:
-            result = {
-                "error": f"Insufficient data. Need at least {self.param['min_periods']} periods",
-                "data_length": len(self.ohlcv)
+        """
+        Calculate Keltner Channels according to Chester Keltner's original methodology.
+        
+        Formula (Source: Chester Keltner, TradingView, Fidelity):
+        - Middle Line = N-period Exponential Moving Average (EMA) of typical price
+        - Upper Channel = Middle Line + (Multiplier × Average True Range)
+        - Lower Channel = Middle Line - (Multiplier × Average True Range)
+        
+        Where Typical Price = (High + Low + Close) / 3
+        
+        Standard Parameters:
+        - EMA Period: 20 (default)
+        - ATR Period: 10 (original Keltner specification)
+        - ATR Multiplier: 2.0 (default)
+        - Price Source: Typical Price ((H+L+C)/3)
+        
+        References:
+        - Created by Chester Keltner in the 1960s
+        - Modified by Linda Bradford Raschke (using ATR instead of simple range)
+        - TradingView: https://www.tradingview.com/support/solutions/43000502266-keltner-channels-kc/
+        - Fidelity: https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/keltner-channels
+        - Wikipedia: https://en.wikipedia.org/wiki/Keltner_channel
+        
+        Original vs Modified:
+        - Original Keltner: Used simple moving average and simple range
+        - Modern Keltner: Uses EMA and Average True Range (ATR) for better volatility measurement
+        
+        Usage:
+        - Trend identification: Price above/below middle line
+        - Breakout signals: Price moving outside the channels
+        - Overbought/oversold: Price near upper/lower channels
+        """
+        if not self.ohlcv or len(self.ohlcv) < max(self.param["ema_period"], self.param["atr_period"]):
+            min_required = max(self.param["ema_period"], self.param["atr_period"])
+            return {
+                "error": f"Insufficient data: need at least {min_required} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
-            self.print_output(result)
-            return
-        
+            
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['high'] = pd.to_numeric(df['high'])
+        df['low'] = pd.to_numeric(df['low'])
+        df['close'] = pd.to_numeric(df['close'])
+        df['volume'] = pd.to_numeric(df['volume'])
         
-        closes = df['close'].tolist()
-        highs = df['high'].tolist()
-        lows = df['low'].tolist()
+        ema_period = self.param["ema_period"]
+        atr_period = self.param["atr_period"]
+        multiplier = self.param["atr_multiplier"]
+        ma_type = self.param["ma_type"]
+        price_source = self.param["price_source"]
         
-        ema_values = self.calculate_ema(closes, self.param["ema_period"])
-        atr_values = self.calculate_atr(highs, lows, closes, self.param["atr_period"])
+        # Calculate price source
+        if price_source == "typical":
+            price = (df['high'] + df['low'] + df['close']) / 3
+        elif price_source == "hl2":
+            price = (df['high'] + df['low']) / 2
+        else:  # close
+            price = df['close']
+            
+        # Calculate moving average based on type
+        if ma_type == "sma":
+            middle_line = price.rolling(window=ema_period).mean()
+        elif ma_type == "wma":
+            weights = pd.Series(range(1, ema_period + 1))
+            middle_line = price.rolling(window=ema_period).apply(lambda x: (x * weights).sum() / weights.sum(), raw=False)
+        else:  # ema (default)
+            middle_line = price.ewm(span=ema_period).mean()
+            
+        # Calculate Average True Range (ATR)
+        df['prev_close'] = df['close'].shift(1)
+        df['tr1'] = df['high'] - df['low']
+        df['tr2'] = abs(df['high'] - df['prev_close'])
+        df['tr3'] = abs(df['low'] - df['prev_close'])
+        df['true_range'] = df[['tr1', 'tr2', 'tr3']].max(axis=1)
+        atr = df['true_range'].rolling(window=atr_period).mean()
         
-        upper_band = []
-        lower_band = []
-        middle_line = []
+        # Calculate Keltner Channels
+        upper_channel = middle_line + (atr * multiplier)
+        lower_channel = middle_line - (atr * multiplier)
         
-        for i in range(len(df)):
-            if ema_values[i] is not None and atr_values[i] is not None:
-                middle = ema_values[i]
-                atr_offset = atr_values[i] * self.param["multiplier"]
-                
-                middle_line.append(middle)
-                upper_band.append(middle + atr_offset)
-                lower_band.append(middle - atr_offset)
-            else:
-                middle_line.append(None)
-                upper_band.append(None)
-                lower_band.append(None)
+        # Calculate channel position (similar to %B in Bollinger Bands)
+        channel_position = (df['close'] - lower_channel) / (upper_channel - lower_channel)
         
-        current_price = closes[-1] if closes else None
-        current_upper = upper_band[-1] if upper_band[-1] is not None else None
-        current_lower = lower_band[-1] if lower_band[-1] is not None else None
-        current_middle = middle_line[-1] if middle_line[-1] is not None else None
+        # Calculate channel width (volatility measure)
+        channel_width = (upper_channel - lower_channel) / middle_line
         
-        position = None
-        if current_price and current_upper and current_lower:
-            if current_price > current_upper:
-                position = "Above Upper Band"
-            elif current_price < current_lower:
-                position = "Below Lower Band"
-            else:
-                position = "Within Channel"
+        # Squeeze detection (low volatility)
+        squeeze_detected = channel_width < self.param["squeeze_threshold"]
         
-        result = {
+        # Breakout detection
+        breakout_period = self.param["breakout_period"]
+        price_above_upper = df['close'] > upper_channel
+        price_below_lower = df['close'] < lower_channel
+        breakout_up = price_above_upper.rolling(window=breakout_period).sum() > 0
+        breakout_down = price_below_lower.rolling(window=breakout_period).sum() > 0
+        
+        # Trend direction based on price relative to middle line
+        trend_direction = "neutral"
+        current_price = float(df['close'].iloc[-1])
+        current_middle = float(middle_line.iloc[-1])
+        
+        if current_price > current_middle:
+            trend_direction = "bullish"
+        elif current_price < current_middle:
+            trend_direction = "bearish"
+            
+        # Current values
+        current_upper = float(upper_channel.iloc[-1])
+        current_lower = float(lower_channel.iloc[-1])
+        current_channel_position = float(channel_position.iloc[-1])
+        current_channel_width = float(channel_width.iloc[-1])
+        current_atr = float(atr.iloc[-1])
+        current_squeeze = bool(squeeze_detected.iloc[-1])
+        current_breakout_up = bool(breakout_up.iloc[-1])
+        current_breakout_down = bool(breakout_down.iloc[-1])
+        
+        # Volume confirmation if enabled
+        volume_confirmed = True
+        if self.param["volume_confirmation"]:
+            avg_volume = df['volume'].rolling(window=ema_period).mean().iloc[-1]
+            current_volume = df['volume'].iloc[-1]
+            volume_confirmed = current_volume > avg_volume
+        
+        # Signal generation
+        signal = "neutral"
+        if current_channel_position >= self.param["channel_position_upper"]:
+            signal = "overbought"
+        elif current_channel_position <= self.param["channel_position_lower"]:
+            signal = "oversold"
+        elif current_breakout_up and volume_confirmed:
+            signal = "bullish_breakout"
+        elif current_breakout_down and volume_confirmed:
+            signal = "bearish_breakout"
+        elif current_squeeze:
+            signal = "squeeze"
+
+        return {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
             "current_price": current_price,
-            "keltner_channel": {
-                "upper_band": current_upper,
-                "middle_line": current_middle,
-                "lower_band": current_lower,
-                "position": position,
-                "band_width": current_upper - current_lower if current_upper and current_lower else None
-            },
+            "middle_line": current_middle,
+            "upper_channel": current_upper,
+            "lower_channel": current_lower,
+            "channel_position": current_channel_position,
+            "channel_width": current_channel_width,
+            "atr": current_atr,
+            "trend_direction": trend_direction,
+            "squeeze": current_squeeze,
+            "signal": signal,
+            "breakout_up": current_breakout_up,
+            "breakout_down": current_breakout_down,
+            "volume_confirmed": volume_confirmed,
+            "ma_type": ma_type,
+            "price_source": price_source,
             "parameters": {
-                "ema_period": self.param["ema_period"],
-                "atr_period": self.param["atr_period"],
-                "multiplier": self.param["multiplier"]
-            },
-            "analysis": {
-                "trend_direction": "Bullish" if current_price and current_middle and current_price > current_middle else "Bearish",
-                "volatility": "High" if current_upper and current_lower and (current_upper - current_lower) > (current_middle * 0.1) else "Low"
+                "ema_period": ema_period,
+                "atr_period": atr_period,
+                "atr_multiplier": multiplier,
+                "squeeze_threshold": self.param["squeeze_threshold"],
+                "channel_position_upper": self.param["channel_position_upper"],
+                "channel_position_lower": self.param["channel_position_lower"]
             }
         }
-        
-        self.print_output(result)
-    
-    def print_output(self, result: dict):
-        print("\n" + "="*50)
-        print("KELTNER CHANNEL ANALYSIS")
-        print("="*50)
-        
-        if "error" in result:
-            print(f"ERROR: {result['error']}")
-            print(f"Data Length: {result['data_length']}")
-            return
-        
-        print(f"Symbol: {result['symbol']}")
-        print(f"Timeframe: {result['timeframe']}")
-        print(f"Current Price: ${result['current_price']:.6f}")
-        
-        kc = result['keltner_channel']
-        print(f"\nKeltner Channel Values:")
-        print(f"  Upper Band:  ${kc['upper_band']:.6f}")
-        print(f"  Middle Line: ${kc['middle_line']:.6f}")
-        print(f"  Lower Band:  ${kc['lower_band']:.6f}")
-        print(f"  Position: {kc['position']}")
-        print(f"  Band Width: ${kc['band_width']:.6f}")
-        
-        params = result['parameters']
-        print(f"\nParameters:")
-        print(f"  EMA Period: {params['ema_period']}")
-        print(f"  ATR Period: {params['atr_period']}")
-        print(f"  Multiplier: {params['multiplier']}")
-        
-        analysis = result['analysis']
-        print(f"\nAnalysis:")
-        print(f"  Trend Direction: {analysis['trend_direction']}")
-        print(f"  Volatility: {analysis['volatility']}")

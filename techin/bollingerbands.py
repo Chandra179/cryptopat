@@ -103,10 +103,31 @@ class BollingerBands:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.rules = {
-            "period": 20,
-            "std_dev_multiplier": 2.0,
-            "price_source": "close"
+        self.param = {
+            # John Bollinger's Standard Parameters (Source: TradingView, Fidelity, Wikipedia)
+            "period": 20,                    # N-period for SMA and standard deviation (Bollinger default)
+            "std_dev_multiplier": 2.0,       # K multiplier for bands (Bollinger default, ~88-89% coverage)
+            "price_source": "close",         # Standard source for calculation (TradingView default)
+            "ma_type": "sma",               # Simple Moving Average (Bollinger original specification)
+            
+            # Extended Analysis Parameters
+            "squeeze_threshold": 0.05,       # Bandwidth threshold for squeeze detection
+            "breakout_period": 5,           # Periods to confirm breakout
+            "volume_confirmation": False,    # Optional volume confirmation for signals
+            "percent_b_overbought": 0.8,    # %B level for overbought (80% of band width)
+            "percent_b_oversold": 0.2,      # %B level for oversold (20% of band width)
+            "bandwidth_ma_period": 10,      # Period for bandwidth moving average
+            "squeeze_percentile_low": 20,   # Low percentile for squeeze detection
+            "squeeze_percentile_high": 80,  # High percentile for squeeze detection
+            "overbought_offset": 0.0,       # Offset for overbought threshold
+            "oversold_offset": 0.0,         # Offset for oversold threshold
+            "sma_slope_period": 2,          # Period for SMA slope calculation
+            "position_threshold_pct": 1.0,  # Position threshold percentage
+            "confidence_weights": {         # Weights for confidence scoring
+                "squeeze": 0.2,
+                "sma_slope": 0.3,
+                "position_from_sma": 0.5
+            }
         }
         self.ob = ob
         self.ohlcv = ohlcv
@@ -118,125 +139,127 @@ class BollingerBands:
     
     def calculate(self):
         """
-        Calculate Bollinger Bands according to TradingView methodology.
+        Calculate Bollinger Bands according to John Bollinger's original methodology.
+        
+        Formula (Source: John Bollinger, TradingView, Fidelity):
+        - Middle Band = N-period Simple Moving Average (SMA)
+        - Upper Band = SMA + (K × N-period standard deviation)
+        - Lower Band = SMA - (K × N-period standard deviation)
+        
+        Standard Parameters:
+        - N (period): 20 days (default)
+        - K (multiplier): 2.0 standard deviations (default)
+        - Source: Close price
+        
+        References:
+        - Created by John Bollinger in the 1980s
+        - TradingView: https://www.tradingview.com/support/solutions/43000501840-bollinger-bands-bb/
+        - Fidelity: https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/bollinger-bands
+        - Wikipedia: https://en.wikipedia.org/wiki/Bollinger_Bands
+        
+        Parameter Adjustments by John Bollinger:
+        - 10-period SMA: Use 1.9 multiplier
+        - 20-period SMA: Use 2.0 multiplier (standard)
+        - 50-period SMA: Use 2.1 multiplier
+        
+        Coverage: ~88-89% of price action falls within the bands (not 95% as commonly assumed)
         """
-        if not self.ohlcv or len(self.ohlcv) < self.rules["period"]:
+        if not self.ohlcv or len(self.ohlcv) < self.param["period"]:
             result = {
-                "error": f"Insufficient data: need at least {self.rules['period']} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
+                "error": f"Insufficient data: need at least {self.param['period']} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
             self.print_output(result)
             return
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['close'] = pd.to_numeric(df['close'])
+        df['volume'] = pd.to_numeric(df['volume'])
         
-        period = self.rules["period"]
-        multiplier = self.rules["std_dev_multiplier"]
+        period = self.param["period"]
+        multiplier = self.param["std_dev_multiplier"]
+        ma_type = self.param["ma_type"]
         
-        sma = df['close'].rolling(window=period).mean()
-        std = df['close'].rolling(window=period).std()
+        # Calculate moving average based on type
+        if ma_type == "ema":
+            ma = df['close'].ewm(span=period).mean()
+        elif ma_type == "wma":
+            weights = pd.Series(range(1, period + 1))
+            ma = df['close'].rolling(window=period).apply(lambda x: (x * weights).sum() / weights.sum(), raw=False)
+        else:  # sma (default)
+            ma = df['close'].rolling(window=period).mean()
+            
+        std = df['close'].rolling(window=period).std()  
         
-        upper_band = sma + (std * multiplier)
-        lower_band = sma - (std * multiplier)
+        upper_band = ma + (std * multiplier)
+        lower_band = ma - (std * multiplier)
         
+        # Calculate %B (Percent B)
+        percent_b = (df['close'] - lower_band) / (upper_band - lower_band)
+        
+        # Calculate Bandwidth
+        bandwidth = (upper_band - lower_band) / ma
+        
+        # Squeeze detection
+        squeeze_detected = bandwidth < self.param["squeeze_threshold"]
+        
+        # Breakout detection
+        breakout_period = self.param["breakout_period"]
+        price_above_upper = df['close'] > upper_band
+        price_below_lower = df['close'] < lower_band
+        breakout_up = price_above_upper.rolling(window=breakout_period).sum() > 0
+        breakout_down = price_below_lower.rolling(window=breakout_period).sum() > 0
+        
+        # Current values
         current_price = float(df['close'].iloc[-1])
-        current_sma = float(sma.iloc[-1])
+        current_ma = float(ma.iloc[-1])
         current_upper = float(upper_band.iloc[-1])
         current_lower = float(lower_band.iloc[-1])
+        current_percent_b = float(percent_b.iloc[-1])
+        current_bandwidth = float(bandwidth.iloc[-1])
+        current_squeeze = bool(squeeze_detected.iloc[-1])
+        current_breakout_up = bool(breakout_up.iloc[-1])
+        current_breakout_down = bool(breakout_down.iloc[-1])
         
-        band_width = ((current_upper - current_lower) / current_sma) * 100
-        position_in_bands = ((current_price - current_lower) / (current_upper - current_lower)) * 100
+        # Volume confirmation if enabled
+        volume_confirmed = True
+        if self.param["volume_confirmation"]:
+            avg_volume = df['volume'].rolling(window=period).mean().iloc[-1]
+            current_volume = df['volume'].iloc[-1]
+            volume_confirmed = current_volume > avg_volume
         
-        squeeze = band_width < 10
-        expansion = band_width > 25
-        
-        if current_price > current_upper:
-            signal = "OVERBOUGHT"
-        elif current_price < current_lower:
-            signal = "OVERSOLD"
-        elif current_price > current_sma:
-            signal = "BULLISH"
-        else:
-            signal = "BEARISH"
-        
-        # Calculate additional metrics for the new structure
-        sma_slope = 0
-        if len(sma) > 1:
-            sma_slope = float(sma.iloc[-1] - sma.iloc[-2])
-        
-        position_from_sma_pct = ((current_price - current_sma) / current_sma) * 100
-        squeeze_level = 9.5  # threshold for squeeze detection
-        expansion_level = 25.0  # threshold for expansion detection
-        
-        # Determine trend bias
-        if current_price > current_sma and sma_slope > 0:
-            trend_bias = "UPTREND"
-        elif current_price < current_sma and sma_slope < 0:
-            trend_bias = "DOWNTREND"
-        else:
-            trend_bias = "SIDEWAYS"
-        
-        # Calculate confidence percentage based on multiple factors
-        confidence = 50  # base confidence
-        if abs(position_in_bands - 50) > 20:  # strong position in bands
-            confidence += 15
-        if abs(position_from_sma_pct) > 2:  # significant deviation from SMA
-            confidence += 10
-        if expansion and band_width > expansion_level:  # strong expansion
-            confidence += 25
-        confidence = min(confidence, 100)
-        
+        # Signal generation
+        signal = "neutral"
+        if current_percent_b >= self.param["percent_b_overbought"]:
+            signal = "overbought"
+        elif current_percent_b <= self.param["percent_b_oversold"]:
+            signal = "oversold"
+        elif current_breakout_up and volume_confirmed:
+            signal = "bullish_breakout"
+        elif current_breakout_down and volume_confirmed:
+            signal = "bearish_breakout"
+        elif current_squeeze:
+            signal = "squeeze"
+
         result = {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
-            "timestamp": int(df['timestamp'].iloc[-1]),
+            "current_price": current_price,
+            "middle_band": current_ma,
+            "upper_band": current_upper,
+            "lower_band": current_lower,
+            "percent_b": current_percent_b,
+            "bandwidth": current_bandwidth,
+            "squeeze": current_squeeze,
+            "signal": signal,
+            "breakout_up": current_breakout_up,
+            "breakout_down": current_breakout_down,
+            "volume_confirmed": volume_confirmed,
+            "ma_type": ma_type,
             "parameters": {
-                "lookback_period": self.rules["period"],
-                "std_dev_multiplier": self.rules["std_dev_multiplier"]
-            },
-            "price_metrics": {
-                "current_price": round(current_price, 2),
-                "sma": round(current_sma, 2),
-                "sma_slope": round(sma_slope, 1),
-                "upper_band": round(current_upper, 2),
-                "lower_band": round(current_lower, 2),
-                "position_in_bands_pct": round(position_in_bands, 1),
-                "position_from_sma_pct": round(position_from_sma_pct, 1)
-            },
-            "volatility_metrics": {
-                "band_width_pct": round(band_width, 2),
-                "squeeze": squeeze,
-                "expansion": expansion,
-                "squeeze_level": squeeze_level,
-                "expansion_level": expansion_level
-            },
-            "signal_metrics": {
-                "signal": signal,
-                "trend_bias": trend_bias,
-                "confidence_pct": round(confidence, 1)
+                "period": period,
+                "multiplier": multiplier,
+                "squeeze_threshold": self.param["squeeze_threshold"],
+                "percent_b_overbought": self.param["percent_b_overbought"],
+                "percent_b_oversold": self.param["percent_b_oversold"]
             }
         }
-        
-        self.print_output(result)
-    
-    def print_output(self, result: dict):
-        """Print the Bollinger Bands analysis output"""
-        if "error" in result:
-            print(f"❌ Bollinger Bands Error: {result['error']}")
-            return
-            
-        pm = result['price_metrics']
-        vm = result['volatility_metrics']
-        sm = result['signal_metrics']
-        
-        print(f"\n🎯 Bollinger Bands Analysis - {result['symbol']} ({result['timeframe']})")
-        print(f"📊 Current Price: ${pm['current_price']:.2f}")
-        print(f"📈 Upper Band: ${pm['upper_band']:.2f}")
-        print(f"📊 SMA ({result['parameters']['lookback_period']}): ${pm['sma']:.2f} (slope: {pm['sma_slope']:.1f})")
-        print(f"📉 Lower Band: ${pm['lower_band']:.2f}")
-        print(f"📏 Band Width: {vm['band_width_pct']:.2f}%")
-        print(f"📍 Position in Bands: {pm['position_in_bands_pct']:.1f}%")
-        print(f"📍 Position from SMA: {pm['position_from_sma_pct']:+.1f}%")
-        print(f"🔄 Squeeze: {'Yes' if vm['squeeze'] else 'No'} (threshold: {vm['squeeze_level']}%)")
-        print(f"💥 Expansion: {'Yes' if vm['expansion'] else 'No'} (threshold: {vm['expansion_level']}%)")
-        print(f"🚦 Signal: {sm['signal']} | Trend: {sm['trend_bias']} | Confidence: {sm['confidence_pct']:.1f}%") 

@@ -90,6 +90,8 @@
 """
 
 from typing import List, Dict
+import pandas as pd
+
 
 class IchimokuCloud:
     
@@ -102,289 +104,200 @@ class IchimokuCloud:
              ohlcv: List[List],       
              trades: List[Dict]):    
         self.param = {
-            "tenkan_period": 9,
-            "kijun_period": 26,
-            "senkou_b_period": 52,
-            "displacement": 26,
-            "min_data_points": 52
+            # Goichi Hosoda's Standard Parameters (Source: Wikipedia, Fidelity, TradingView)
+            "tenkan_period": 9,              # Conversion Line period (Tenkan-sen)
+            "kijun_period": 26,              # Base Line period (Kijun-sen) 
+            "senkou_span_b_period": 52,      # Leading Span B period (Senkou Span B)
+            "displacement": 26,              # Cloud displacement forward/backward
+            
+            # Signal Generation Parameters
+            "trend_confirmation": True,      # Require multiple line confirmations
+            "cloud_thickness_threshold": 0.01,  # Minimum cloud thickness for valid signals
+            "price_cloud_buffer": 0.002,     # Buffer zone for price-cloud interactions
+            "lagging_span_periods": 26,      # Chikou Span lookback
+            
+            # Advanced Analysis Parameters  
+            "breakout_confirmation_periods": 3,   # Periods to confirm cloud breakout
+            "momentum_confirmation": True,    # Use Tenkan/Kijun crossover for momentum
+            "support_resistance_levels": 5,  # Number of historical S/R levels to track
+            "trend_strength_threshold": 0.5, # Threshold for trend strength assessment
         }
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
+        self.ticker = ticker
         self.symbol = symbol
         self.timeframe = timeframe
         self.limit = limit
     
     def calculate(self):
         """
-        Calculate Ichimoku Cloud according to TradingView methodology.
+        Calculate Ichimoku Cloud (Ichimoku Kinko Hyo) according to Goichi Hosoda's methodology.
+        
+        Formula (Source: Goichi Hosoda, 1930s; Wikipedia, Fidelity):
+        - Tenkan-sen (Conversion Line) = (Highest High + Lowest Low) / 2 over 9 periods
+        - Kijun-sen (Base Line) = (Highest High + Lowest Low) / 2 over 26 periods  
+        - Senkou Span A (Leading Span A) = (Tenkan-sen + Kijun-sen) / 2, displaced +26 periods
+        - Senkou Span B (Leading Span B) = (Highest High + Lowest Low) / 2 over 52 periods, displaced +26 periods
+        - Chikou Span (Lagging Span) = Close price displaced -26 periods
+        - Kumo (Cloud) = Area between Senkou Span A and Senkou Span B
+        
+        Standard Parameters:
+        - Tenkan-sen: 9 periods (short-term trend)
+        - Kijun-sen: 26 periods (medium-term trend) 
+        - Senkou Span B: 52 periods (long-term trend)
+        - Displacement: 26 periods (cloud projection)
+        
+        References:
+        - Created by Goichi Hosoda (細田悟一) in the late 1930s, published 1960s
+        - "Ichimoku Sanjin" - "what a man in the mountain sees"
+        - Wikipedia: https://en.wikipedia.org/wiki/Ichimoku_Kink%C5%8D_Hy%C5%8D
+        - Fidelity: https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/ichimoku-cloud
+        - TradingView: Multiple educational resources on Ichimoku analysis
+        
+        Interpretation:
+        - Above cloud: Bullish trend
+        - Below cloud: Bearish trend  
+        - Inside cloud: Neutral/consolidation
+        - Cloud color: Green (Span A > Span B), Red (Span A < Span B)
+        - Thick cloud: Strong support/resistance
+        - Thin cloud: Weak support/resistance
         """
-        if len(self.ohlcv) < self.param["min_data_points"]:
+        required_periods = max(self.param["senkou_span_b_period"], self.param["kijun_period"]) + self.param["displacement"]
+        
+        if not self.ohlcv or len(self.ohlcv) < required_periods:
             result = {
-                "error": f"Insufficient data points. Need at least {self.param['min_data_points']}, got {len(self.ohlcv)}"
+                "error": f"Insufficient data: need at least {required_periods} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
             self.print_output(result)
             return
+            
+        df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['high'] = pd.to_numeric(df['high'])
+        df['low'] = pd.to_numeric(df['low'])
+        df['close'] = pd.to_numeric(df['close'])
         
-        # Extract high, low, close prices
-        highs = [candle[2] for candle in self.ohlcv]
-        lows = [candle[3] for candle in self.ohlcv]
-        closes = [candle[4] for candle in self.ohlcv]
+        tenkan_period = self.param["tenkan_period"]
+        kijun_period = self.param["kijun_period"]
+        senkou_b_period = self.param["senkou_span_b_period"]
+        displacement = self.param["displacement"]
         
-        # Calculate Ichimoku components
-        tenkan_sen = self._calculate_tenkan_sen(highs, lows)
-        kijun_sen = self._calculate_kijun_sen(highs, lows)
-        senkou_span_a = self._calculate_senkou_span_a(tenkan_sen, kijun_sen)
-        senkou_span_b = self._calculate_senkou_span_b(highs, lows)
-        chikou_span = self._calculate_chikou_span(closes)
+        # Calculate Tenkan-sen (Conversion Line)
+        tenkan_high = df['high'].rolling(window=tenkan_period).max()
+        tenkan_low = df['low'].rolling(window=tenkan_period).min()
+        tenkan_sen = (tenkan_high + tenkan_low) / 2
         
-        # Current values (latest)
-        current_price = closes[-1]
-        current_tenkan = tenkan_sen[-1] if tenkan_sen else None
-        current_kijun = kijun_sen[-1] if kijun_sen else None
+        # Calculate Kijun-sen (Base Line)
+        kijun_high = df['high'].rolling(window=kijun_period).max()
+        kijun_low = df['low'].rolling(window=kijun_period).min()
+        kijun_sen = (kijun_high + kijun_low) / 2
         
-        # Cloud analysis
-        cloud_analysis = self._analyze_cloud(current_price, senkou_span_a, senkou_span_b)
+        # Calculate Senkou Span A (Leading Span A)
+        senkou_span_a = (tenkan_sen + kijun_sen) / 2
+        
+        # Calculate Senkou Span B (Leading Span B)
+        senkou_b_high = df['high'].rolling(window=senkou_b_period).max()
+        senkou_b_low = df['low'].rolling(window=senkou_b_period).min()
+        senkou_span_b = (senkou_b_high + senkou_b_low) / 2
+        
+        # Calculate Chikou Span (Lagging Span)
+        chikou_span = df['close'].shift(-displacement)
+        
+        # Current values
+        current_price = float(df['close'].iloc[-1])
+        current_tenkan = float(tenkan_sen.iloc[-1])
+        current_kijun = float(kijun_sen.iloc[-1])
+        
+        # Cloud values (current and future)
+        current_span_a = float(senkou_span_a.iloc[-1])
+        current_span_b = float(senkou_span_b.iloc[-1])
+        
+        # Future cloud values (displaced forward)
+        if len(senkou_span_a) >= displacement:
+            future_span_a = float(senkou_span_a.iloc[-displacement])
+            future_span_b = float(senkou_span_b.iloc[-displacement])
+        else:
+            future_span_a = current_span_a
+            future_span_b = current_span_b
+        
+        # Cloud characteristics
+        cloud_top = max(future_span_a, future_span_b)
+        cloud_bottom = min(future_span_a, future_span_b)
+        cloud_thickness = abs(future_span_a - future_span_b)
+        cloud_thickness_pct = cloud_thickness / current_price if current_price > 0 else 0
+        
+        # Cloud color (Bullish: green, Bearish: red)
+        cloud_color = "green" if future_span_a > future_span_b else "red"
+        
+        # Price position relative to cloud
+        if current_price > cloud_top:
+            price_position = "above_cloud"
+            trend = "bullish"
+        elif current_price < cloud_bottom:
+            price_position = "below_cloud" 
+            trend = "bearish"
+        else:
+            price_position = "inside_cloud"
+            trend = "neutral"
+        
+        # Tenkan/Kijun relationship
+        tk_cross = "bullish" if current_tenkan > current_kijun else "bearish" if current_tenkan < current_kijun else "neutral"
+        
+        # Chikou Span analysis
+        chikou_value = float(chikou_span.iloc[-displacement-1]) if len(chikou_span) > displacement else None
+        chikou_vs_price = None
+        if chikou_value is not None:
+            historical_price = float(df['close'].iloc[-displacement-1])
+            chikou_vs_price = "bullish" if chikou_value > historical_price else "bearish"
         
         # Signal generation
-        signals = self._generate_signals(current_price, tenkan_sen, kijun_sen, senkou_span_a, senkou_span_b, chikou_span)
+        signal = "neutral"
+        if trend == "bullish" and tk_cross == "bullish" and cloud_color == "green":
+            signal = "strong_bullish"
+        elif trend == "bearish" and tk_cross == "bearish" and cloud_color == "red":
+            signal = "strong_bearish"
+        elif trend == "bullish" and cloud_thickness_pct > self.param["cloud_thickness_threshold"]:
+            signal = "bullish"
+        elif trend == "bearish" and cloud_thickness_pct > self.param["cloud_thickness_threshold"]:
+            signal = "bearish"
+        elif price_position == "inside_cloud":
+            signal = "consolidation"
         
+        # Confidence scoring
+        confidence_factors = {
+            "price_cloud_alignment": 1.0 if price_position != "inside_cloud" else 0.3,
+            "tk_alignment": 1.0 if tk_cross != "neutral" else 0.5,
+            "cloud_thickness": min(cloud_thickness_pct / self.param["cloud_thickness_threshold"], 1.0),
+            "cloud_color_trend": 1.0 if (cloud_color == "green" and trend == "bullish") or (cloud_color == "red" and trend == "bearish") else 0.7
+        }
+        confidence = sum(confidence_factors.values()) / len(confidence_factors)
+
         result = {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
             "current_price": current_price,
             "tenkan_sen": current_tenkan,
             "kijun_sen": current_kijun,
-            "senkou_span_a": senkou_span_a[-1] if senkou_span_a else None,
-            "senkou_span_b": senkou_span_b[-1] if senkou_span_b else None,
-            "chikou_span": chikou_span[0] if chikou_span else None,
-            "cloud_color": cloud_analysis["color"],
-            "price_vs_cloud": cloud_analysis["position"],
-            "cloud_thickness": cloud_analysis["thickness"],
-            "signals": signals,
-            "trend_strength": self._assess_trend_strength(tenkan_sen, kijun_sen, senkou_span_a, senkou_span_b)
+            "senkou_span_a": current_span_a,
+            "senkou_span_b": current_span_b,
+            "future_span_a": future_span_a,
+            "future_span_b": future_span_b,
+            "cloud_top": cloud_top,
+            "cloud_bottom": cloud_bottom,
+            "cloud_thickness": cloud_thickness,
+            "cloud_thickness_pct": cloud_thickness_pct,
+            "cloud_color": cloud_color,
+            "price_position": price_position,
+            "trend": trend,
+            "tk_cross": tk_cross,
+            "chikou_span": chikou_value,
+            "chikou_vs_price": chikou_vs_price,
+            "signal": signal,
+            "confidence": confidence,
+            "parameters": {
+                "tenkan_period": tenkan_period,
+                "kijun_period": kijun_period,
+                "senkou_span_b_period": senkou_b_period,
+                "displacement": displacement
+            }
         }
-        
-        self.print_output(result)
-    
-    def _calculate_tenkan_sen(self, highs: List[float], lows: List[float]) -> List[float]:
-        """Tenkan-sen (Conversion Line): (9-period high + 9-period low) / 2"""
-        tenkan = []
-        period = self.param["tenkan_period"]
-        
-        for i in range(period - 1, len(highs)):
-            period_high = max(highs[i - period + 1:i + 1])
-            period_low = min(lows[i - period + 1:i + 1])
-            tenkan.append((period_high + period_low) / 2)
-        
-        return tenkan
-    
-    def _calculate_kijun_sen(self, highs: List[float], lows: List[float]) -> List[float]:
-        """Kijun-sen (Base Line): (26-period high + 26-period low) / 2"""
-        kijun = []
-        period = self.param["kijun_period"]
-        
-        for i in range(period - 1, len(highs)):
-            period_high = max(highs[i - period + 1:i + 1])
-            period_low = min(lows[i - period + 1:i + 1])
-            kijun.append((period_high + period_low) / 2)
-        
-        return kijun
-    
-    def _calculate_senkou_span_a(self, tenkan: List[float], kijun: List[float]) -> List[float]:
-        """Senkou Span A (Leading Span A): (Tenkan-sen + Kijun-sen) / 2, plotted 26 periods ahead"""
-        if not tenkan or not kijun:
-            return []
-        
-        min_len = min(len(tenkan), len(kijun))
-        senkou_a = []
-        
-        for i in range(min_len):
-            senkou_a.append((tenkan[i] + kijun[i]) / 2)
-        
-        return senkou_a
-    
-    def _calculate_senkou_span_b(self, highs: List[float], lows: List[float]) -> List[float]:
-        """Senkou Span B (Leading Span B): (52-period high + 52-period low) / 2, plotted 26 periods ahead"""
-        senkou_b = []
-        period = self.param["senkou_b_period"]
-        
-        for i in range(period - 1, len(highs)):
-            period_high = max(highs[i - period + 1:i + 1])
-            period_low = min(lows[i - period + 1:i + 1])
-            senkou_b.append((period_high + period_low) / 2)
-        
-        return senkou_b
-    
-    def _calculate_chikou_span(self, closes: List[float]) -> List[float]:
-        """Chikou Span (Lagging Span): Current close price plotted 26 periods behind"""
-        displacement = self.param["displacement"]
-        
-        if len(closes) < displacement:
-            return []
-        
-        return closes[-displacement:]
-    
-    def _analyze_cloud(self, current_price: float, senkou_a: List[float], senkou_b: List[float]) -> dict:
-        """Analyze cloud color, thickness, and price position"""
-        if not senkou_a or not senkou_b:
-            return {"color": "unknown", "position": "unknown", "thickness": 0}
-        
-        current_a = senkou_a[-1]
-        current_b = senkou_b[-1]
-        
-        # Cloud color (green if Senkou A > Senkou B, red otherwise)
-        cloud_color = "green" if current_a > current_b else "red"
-        
-        # Price position relative to cloud
-        cloud_top = max(current_a, current_b)
-        cloud_bottom = min(current_a, current_b)
-        
-        if current_price > cloud_top:
-            position = "above_cloud"
-        elif current_price < cloud_bottom:
-            position = "below_cloud"
-        else:
-            position = "inside_cloud"
-        
-        # Cloud thickness (distance between spans)
-        thickness = abs(current_a - current_b)
-        
-        return {
-            "color": cloud_color,
-            "position": position,
-            "thickness": thickness
-        }
-    
-    def _generate_signals(self, current_price: float, tenkan: List[float], kijun: List[float], 
-                         senkou_a: List[float], senkou_b: List[float], chikou: List[float]) -> dict:
-        """Generate Ichimoku trading signals"""
-        signals = {
-            "tenkan_kijun_cross": "none",
-            "price_cloud_breakout": "none",
-            "chikou_confirmation": "none",
-            "overall_signal": "none"
-        }
-        
-        if not tenkan or not kijun or len(tenkan) < 2 or len(kijun) < 2:
-            return signals
-        
-        # Tenkan-Kijun cross
-        if tenkan[-1] > kijun[-1] and tenkan[-2] <= kijun[-2]:
-            signals["tenkan_kijun_cross"] = "bullish"
-        elif tenkan[-1] < kijun[-1] and tenkan[-2] >= kijun[-2]:
-            signals["tenkan_kijun_cross"] = "bearish"
-        
-        # Price vs Cloud
-        if senkou_a and senkou_b:
-            cloud_top = max(senkou_a[-1], senkou_b[-1])
-            cloud_bottom = min(senkou_a[-1], senkou_b[-1])
-            
-            if current_price > cloud_top:
-                signals["price_cloud_breakout"] = "bullish"
-            elif current_price < cloud_bottom:
-                signals["price_cloud_breakout"] = "bearish"
-        
-        # Chikou confirmation
-        if chikou and len(self.ohlcv) >= self.param["displacement"]:
-            chikou_price = chikou[0]
-            historical_price = self.ohlcv[-(self.param["displacement"] + 1)][4]  # Close price 26 periods ago
-            
-            if chikou_price > historical_price:
-                signals["chikou_confirmation"] = "bullish"
-            elif chikou_price < historical_price:
-                signals["chikou_confirmation"] = "bearish"
-        
-        # Overall signal (all components must align)
-        bullish_signals = sum(1 for signal in signals.values() if signal == "bullish")
-        bearish_signals = sum(1 for signal in signals.values() if signal == "bearish")
-        
-        if bullish_signals >= 2 and bearish_signals == 0:
-            signals["overall_signal"] = "strong_bullish"
-        elif bullish_signals >= 1 and bearish_signals == 0:
-            signals["overall_signal"] = "bullish"
-        elif bearish_signals >= 2 and bullish_signals == 0:
-            signals["overall_signal"] = "strong_bearish"
-        elif bearish_signals >= 1 and bullish_signals == 0:
-            signals["overall_signal"] = "bearish"
-        else:
-            signals["overall_signal"] = "neutral"
-        
-        return signals
-    
-    def _assess_trend_strength(self, tenkan: List[float], kijun: List[float], 
-                              senkou_a: List[float], senkou_b: List[float]) -> str:
-        """Assess overall trend strength based on line alignment"""
-        if not all([tenkan, kijun, senkou_a, senkou_b]):
-            return "unknown"
-        
-        current_tenkan = tenkan[-1]
-        current_kijun = kijun[-1]
-        current_senkou_a = senkou_a[-1]
-        current_senkou_b = senkou_b[-1]
-        
-        # Perfect bullish alignment: Tenkan > Kijun > Senkou A > Senkou B
-        if (current_tenkan > current_kijun > current_senkou_a > current_senkou_b):
-            return "strong_bullish"
-        
-        # Perfect bearish alignment: Tenkan < Kijun < Senkou A < Senkou B
-        if (current_tenkan < current_kijun < current_senkou_a < current_senkou_b):
-            return "strong_bearish"
-        
-        # Partial alignments
-        bullish_count = 0
-        bearish_count = 0
-        
-        if current_tenkan > current_kijun:
-            bullish_count += 1
-        else:
-            bearish_count += 1
-        
-        if current_senkou_a > current_senkou_b:
-            bullish_count += 1
-        else:
-            bearish_count += 1
-        
-        if bullish_count > bearish_count:
-            return "moderate_bullish"
-        elif bearish_count > bullish_count:
-            return "moderate_bearish"
-        else:
-            return "neutral"
-    
-    def print_output(self, result: dict):
-        """Print the Ichimoku Cloud analysis output"""
-        print("\n" + "="*60)
-        print(f"ICHIMOKU CLOUD ANALYSIS - {result.get('symbol', 'N/A')} ({result.get('timeframe', 'N/A')})")
-        print("="*60)
-        
-        if "error" in result:
-            print(f"❌ Error: {result['error']}")
-            return
-        
-        # Current values
-        print(f"Current Price: {result.get('current_price', 'N/A'):.4f}")
-        print(f"Tenkan-sen (9): {result.get('tenkan_sen', 'N/A'):.4f}" if result.get('tenkan_sen') else "Tenkan-sen (9): N/A")
-        print(f"Kijun-sen (26): {result.get('kijun_sen', 'N/A'):.4f}" if result.get('kijun_sen') else "Kijun-sen (26): N/A")
-        print(f"Senkou Span A: {result.get('senkou_span_a', 'N/A'):.4f}" if result.get('senkou_span_a') else "Senkou Span A: N/A")
-        print(f"Senkou Span B: {result.get('senkou_span_b', 'N/A'):.4f}" if result.get('senkou_span_b') else "Senkou Span B: N/A")
-        print(f"Chikou Span: {result.get('chikou_span', 'N/A'):.4f}" if result.get('chikou_span') else "Chikou Span: N/A")
-        
-        # Cloud analysis
-        print(f"\n🌤️  CLOUD ANALYSIS:")
-        print(f"Cloud Color: {result.get('cloud_color', 'N/A').upper()}")
-        print(f"Price Position: {result.get('price_vs_cloud', 'N/A').replace('_', ' ').upper()}")
-        print(f"Cloud Thickness: {result.get('cloud_thickness', 'N/A'):.4f}" if result.get('cloud_thickness') else "Cloud Thickness: N/A")
-        
-        # Signals
-        signals = result.get('signals', {})
-        print(f"\n📊 TRADING SIGNALS:")
-        print(f"Tenkan/Kijun Cross: {signals.get('tenkan_kijun_cross', 'N/A').replace('_', ' ').upper()}")
-        print(f"Price/Cloud Breakout: {signals.get('price_cloud_breakout', 'N/A').replace('_', ' ').upper()}")
-        print(f"Chikou Confirmation: {signals.get('chikou_confirmation', 'N/A').replace('_', ' ').upper()}")
-        print(f"Overall Signal: {signals.get('overall_signal', 'N/A').replace('_', ' ').upper()}")
-        
-        # Trend strength
-        trend_strength = result.get('trend_strength', 'N/A').replace('_', ' ').upper()
-        print(f"\n📈 TREND STRENGTH: {trend_strength}")
-        

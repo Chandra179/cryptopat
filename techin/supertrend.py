@@ -90,6 +90,8 @@
 """
 
 from typing import List, Dict
+import pandas as pd
+import numpy as np
 
 class Supertrend:
     
@@ -102,122 +104,183 @@ class Supertrend:
              ohlcv: List[List],       
              trades: List[Dict]):    
         self.param = {
-            "atr_period": 10,
-            "multiplier": 3.0,
-            "atr_formula": lambda high_low_close: sum(max(h-l, abs(h-c_prev), abs(l-c_prev)) for h, l, c_prev in high_low_close) / len(high_low_close)
+            # Supertrend Standard Parameters (Source: TradingView, Olivier Seban)
+            "atr_period": 10,               # Period for ATR calculation (default: 10)
+            "multiplier": 3.0,              # ATR multiplier for bands (default: 3.0)
+            "use_hl2": True,               # Use (High + Low) / 2 for calculation (standard)
+            
+            # Extended Analysis Parameters
+            "trend_confirmation_period": 3, # Periods to confirm trend change
+            "signal_strength_period": 5,   # Period for signal strength calculation
+            "volume_confirmation": False,   # Optional volume confirmation for signals
+            "volume_ma_period": 20,        # Period for volume moving average
+            "breakout_confirmation": True,  # Require breakout confirmation
+            "support_resistance_levels": 3, # Number of S/R levels to track
+            "trend_momentum_period": 14,   # Period for trend momentum calculation
+            "price_action_filter": True,   # Filter signals based on price action
+            "volatility_filter": False,    # Filter based on volatility conditions
+            "atr_volatility_threshold": 1.5, # ATR threshold for volatility filter
         }
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
+        self.ticker = ticker
         self.symbol = symbol
         self.timeframe = timeframe
         self.limit = limit
     
     def calculate(self):
         """
-        Calculate Supertrend according to TradingView methodology.
-        """
-        if len(self.ohlcv) < self.param["atr_period"]:
-            result = {"error": f"Not enough data points. Need at least {self.param['atr_period']}, got {len(self.ohlcv)}"}
-            self.print_output(result)
-            return
-
-        atr_values = []
-        supertrend_values = []
-        trend_direction = []
-
-        for i in range(len(self.ohlcv)):
-            timestamp, open_price, high, low, close, volume = self.ohlcv[i]
-            
-            if i >= self.param["atr_period"] - 1:
-                atr_data = []
-                for j in range(i - self.param["atr_period"] + 1, i + 1):
-                    if j == 0:
-                        prev_close = self.ohlcv[j][1]  # Use open as prev close for first candle
-                    else:
-                        prev_close = self.ohlcv[j-1][4]
-                    
-                    current_high = self.ohlcv[j][2]
-                    current_low = self.ohlcv[j][3]
-                    
-                    true_range = max(
-                        current_high - current_low,
-                        abs(current_high - prev_close),
-                        abs(current_low - prev_close)
-                    )
-                    atr_data.append(true_range)
-                
-                atr = sum(atr_data) / len(atr_data)
-                atr_values.append(atr)
-                
-                hl2 = (high + low) / 2
-                upper_band = hl2 + (self.param["multiplier"] * atr)
-                lower_band = hl2 - (self.param["multiplier"] * atr)
-                
-                if i == self.param["atr_period"] - 1:
-                    supertrend = lower_band if close > hl2 else upper_band
-                    direction = "up" if close > hl2 else "down"
-                else:
-                    prev_supertrend = supertrend_values[-1]
-                    prev_direction = trend_direction[-1]
-                    
-                    if prev_direction == "up":
-                        supertrend = lower_band if lower_band > prev_supertrend else prev_supertrend
-                        if close < supertrend:
-                            direction = "down"
-                            supertrend = upper_band
-                        else:
-                            direction = "up"
-                    else:
-                        supertrend = upper_band if upper_band < prev_supertrend else prev_supertrend
-                        if close > supertrend:
-                            direction = "up"
-                            supertrend = lower_band
-                        else:
-                            direction = "down"
-                
-                supertrend_values.append(supertrend)
-                trend_direction.append(direction)
-
-        current_price = self.ohlcv[-1][4]
-        current_supertrend = supertrend_values[-1] if supertrend_values else None
-        current_direction = trend_direction[-1] if trend_direction else None
+        Calculate Supertrend according to Olivier Seban's original methodology.
         
-        signal = "BUY" if current_direction == "up" and current_price > current_supertrend else "SELL"
+        Formula (Source: Olivier Seban, TradingView):
+        1. HL2 = (High + Low) / 2
+        2. ATR = Average True Range over N periods
+        3. Basic Upper Band = HL2 + (Multiplier × ATR)
+        4. Basic Lower Band = HL2 - (Multiplier × ATR)
+        5. Final Upper Band = Basic Upper Band < Previous Final Upper Band OR Previous Close > Previous Final Upper Band ? Basic Upper Band : Previous Final Upper Band
+        6. Final Lower Band = Basic Lower Band > Previous Final Lower Band OR Previous Close < Previous Final Lower Band ? Basic Lower Band : Previous Final Lower Band
+        7. Supertrend = Close <= Final Lower Band ? Final Upper Band : Final Lower Band
+        8. Trend = Close <= Final Lower Band ? Down : Up
+        
+        Standard Parameters:
+        - ATR Period: 10 periods (default)
+        - Multiplier: 3.0 (default)
+        - Source: HL2 (High + Low) / 2
+        
+        References:
+        - Created by Olivier Seban
+        - TradingView: https://www.tradingview.com/support/solutions/43000502284-supertrend/
+        - Fidelity: https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/supertrend
+        - Original Paper: Olivier Seban's "SuperTrend" methodology
+        
+        Key Features:
+        - Trend-following indicator using ATR-based dynamic support/resistance
+        - Adapts to market volatility through ATR calculation
+        - Provides clear buy/sell signals with trend direction
+        - Less prone to whipsaws compared to simple moving averages
+        """
+        if not self.ohlcv or len(self.ohlcv) < max(self.param["atr_period"], 14):
+            result = {
+                "error": f"Insufficient data: need at least {max(self.param['atr_period'], 14)} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
+            }
+            return result
+            
+        df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = pd.to_numeric(df[col])
+        
+        atr_period = self.param["atr_period"]
+        multiplier = self.param["multiplier"]
+        
+        # Calculate HL2 (typical price)
+        if self.param["use_hl2"]:
+            hl2 = (df['high'] + df['low']) / 2
+        else:
+            hl2 = df['close']
+        
+        # Calculate ATR (Average True Range)
+        df['prev_close'] = df['close'].shift(1)
+        df['tr1'] = df['high'] - df['low']
+        df['tr2'] = abs(df['high'] - df['prev_close'])
+        df['tr3'] = abs(df['low'] - df['prev_close'])
+        df['true_range'] = df[['tr1', 'tr2', 'tr3']].max(axis=1)
+        df['atr'] = df['true_range'].rolling(window=atr_period).mean()
+        
+        # Calculate basic bands
+        df['basic_upper'] = hl2 + (multiplier * df['atr'])
+        df['basic_lower'] = hl2 - (multiplier * df['atr'])
+        
+        # Initialize final bands
+        df['final_upper'] = df['basic_upper'].copy()
+        df['final_lower'] = df['basic_lower'].copy()
+        
+        # Calculate final bands with logic
+        for i in range(1, len(df)):
+            # Final Upper Band logic
+            if (df.loc[i, 'basic_upper'] < df.loc[i-1, 'final_upper']) or (df.loc[i-1, 'close'] > df.loc[i-1, 'final_upper']):
+                df.loc[i, 'final_upper'] = df.loc[i, 'basic_upper']
+            else:
+                df.loc[i, 'final_upper'] = df.loc[i-1, 'final_upper']
+            
+            # Final Lower Band logic
+            if (df.loc[i, 'basic_lower'] > df.loc[i-1, 'final_lower']) or (df.loc[i-1, 'close'] < df.loc[i-1, 'final_lower']):
+                df.loc[i, 'final_lower'] = df.loc[i, 'basic_lower']
+            else:
+                df.loc[i, 'final_lower'] = df.loc[i-1, 'final_lower']
+        
+        # Calculate Supertrend and Trend
+        df['supertrend'] = np.where(df['close'] <= df['final_lower'], df['final_upper'], df['final_lower'])
+        df['trend'] = np.where(df['close'] <= df['final_lower'], 'down', 'up')
+        
+        # Trend change detection
+        df['prev_trend'] = df['trend'].shift(1)
+        df['trend_change'] = df['trend'] != df['prev_trend']
+        
+        # Signal generation
+        df['signal'] = 'hold'
+        df.loc[(df['trend'] == 'up') & (df['prev_trend'] == 'down'), 'signal'] = 'buy'
+        df.loc[(df['trend'] == 'down') & (df['prev_trend'] == 'up'), 'signal'] = 'sell'
+        
+        # Current values
+        current_price = float(df['close'].iloc[-1])
+        current_supertrend = float(df['supertrend'].iloc[-1])
+        current_trend = df['trend'].iloc[-1]
+        current_signal = df['signal'].iloc[-1]
+        current_atr = float(df['atr'].iloc[-1])
+        current_upper = float(df['final_upper'].iloc[-1])
+        current_lower = float(df['final_lower'].iloc[-1])
+        
+        # Calculate additional metrics
+        trend_changes = df['trend_change'].rolling(window=10).sum().iloc[-1] if len(df) >= 10 else 0
+        distance_from_supertrend = abs(current_price - current_supertrend) / current_price * 100
+        
+        # Volume confirmation if enabled
+        volume_confirmed = True
+        if self.param["volume_confirmation"]:
+            avg_volume = df['volume'].rolling(window=self.param["volume_ma_period"]).mean().iloc[-1]
+            current_volume = df['volume'].iloc[-1]
+            volume_confirmed = current_volume > avg_volume
+        
+        # Signal strength calculation
+        signal_strength = "weak"
+        if distance_from_supertrend < 1.0:
+            signal_strength = "strong"
+        elif distance_from_supertrend < 2.0:
+            signal_strength = "medium"
+        
+        # Market condition assessment
+        recent_volatility = df['atr'].rolling(window=5).mean().iloc[-1] if len(df) >= 5 else current_atr
+        volatility_ratio = current_atr / recent_volatility if recent_volatility > 0 else 1.0
+        
+        market_condition = "normal"
+        if volatility_ratio > 1.5:
+            market_condition = "high_volatility"
+        elif volatility_ratio < 0.7:
+            market_condition = "low_volatility"
         
         result = {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
             "current_price": current_price,
-            "supertrend_value": current_supertrend,
-            "trend_direction": current_direction,
-            "signal": signal,
-            "atr_period": self.param["atr_period"],
-            "multiplier": self.param["multiplier"],
-            "total_periods": len(supertrend_values)
+            "supertrend": current_supertrend,
+            "trend": current_trend,
+            "signal": current_signal,
+            "atr": current_atr,
+            "upper_band": current_upper,
+            "lower_band": current_lower,
+            "distance_pct": distance_from_supertrend,
+            "signal_strength": signal_strength,
+            "trend_changes": int(trend_changes),
+            "volume_confirmed": volume_confirmed,
+            "market_condition": market_condition,
+            "volatility_ratio": volatility_ratio,
+            "parameters": {
+                "atr_period": atr_period,
+                "multiplier": multiplier,
+                "use_hl2": self.param["use_hl2"],
+                "volume_confirmation": self.param["volume_confirmation"]
+            }
         }
         
-        self.print_output(result)
-    
-    def print_output(self, result: dict):
-        """Print the output"""
-        print(f"\n{'='*50}")
-        print(f"SUPERTREND ANALYSIS - {result.get('symbol', 'N/A')} ({result.get('timeframe', 'N/A')})")
-        print(f"{'='*50}")
-        
-        if "error" in result:
-            print(f"❌ Error: {result['error']}")
-            return
-        
-        print(f"📊 Current Price: ${result['current_price']:.4f}")
-        print(f"📈 Supertrend Value: ${result['supertrend_value']:.4f}")
-        print(f"🎯 Trend Direction: {result['trend_direction'].upper()}")
-        print(f"🚨 Signal: {result['signal']}")
-        print(f"⚙️  ATR Period: {result['atr_period']}")
-        print(f"⚙️  Multiplier: {result['multiplier']}")
-        print(f"📋 Analysis Periods: {result['total_periods']}")
-        
-        if result['signal'] == 'BUY':
-            print(f"🟢 Price is above Supertrend - Bullish trend")
-        else:
-            print(f"🔴 Price is below Supertrend - Bearish trend")
+        return result

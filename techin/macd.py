@@ -103,159 +103,188 @@ class MACD:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.rules = {
-            "fast_period": 12,
-            "slow_period": 26,
-            "signal_period": 9,
-            "price_source": "close"
+        self.param = {
+            # Gerald Appel's Standard Parameters (Source: TradingView, Investopedia, StockCharts)
+            "fast_period": 12,               # Fast EMA period (Appel default)
+            "slow_period": 26,               # Slow EMA period (Appel default)
+            "signal_period": 9,              # Signal line EMA period (Appel default)
+            "price_source": "close",         # Standard source for calculation
+            
+            # Signal Detection Parameters
+            "zero_line_threshold": 0.0001,   # Threshold for zero line crossover detection
+            "signal_threshold": 0.0001,      # Threshold for signal line crossover detection
+            "divergence_lookback": 14,       # Periods to look back for divergence detection
+            "histogram_threshold": 0.001,    # Threshold for histogram reversal signals
+            "trend_confirmation_periods": 3, # Periods to confirm trend direction
+            "overbought_threshold": None,    # No standard overbought level for MACD
+            "oversold_threshold": None,      # No standard oversold level for MACD
+            
+            # Advanced Analysis Parameters
+            "momentum_smoothing": False,     # Optional smoothing for momentum calculation
+            "use_percentage": False,         # Use MACD percentage instead of absolute values
+            "centerline_oscillation": True, # Track centerline oscillations
+            "histogram_divergence": True,   # Enable histogram divergence detection
         }
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
+        self.ticker = ticker
         self.symbol = symbol
         self.timeframe = timeframe
         self.limit = limit
     
-    def calculate_ema(self, prices: List[float], period: int) -> List[float]:
-        """Calculate Exponential Moving Average"""
-        if len(prices) < period:
-            return [np.nan] * len(prices)
-        
-        ema_values = []
-        multiplier = 2 / (period + 1)
-        
-        # First EMA value is SMA
-        sma = sum(prices[:period]) / period
-        ema_values.append(sma)
-        
-        # Calculate subsequent EMA values
-        for i in range(1, len(prices) - period + 1):
-            ema = (prices[period + i - 1] * multiplier) + (ema_values[-1] * (1 - multiplier))
-            ema_values.append(ema)
-        
-        # Pad with NaN for the initial period
-        return [np.nan] * (period - 1) + ema_values
-    
     def calculate(self):
         """
-        Calculate MACD according to TradingView methodology.
-        MACD = EMA(12) - EMA(26)
-        Signal Line = EMA(9) of MACD
-        Histogram = MACD - Signal Line
+        Calculate MACD (Moving Average Convergence Divergence) according to Gerald Appel's original methodology.
+        
+        Formula (Source: Gerald Appel, TradingView, Investopedia, StockCharts):
+        - MACD Line = EMA(12) - EMA(26)
+        - Signal Line = EMA(9) of MACD Line
+        - Histogram = MACD Line - Signal Line
+        
+        Standard Parameters:
+        - Fast EMA: 12 periods (default)
+        - Slow EMA: 26 periods (default)
+        - Signal EMA: 9 periods (default)
+        - Source: Close price
+        
+        References:
+        - Created by Gerald Appel in the late 1970s
+        - TradingView: https://www.tradingview.com/support/solutions/43000502344-macd-moving-average-convergence-divergence/
+        - Investopedia: https://www.investopedia.com/terms/m/macd.asp
+        - StockCharts: https://school.stockcharts.com/doku.php?id=technical_indicators:moving_average_convergence_divergence_macd
+        
+        Signal Interpretation:
+        - MACD above zero: Upward momentum (fast EMA > slow EMA)
+        - MACD below zero: Downward momentum (fast EMA < slow EMA)
+        - MACD crosses above signal: Bullish signal
+        - MACD crosses below signal: Bearish signal
+        - Histogram expansion: Momentum increasing
+        - Histogram contraction: Momentum decreasing
+        
+        Common Variations:
+        - MACD(5,35,5): More sensitive for short-term trading
+        - MACD(19,39,9): Less sensitive for longer-term analysis
         """
-        if not self.ohlcv or len(self.ohlcv) < self.rules["slow_period"]:
-            result = {
-                "error": f"Insufficient data: need at least {self.rules['slow_period']} candles for MACD calculation"
+        if not self.ohlcv or len(self.ohlcv) < self.param["slow_period"]:
+            return {
+                "error": f"Insufficient data: need at least {self.param['slow_period']} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
-            self.print_output(result)
-            return
-
-        # Extract closing prices
-        closes = [float(candle[4]) for candle in self.ohlcv]
+            
+        df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['close'] = pd.to_numeric(df['close'])
+        
+        fast_period = self.param["fast_period"]
+        slow_period = self.param["slow_period"]
+        signal_period = self.param["signal_period"]
         
         # Calculate EMAs
-        ema_fast = self.calculate_ema(closes, self.rules["fast_period"])
-        ema_slow = self.calculate_ema(closes, self.rules["slow_period"])
+        fast_ema = df['close'].ewm(span=fast_period).mean()
+        slow_ema = df['close'].ewm(span=slow_period).mean()
         
-        # Calculate MACD line
-        macd_line = []
-        for i in range(len(closes)):
-            if pd.isna(ema_fast[i]) or pd.isna(ema_slow[i]):
-                macd_line.append(np.nan)
-            else:
-                macd_line.append(ema_fast[i] - ema_slow[i])
+        # Calculate MACD Line
+        macd_line = fast_ema - slow_ema
         
-        # Remove NaN values for signal calculation
-        macd_clean = [x for x in macd_line if not pd.isna(x)]
+        # Calculate Signal Line (EMA of MACD)
+        signal_line = macd_line.ewm(span=signal_period).mean()
         
-        if len(macd_clean) < self.rules["signal_period"]:
-            result = {
-                "error": f"Insufficient MACD data for signal calculation: need at least {self.rules['signal_period']} values"
-            }
-            self.print_output(result)
-            return
+        # Calculate Histogram
+        histogram = macd_line - signal_line
         
-        # Calculate signal line (EMA of MACD)
-        signal_line = self.calculate_ema(macd_clean, self.rules["signal_period"])
+        # Current values
+        current_price = float(df['close'].iloc[-1])
+        current_macd = float(macd_line.iloc[-1])
+        current_signal = float(signal_line.iloc[-1])
+        current_histogram = float(histogram.iloc[-1])
+        current_fast_ema = float(fast_ema.iloc[-1])
+        current_slow_ema = float(slow_ema.iloc[-1])
         
-        # Calculate histogram
-        histogram = []
-        signal_start_idx = len(macd_line) - len(signal_line)
+        # Signal detection
+        signal = "neutral"
         
-        for i in range(len(macd_line)):
-            if i < signal_start_idx or pd.isna(macd_line[i]):
-                histogram.append(np.nan)
-            else:
-                signal_idx = i - signal_start_idx
-                if signal_idx < len(signal_line) and not pd.isna(signal_line[signal_idx]):
-                    histogram.append(macd_line[i] - signal_line[signal_idx])
-                else:
-                    histogram.append(np.nan)
+        # Zero line crossover
+        if len(macd_line) >= 2:
+            prev_macd = float(macd_line.iloc[-2])
+            zero_crossover_up = prev_macd <= 0 and current_macd > self.param["zero_line_threshold"]
+            zero_crossover_down = prev_macd >= 0 and current_macd < -self.param["zero_line_threshold"]
+        else:
+            zero_crossover_up = False
+            zero_crossover_down = False
         
-        # Get latest values
-        current_macd = macd_line[-1] if macd_line and not pd.isna(macd_line[-1]) else None
-        current_signal = signal_line[-1] if signal_line and not pd.isna(signal_line[-1]) else None
-        current_histogram = histogram[-1] if histogram and not pd.isna(histogram[-1]) else None
+        # Signal line crossover
+        if len(signal_line) >= 2:
+            prev_signal = float(signal_line.iloc[-2])
+            prev_macd_sig = float(macd_line.iloc[-2])
+            signal_crossover_up = (prev_macd_sig <= prev_signal and 
+                                 current_macd > current_signal + self.param["signal_threshold"])
+            signal_crossover_down = (prev_macd_sig >= prev_signal and 
+                                   current_macd < current_signal - self.param["signal_threshold"])
+        else:
+            signal_crossover_up = False
+            signal_crossover_down = False
         
-        # Determine trend and crossover signals
-        trend = None
-        crossover = None
+        # Histogram momentum
+        if len(histogram) >= 2:
+            prev_histogram = float(histogram.iloc[-2])
+            histogram_increasing = current_histogram > prev_histogram
+            histogram_decreasing = current_histogram < prev_histogram
+        else:
+            histogram_increasing = False
+            histogram_decreasing = False
         
-        if current_macd is not None and current_signal is not None:
-            trend = "Bullish" if current_macd > current_signal else "Bearish"
-            
-            # Check for crossovers (need at least 2 values)
-            if len(macd_line) >= 2 and len(signal_line) >= 2:
-                prev_macd = macd_line[-2] if not pd.isna(macd_line[-2]) else None
-                prev_signal = signal_line[-2] if len(signal_line) >= 2 and not pd.isna(signal_line[-2]) else None
-                
-                if prev_macd is not None and prev_signal is not None:
-                    if prev_macd <= prev_signal and current_macd > current_signal:
-                        crossover = "Bullish Crossover"
-                    elif prev_macd >= prev_signal and current_macd < current_signal:
-                        crossover = "Bearish Crossover"
-
+        # Overall signal determination
+        if zero_crossover_up:
+            signal = "bullish_zero_cross"
+        elif zero_crossover_down:
+            signal = "bearish_zero_cross"
+        elif signal_crossover_up:
+            signal = "bullish_signal_cross"
+        elif signal_crossover_down:
+            signal = "bearish_signal_cross"
+        elif current_macd > 0 and current_macd > current_signal and histogram_increasing:
+            signal = "bullish_momentum"
+        elif current_macd < 0 and current_macd < current_signal and histogram_decreasing:
+            signal = "bearish_momentum"
+        elif current_macd > 0 and histogram_decreasing:
+            signal = "weakening_bullish"
+        elif current_macd < 0 and histogram_increasing:
+            signal = "weakening_bearish"
+        
+        # Trend analysis
+        trend = "neutral"
+        if current_macd > 0:
+            trend = "bullish"
+        elif current_macd < 0:
+            trend = "bearish"
+        
+        # Momentum strength
+        momentum_strength = abs(current_histogram) / abs(current_macd) if current_macd != 0 else 0
+        
         result = {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
-            "timestamp": self.ohlcv[-1][0] if self.ohlcv else None,
-            "current_price": closes[-1] if closes else None,
-            "macd_line": round(current_macd, 6) if current_macd is not None else None,
-            "signal_line": round(current_signal, 6) if current_signal is not None else None,
-            "histogram": round(current_histogram, 6) if current_histogram is not None else None,
+            "current_price": current_price,
+            "macd_line": current_macd,
+            "signal_line": current_signal,
+            "histogram": current_histogram,
+            "fast_ema": current_fast_ema,
+            "slow_ema": current_slow_ema,
+            "signal": signal,
             "trend": trend,
-            "crossover": crossover,
+            "momentum_strength": momentum_strength,
+            "zero_crossover_up": zero_crossover_up,
+            "zero_crossover_down": zero_crossover_down,
+            "signal_crossover_up": signal_crossover_up,
+            "signal_crossover_down": signal_crossover_down,
+            "histogram_increasing": histogram_increasing,
+            "histogram_decreasing": histogram_decreasing,
             "parameters": {
-                "fast_ema": self.rules["fast_period"],
-                "slow_ema": self.rules["slow_period"],
-                "signal_ema": self.rules["signal_period"]
+                "fast_period": fast_period,
+                "slow_period": slow_period,
+                "signal_period": signal_period,
+                "zero_line_threshold": self.param["zero_line_threshold"],
+                "signal_threshold": self.param["signal_threshold"]
             }
         }
         
-        self.print_output(result)
-    
-    def print_output(self, result: dict):
-        """ print the output """
-        print("\n" + "="*50)
-        print(f"MACD Analysis for {result.get('symbol', 'N/A')}")
-        print("="*50)
-        
-        if "error" in result:
-            print(f"Error: {result['error']}")
-            return
-        
-        print(f"Timeframe: {result.get('timeframe', 'N/A')}")
-        print(f"Current Price: ${result.get('current_price', 'N/A')}")
-        print(f"MACD Line: {result.get('macd_line', 'N/A')}")
-        print(f"Signal Line: {result.get('signal_line', 'N/A')}")
-        print(f"Histogram: {result.get('histogram', 'N/A')}")
-        print(f"Trend: {result.get('trend', 'N/A')}")
-        
-        if result.get('crossover'):
-            print(f"Signal: {result['crossover']}")
-        
-        params = result.get('parameters', {})
-        print(f"\nParameters:")
-        print(f"  Fast EMA: {params.get('fast_ema', 'N/A')}")
-        print(f"  Slow EMA: {params.get('slow_ema', 'N/A')}")
-        print(f"  Signal EMA: {params.get('signal_ema', 'N/A')}")
+        return result

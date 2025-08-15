@@ -89,6 +89,9 @@
 ]
 """
 from typing import List, Dict
+import pandas as pd
+import numpy as np
+
 
 class Renko:
     
@@ -101,253 +104,350 @@ class Renko:
              ohlcv: List[List],       
              trades: List[Dict]):    
         self.param = {
-            "brick_size_percentage": 0.01,
-            "atr_multiplier": 2.0,
-            "min_bricks_for_trend": 3,
-            "reversal_threshold": 2,
-            "price_precision": 2
+            # Standard Renko Parameters (Source: Steve Nison, TradingView)
+            "brick_size": None,              # Auto-calculate if None, otherwise fixed size
+            "auto_brick_method": "atr",      # 'atr', 'percent', 'fixed' methods for auto brick size
+            "atr_period": 14,               # ATR period for auto brick size calculation
+            "atr_multiplier": 1.0,          # ATR multiplier for brick size (Nison recommends 0.5-2.0)
+            "percent_size": 0.5,            # Percentage for percent-based brick size (0.5% default)
+            "price_source": "close",        # Price source: 'close', 'typical', 'hl2'
+            "wick_calculation": True,       # Include wicks in brick formation
+            "trend_reversal_bricks": 2,     # Number of bricks needed for trend reversal
+            
+            # Signal Generation Parameters
+            "min_trend_bricks": 3,          # Minimum bricks to confirm trend
+            "breakout_lookback": 5,         # Lookback periods for support/resistance
+            "volume_confirmation": False,    # Use volume for signal confirmation
+            "rsi_filter": False,            # Use RSI filter for overbought/oversold
+            "rsi_period": 14,              # RSI period for filtering
+            "rsi_overbought": 70,          # RSI overbought threshold
+            "rsi_oversold": 30,            # RSI oversold threshold
         }
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
+        self.ticker = ticker
         self.symbol = symbol
         self.timeframe = timeframe
         self.limit = limit
     
-    def calculate_atr(self, period=14):
-        """Calculate Average True Range for dynamic brick sizing"""
-        if len(self.ohlcv) < period:
-            return None
-        
-        true_ranges = []
-        for i in range(1, min(len(self.ohlcv), period + 1)):
-            high = self.ohlcv[i][2]
-            low = self.ohlcv[i][3]
-            prev_close = self.ohlcv[i-1][4]
-            
-            tr = max(
-                high - low,
-                abs(high - prev_close),
-                abs(low - prev_close)
-            )
-            true_ranges.append(tr)
-        
-        return sum(true_ranges) / len(true_ranges) if true_ranges else None
-    
-    def calculate_brick_size(self):
-        """Calculate optimal brick size using ATR or percentage method"""
-        current_price = self.ohlcv[-1][4]
-        
-        atr = self.calculate_atr()
-        if atr:
-            return round(atr * self.param["atr_multiplier"], self.param["price_precision"])
-        else:
-            return round(current_price * self.param["brick_size_percentage"], self.param["price_precision"])
-    
-    def build_renko_bricks(self):
-        """Convert OHLCV data to Renko bricks"""
-        if len(self.ohlcv) < 2:
-            return []
-        
-        brick_size = self.calculate_brick_size()
-        bricks = []
-        
-        start_price = self.ohlcv[0][4]
-        current_brick_level = round(start_price / brick_size) * brick_size
-        
-        for candle in self.ohlcv[1:]:
-            high, low, close = candle[2], candle[3], candle[4]
-            timestamp = candle[0]
-            
-            while close >= current_brick_level + brick_size:
-                current_brick_level += brick_size
-                bricks.append({
-                    'timestamp': timestamp,
-                    'open': current_brick_level - brick_size,
-                    'close': current_brick_level,
-                    'direction': 'up',
-                    'brick_size': brick_size
-                })
-            
-            while close <= current_brick_level - brick_size:
-                current_brick_level -= brick_size
-                bricks.append({
-                    'timestamp': timestamp,
-                    'open': current_brick_level + brick_size,
-                    'close': current_brick_level,
-                    'direction': 'down',
-                    'brick_size': brick_size
-                })
-        
-        return bricks
-    
-    def identify_trend(self, bricks):
-        """Identify current trend based on consecutive brick direction"""
-        if len(bricks) < self.param["min_bricks_for_trend"]:
-            return "neutral"
-        
-        recent_bricks = bricks[-self.param["min_bricks_for_trend"]:]
-        directions = [brick['direction'] for brick in recent_bricks]
-        
-        if all(d == 'up' for d in directions):
-            return "uptrend"
-        elif all(d == 'down' for d in directions):
-            return "downtrend"
-        else:
-            return "sideways"
-    
-    def detect_reversals(self, bricks):
-        """Detect potential trend reversals"""
-        if len(bricks) < 4:
-            return []
-        
-        reversals = []
-        
-        for i in range(self.param["reversal_threshold"], len(bricks)):
-            current_direction = bricks[i]['direction']
-            prev_directions = [bricks[j]['direction'] for j in range(i - self.param["reversal_threshold"], i)]
-            
-            if (current_direction == 'up' and all(d == 'down' for d in prev_directions)) or \
-               (current_direction == 'down' and all(d == 'up' for d in prev_directions)):
-                reversals.append({
-                    'index': i,
-                    'price': bricks[i]['close'],
-                    'direction': current_direction,
-                    'timestamp': bricks[i]['timestamp']
-                })
-        
-        return reversals
-    
-    def calculate_support_resistance(self, bricks):
-        """Calculate support and resistance levels from Renko bricks"""
-        if not bricks:
-            return {"support": [], "resistance": []}
-        
-        levels = {}
-        for brick in bricks:
-            price = brick['close']
-            if price in levels:
-                levels[price] += 1
-            else:
-                levels[price] = 1
-        
-        sorted_levels = sorted(levels.items(), key=lambda x: x[1], reverse=True)
-        current_price = bricks[-1]['close']
-        
-        support = [level[0] for level in sorted_levels[:3] if level[0] < current_price]
-        resistance = [level[0] for level in sorted_levels[:3] if level[0] > current_price]
-        
-        return {
-            "support": sorted(support, reverse=True)[:2],
-            "resistance": sorted(resistance)[:2]
-        }
-    
     def calculate(self):
         """
-        Calculate Renko chart analysis according to TradingView methodology.
+        Calculate Renko chart according to Steve Nison's methodology.
+        
+        Renko charts filter out time and focus purely on price movement,
+        creating bricks only when price moves by a predetermined amount.
+        
+        Algorithm:
+        1. Determine brick size (fixed, ATR-based, or percentage-based)
+        2. Starting from first price, create bricks when price moves >= brick_size
+        3. For upward movement: create white/green bricks
+        4. For downward movement: create black/red bricks
+        5. Reversal requires movement of 2x brick_size in opposite direction
+        
+        Formula (Source: Steve Nison, TradingView):
+        - Brick Size (ATR): ATR(period) × multiplier
+        - Brick Size (Percent): Current Price × (percent / 100)
+        - New Brick Condition: |Price - Last Brick Close| >= Brick Size
+        - Reversal Condition: |Price - Last Brick Close| >= (2 × Brick Size)
+        
+        References:
+        - Created by Steve Nison, popularized in "Beyond Candlesticks" (1994)
+        - Originally from Japanese rice trading (18th century)
+        - TradingView: https://www.tradingview.com/support/solutions/43000502284-renko/
+        - Fidelity: https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/renko-chart
+        - Wikipedia: https://en.wikipedia.org/wiki/Renko_chart
+        
+        Key Characteristics:
+        - Time-independent: Only price movement matters
+        - Trend clarity: Easier to spot trends without noise
+        - Support/Resistance: Clear levels from brick patterns
+        - Signal generation: Breakouts from brick patterns
         """
-        if len(self.ohlcv) < 2:
-            result = {"error": "Insufficient data for Renko analysis"}
-            self.print_output(result)
-            return
+        if not self.ohlcv or len(self.ohlcv) < 20:
+            return {
+                "error": f"Insufficient data: need at least 20 candles, got {len(self.ohlcv) if self.ohlcv else 0}"
+            }
+            
+        df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['close'] = pd.to_numeric(df['close'])
+        df['high'] = pd.to_numeric(df['high'])
+        df['low'] = pd.to_numeric(df['low'])
+        df['open'] = pd.to_numeric(df['open'])
+        df['volume'] = pd.to_numeric(df['volume'])
         
-        brick_size = self.calculate_brick_size()
-        bricks = self.build_renko_bricks()
+        # Calculate price source
+        if self.param["price_source"] == "typical":
+            prices = (df['high'] + df['low'] + df['close']) / 3
+        elif self.param["price_source"] == "hl2":
+            prices = (df['high'] + df['low']) / 2
+        else:  # close
+            prices = df['close']
         
-        if not bricks:
-            result = {"error": "No Renko bricks generated"}
-            self.print_output(result)
-            return
+        # Calculate brick size
+        brick_size = self._calculate_brick_size(df, prices)
         
-        trend = self.identify_trend(bricks)
-        reversals = self.detect_reversals(bricks)
-        levels = self.calculate_support_resistance(bricks)
+        # Generate Renko bricks
+        renko_data = self._generate_renko_bricks(df, prices, brick_size)
+        
+        if len(renko_data) < 2:
+            return {
+                "error": "Insufficient price movement to generate Renko bricks"
+            }
+        
+        # Analyze current trend and signals
+        trend_analysis = self._analyze_trend(renko_data)
+        signals = self._generate_signals(renko_data, df)
+        
+        # Current values
+        current_price = float(prices.iloc[-1])
+        last_brick = renko_data[-1]
         
         result = {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
-            "current_price": self.ohlcv[-1][4],
+            "current_price": current_price,
             "brick_size": brick_size,
-            "total_bricks": len(bricks),
-            "trend": trend,
-            "last_brick_direction": bricks[-1]['direction'] if bricks else None,
-            "recent_reversals": len(reversals),
-            "support_levels": levels["support"],
-            "resistance_levels": levels["resistance"],
-            "trend_strength": {
-                "consecutive_same_direction": self._count_consecutive_direction(bricks),
-                "price_range": {
-                    "high": max(brick['close'] for brick in bricks[-10:]) if len(bricks) >= 10 else None,
-                    "low": min(brick['close'] for brick in bricks[-10:]) if len(bricks) >= 10 else None
-                }
+            "total_bricks": len(renko_data),
+            "last_brick": {
+                "open": last_brick['open'],
+                "close": last_brick['close'],
+                "direction": last_brick['direction'],
+                "timestamp": last_brick['timestamp']
             },
-            "signals": self._generate_signals(trend, bricks, reversals)
+            "trend": trend_analysis["current_trend"],
+            "trend_strength": trend_analysis["trend_strength"],
+            "consecutive_bricks": trend_analysis["consecutive_bricks"],
+            "support_level": trend_analysis["support_level"],
+            "resistance_level": trend_analysis["resistance_level"],
+            "signal": signals["primary_signal"],
+            "signal_strength": signals["signal_strength"],
+            "reversal_alert": signals["reversal_alert"],
+            "breakout_alert": signals["breakout_alert"],
+            "parameters": {
+                "brick_size": brick_size,
+                "auto_brick_method": self.param["auto_brick_method"],
+                "atr_period": self.param["atr_period"] if self.param["auto_brick_method"] == "atr" else None,
+                "atr_multiplier": self.param["atr_multiplier"] if self.param["auto_brick_method"] == "atr" else None,
+                "percent_size": self.param["percent_size"] if self.param["auto_brick_method"] == "percent" else None,
+                "price_source": self.param["price_source"],
+                "min_trend_bricks": self.param["min_trend_bricks"]
+            },
+            "renko_bricks": renko_data[-10:] if len(renko_data) >= 10 else renko_data  # Last 10 bricks
         }
         
-        self.print_output(result)
+        return result
     
-    def _count_consecutive_direction(self, bricks):
-        """Count consecutive bricks in the same direction"""
-        if not bricks:
-            return 0
+    def _calculate_brick_size(self, df: pd.DataFrame, prices: pd.Series) -> float:
+        """Calculate brick size based on the selected method."""
+        if self.param["brick_size"] is not None:
+            return float(self.param["brick_size"])
         
-        count = 1
-        last_direction = bricks[-1]['direction']
+        method = self.param["auto_brick_method"]
         
-        for i in range(len(bricks) - 2, -1, -1):
-            if bricks[i]['direction'] == last_direction:
-                count += 1
+        if method == "atr":
+            # ATR-based brick size (Steve Nison's preferred method)
+            atr_period = self.param["atr_period"]
+            high_low = df['high'] - df['low']
+            high_close_prev = abs(df['high'] - df['close'].shift(1))
+            low_close_prev = abs(df['low'] - df['close'].shift(1))
+            
+            true_range = pd.concat([high_low, high_close_prev, low_close_prev], axis=1).max(axis=1)
+            atr = true_range.rolling(window=atr_period).mean().iloc[-1]
+            
+            brick_size = atr * self.param["atr_multiplier"]
+            
+        elif method == "percent":
+            # Percentage-based brick size
+            current_price = prices.iloc[-1]
+            brick_size = current_price * (self.param["percent_size"] / 100)
+            
+        else:  # fixed - use a reasonable default
+            # Use 0.5% of current price as default
+            current_price = prices.iloc[-1]
+            brick_size = current_price * 0.005
+        
+        # Ensure brick size is reasonable (not too small or too large)
+        current_price = prices.iloc[-1]
+        min_brick_size = current_price * 0.0001  # 0.01%
+        max_brick_size = current_price * 0.05    # 5%
+        
+        return max(min_brick_size, min(max_brick_size, brick_size))
+    
+    def _generate_renko_bricks(self, df: pd.DataFrame, prices: pd.Series, brick_size: float) -> List[Dict]:
+        """Generate Renko bricks from price data."""
+        bricks = []
+        
+        if len(prices) == 0:
+            return bricks
+        
+        # Initialize with first price
+        current_brick_close = float(prices.iloc[0])
+        current_direction = 0  # 0 = unknown, 1 = up, -1 = down
+        
+        for i, (idx, row) in enumerate(df.iterrows()):
+            price = float(prices.iloc[i])
+            timestamp = int(row['timestamp'])
+            
+            if self.param["wick_calculation"]:
+                # Consider high and low wicks
+                high = float(row['high'])
+                low = float(row['low'])
+                test_prices = [price, high, low]
+            else:
+                test_prices = [price]
+            
+            for test_price in test_prices:
+                # Check for new bricks
+                price_diff = test_price - current_brick_close
+                
+                if abs(price_diff) >= brick_size:
+                    # Determine number of bricks to create
+                    num_bricks = int(abs(price_diff) / brick_size)
+                    brick_direction = 1 if price_diff > 0 else -1
+                    
+                    # Check for reversal (need 2x brick size move in opposite direction)
+                    if current_direction != 0 and brick_direction != current_direction:
+                        if abs(price_diff) < (brick_size * self.param["trend_reversal_bricks"]):
+                            continue  # Not enough movement for reversal
+                    
+                    # Create bricks
+                    for brick_num in range(num_bricks):
+                        brick_open = current_brick_close
+                        
+                        if brick_direction > 0:
+                            brick_close = current_brick_close + brick_size
+                        else:
+                            brick_close = current_brick_close - brick_size
+                        
+                        bricks.append({
+                            'open': brick_open,
+                            'close': brick_close,
+                            'direction': brick_direction,
+                            'timestamp': timestamp,
+                            'brick_number': len(bricks) + 1
+                        })
+                        
+                        current_brick_close = brick_close
+                        current_direction = brick_direction
+        
+        return bricks
+    
+    def _analyze_trend(self, renko_data: List[Dict]) -> Dict:
+        """Analyze trend from Renko bricks."""
+        if len(renko_data) < 3:
+            return {
+                "current_trend": "neutral",
+                "trend_strength": 0,
+                "consecutive_bricks": 0,
+                "support_level": None,
+                "resistance_level": None
+            }
+        
+        # Count consecutive bricks in same direction
+        consecutive_bricks = 1
+        current_direction = renko_data[-1]['direction']
+        
+        for i in range(len(renko_data) - 2, -1, -1):
+            if renko_data[i]['direction'] == current_direction:
+                consecutive_bricks += 1
             else:
                 break
         
-        return count
-    
-    def _generate_signals(self, trend, bricks, reversals):
-        """Generate trading signals based on Renko analysis"""
-        signals = []
-        
-        if trend == "uptrend":
-            signals.append("BULLISH - Strong uptrend detected")
-        elif trend == "downtrend":
-            signals.append("BEARISH - Strong downtrend detected")
-        
-        if reversals and len(reversals) > 0:
-            latest_reversal = reversals[-1]
-            if latest_reversal['direction'] == 'up':
-                signals.append("REVERSAL - Potential bullish reversal")
+        # Determine trend
+        if consecutive_bricks >= self.param["min_trend_bricks"]:
+            if current_direction > 0:
+                current_trend = "bullish"
             else:
-                signals.append("REVERSAL - Potential bearish reversal")
+                current_trend = "bearish"
+        else:
+            current_trend = "neutral"
         
-        consecutive = self._count_consecutive_direction(bricks)
-        if consecutive >= 5:
-            signals.append(f"MOMENTUM - {consecutive} consecutive bricks in same direction")
+        # Calculate trend strength (0-1 based on consecutive bricks)
+        max_consecutive = min(consecutive_bricks, 10)  # Cap at 10 for calculation
+        trend_strength = max_consecutive / 10
         
-        return signals
+        # Find support and resistance levels
+        lookback = min(len(renko_data), self.param["breakout_lookback"] * 2)
+        recent_bricks = renko_data[-lookback:]
+        
+        lows = [brick['close'] if brick['direction'] < 0 else brick['open'] for brick in recent_bricks]
+        highs = [brick['close'] if brick['direction'] > 0 else brick['open'] for brick in recent_bricks]
+        
+        support_level = min(lows) if lows else None
+        resistance_level = max(highs) if highs else None
+        
+        return {
+            "current_trend": current_trend,
+            "trend_strength": trend_strength,
+            "consecutive_bricks": consecutive_bricks,
+            "support_level": support_level,
+            "resistance_level": resistance_level
+        }
     
-    def print_output(self, result: dict):
-        """ print the output """
-        print(f"\n{'='*50}")
-        print(f"RENKO CHART ANALYSIS - {result.get('symbol', 'N/A')}")
-        print(f"{'='*50}")
+    def _generate_signals(self, renko_data: List[Dict], df: pd.DataFrame) -> Dict:
+        """Generate trading signals from Renko analysis."""
+        if len(renko_data) < 3:
+            return {
+                "primary_signal": "neutral",
+                "signal_strength": 0,
+                "reversal_alert": False,
+                "breakout_alert": False
+            }
         
-        if "error" in result:
-            print(f"Error: {result['error']}")
-            return
+        last_brick = renko_data[-1]
+        prev_bricks = renko_data[-3:]  # Last 3 bricks for pattern analysis
         
-        print(f"Current Price: ${result['current_price']:.2f}")
-        print(f"Brick Size: ${result['brick_size']:.2f}")
-        print(f"Total Bricks: {result['total_bricks']}")
-        print(f"Trend: {result['trend'].upper()}")
-        print(f"Last Brick: {result['last_brick_direction'].upper()}")
-        print(f"Consecutive Same Direction: {result['trend_strength']['consecutive_same_direction']}")
+        # Check for trend reversal
+        reversal_alert = False
+        if len(prev_bricks) >= 2:
+            # Look for direction change after sustained trend
+            directions = [brick['direction'] for brick in prev_bricks]
+            if directions[-1] != directions[-2] and abs(sum(directions[:-1])) >= 2:
+                reversal_alert = True
         
-        if result['support_levels']:
-            print(f"Support Levels: {[f'${level:.2f}' for level in result['support_levels']]}")
+        # Check for breakout
+        breakout_alert = False
+        if len(renko_data) >= self.param["breakout_lookback"]:
+            recent_range = renko_data[-self.param["breakout_lookback"]:]
+            range_high = max([brick['close'] if brick['direction'] > 0 else brick['open'] for brick in recent_range])
+            range_low = min([brick['close'] if brick['direction'] < 0 else brick['open'] for brick in recent_range])
+            
+            current_price = last_brick['close']
+            if current_price > range_high or current_price < range_low:
+                breakout_alert = True
         
-        if result['resistance_levels']:
-            print(f"Resistance Levels: {[f'${level:.2f}' for level in result['resistance_levels']]}")
+        # Primary signal generation
+        consecutive_up = 0
+        consecutive_down = 0
+        for brick in reversed(renko_data[-5:]):  # Last 5 bricks
+            if brick['direction'] > 0:
+                consecutive_up += 1
+                break
+            elif brick['direction'] < 0:
+                consecutive_down += 1
+                break
         
-        if result['signals']:
-            print("\nSignals:")
-            for signal in result['signals']:
-                print(f"  • {signal}")
+        # Generate primary signal
+        if consecutive_up >= self.param["min_trend_bricks"]:
+            primary_signal = "bullish"
+            signal_strength = min(consecutive_up / 5, 1.0)
+        elif consecutive_down >= self.param["min_trend_bricks"]:
+            primary_signal = "bearish"
+            signal_strength = min(consecutive_down / 5, 1.0)
+        elif reversal_alert:
+            primary_signal = "reversal"
+            signal_strength = 0.7
+        elif breakout_alert:
+            primary_signal = "breakout"
+            signal_strength = 0.8
+        else:
+            primary_signal = "neutral"
+            signal_strength = 0.0
+        
+        return {
+            "primary_signal": primary_signal,
+            "signal_strength": signal_strength,
+            "reversal_alert": reversal_alert,
+            "breakout_alert": breakout_alert
+        }

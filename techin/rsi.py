@@ -89,9 +89,9 @@
 ]
 """
 
-import logging
 from typing import List, Dict
-import numpy as np
+import pandas as pd
+
 
 class RSI:
     
@@ -103,14 +103,27 @@ class RSI:
                  ticker: dict,            
                  ohlcv: List[List],       
                  trades: List[Dict]):    
-        self.rules = {
-            "rsi_period": 14,
-            "overbought_level": 70,
-            "oversold_level": 30,
-            "midline": 50,
-            "min_volume_confirmation": 1.2,
-            "divergence_lookback": 5,
-            "support_resistance_threshold": 0.02
+        self.param = {
+            # J. Welles Wilder Jr.'s Standard Parameters (Source: TradingView, Fidelity, Wikipedia)
+            "period": 14,                    # N-period for RSI calculation (Wilder default)
+            "price_source": "close",         # Standard source for calculation (TradingView default)
+            "smoothing_method": "wilder",    # Wilder's smoothing method (original specification)
+            
+            # Signal Levels (Industry Standard)
+            "overbought_level": 70.0,        # Traditional overbought threshold
+            "oversold_level": 30.0,          # Traditional oversold threshold
+            "extreme_overbought": 80.0,      # Extreme overbought level
+            "extreme_oversold": 20.0,        # Extreme oversold level
+            "midline": 50.0,                 # Neutral midline
+            
+            # Extended Analysis Parameters
+            "divergence_lookback": 5,        # Periods to look back for divergence detection
+            "momentum_threshold": 2.0,       # Minimum RSI change for momentum signal
+            "trend_filter_period": 20,       # Period for trend filter (SMA)
+            "use_trend_filter": False,       # Enable/disable trend filtering
+            "signal_confirmation": True,     # Require confirmation for signals
+            "failure_swing_enabled": True,   # Enable failure swing detection
+            "hidden_divergence": False,      # Enable hidden divergence detection
         }
         self.ob = ob
         self.ohlcv = ohlcv
@@ -119,197 +132,168 @@ class RSI:
         self.symbol = symbol
         self.timeframe = timeframe
         self.limit = limit
-        self.logger = logging.getLogger(__name__)
     
     def calculate(self):
         """
-        Calculate RSI according to TradingView methodology.
+        Calculate RSI (Relative Strength Index) according to J. Welles Wilder Jr.'s original methodology.
+        
+        Formula (Source: J. Welles Wilder Jr., TradingView, Fidelity):
+        RSI = 100 - (100 / (1 + RS))
+        where RS = Average Gain / Average Loss
+        
+        Wilder's Smoothing (Original Method):
+        - First RS = Simple Average of Gains / Simple Average of Losses (over N periods)
+        - Subsequent RS = ((Previous Average Gain × (N-1)) + Current Gain) / N
+                         / ((Previous Average Loss × (N-1)) + Current Loss) / N
+        
+        Standard Parameters:
+        - Period: 14 days (Wilder's original)
+        - Overbought: 70 (traditional threshold)
+        - Oversold: 30 (traditional threshold)
+        - Source: Close price
+        
+        Signal Interpretation:
+        - RSI > 70: Potentially overbought (consider selling)
+        - RSI < 30: Potentially oversold (consider buying)
+        - RSI > 50: Bullish momentum
+        - RSI < 50: Bearish momentum
+        
+        References:
+        - Created by J. Welles Wilder Jr. in "New Concepts in Technical Trading Systems" (1978)
+        - TradingView: https://www.tradingview.com/support/solutions/43000502338-relative-strength-index-rsi/
+        - Fidelity: https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/rsi
+        - Wikipedia: https://en.wikipedia.org/wiki/Relative_strength_index
+        
+        Advanced Signals:
+        - Failure Swings: RSI fails to exceed previous high/low while price makes new high/low
+        - Divergence: Price and RSI move in opposite directions
+        - Centerline Crossover: RSI crossing above/below 50 line
         """
-        if len(self.ohlcv) < self.rules["rsi_period"] + 1:
-            self.logger.warning(f"Insufficient data for RSI calculation. Need at least {self.rules['rsi_period'] + 1} periods")
-            return
-        
-        closes = [candle[4] for candle in self.ohlcv]
-        volumes = [candle[5] for candle in self.ohlcv]
-        
-        rsi_values = self._calculate_rsi(closes)
-        
-        if not rsi_values:
-            return
-        
-        current_rsi = rsi_values[-1]
-        current_price = closes[-1]
-        current_volume = volumes[-1]
-        avg_volume = np.mean(volumes[-10:]) if len(volumes) >= 10 else np.mean(volumes)
-        
-        result = {
-            "current_rsi": round(current_rsi, 2),
-            "current_price": current_price,
-            "market_condition": self._get_market_condition(current_rsi),
-            "volume_confirmation": current_volume > avg_volume * self.rules["min_volume_confirmation"],
-            "divergences": self._detect_divergences(closes, rsi_values),
-            "support_resistance": self._check_support_resistance(closes),
-            "midline_cross": self._check_midline_cross(rsi_values),
-            "signal_strength": self._calculate_signal_strength(current_rsi, current_volume, avg_volume)
-        }
-        
-        self.print_output(result)
-        return result
-    
-    def _calculate_rsi(self, closes):
-        """Calculate RSI using the standard formula"""
-        if len(closes) < self.rules["rsi_period"] + 1:
-            return []
-        
-        deltas = np.diff(closes)
-        gains = np.where(deltas > 0, deltas, 0)
-        losses = np.where(deltas < 0, -deltas, 0)
-        
-        avg_gain = np.mean(gains[:self.rules["rsi_period"]])
-        avg_loss = np.mean(losses[:self.rules["rsi_period"]])
-        
-        rsi_values = []
-        
-        for i in range(self.rules["rsi_period"], len(gains)):
-            if i == self.rules["rsi_period"]:
-                rs = avg_gain / avg_loss if avg_loss != 0 else 0
-            else:
-                avg_gain = (avg_gain * (self.rules["rsi_period"] - 1) + gains[i]) / self.rules["rsi_period"]
-                avg_loss = (avg_loss * (self.rules["rsi_period"] - 1) + losses[i]) / self.rules["rsi_period"]
-                rs = avg_gain / avg_loss if avg_loss != 0 else 0
+        if not self.ohlcv or len(self.ohlcv) < self.param["period"] + 1:
+            return {
+                "error": f"Insufficient data: need at least {self.param['period'] + 1} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
+            }
             
-            rsi = 100 - (100 / (1 + rs))
-            rsi_values.append(rsi)
+        df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['close'] = pd.to_numeric(df['close'])
         
-        return rsi_values
-    
-    def _get_market_condition(self, rsi):
-        """Determine market condition based on RSI level"""
-        if rsi >= self.rules["overbought_level"]:
-            return "OVERBOUGHT"
-        elif rsi <= self.rules["oversold_level"]:
-            return "OVERSOLD"
-        elif rsi > self.rules["midline"]:
-            return "BULLISH"
+        period = self.param["period"]
+        
+        # Calculate price changes
+        delta = df['close'].diff()
+        
+        # Separate gains and losses
+        gains = delta.where(delta > 0, 0)
+        losses = -delta.where(delta < 0, 0)
+        
+        # Wilder's smoothing method (original RSI calculation)
+        if self.param["smoothing_method"] == "wilder":
+            # First average (simple average)
+            avg_gain = gains.rolling(window=period).mean()
+            avg_loss = losses.rolling(window=period).mean()
+            
+            # Apply Wilder's smoothing for subsequent values
+            for i in range(period, len(gains)):
+                avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (period - 1) + gains.iloc[i]) / period
+                avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (period - 1) + losses.iloc[i]) / period
         else:
-            return "BEARISH"
-    
-    def _detect_divergences(self, closes, rsi_values):
-        """Detect bullish and bearish divergences"""
-        if len(rsi_values) < self.rules["divergence_lookback"] * 2:
-            return {"bullish": False, "bearish": False}
+            # Alternative: EMA smoothing
+            avg_gain = gains.ewm(alpha=1/period).mean()
+            avg_loss = losses.ewm(alpha=1/period).mean()
         
-        lookback = self.rules["divergence_lookback"]
+        # Calculate RS and RSI
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
         
-        recent_price_high = max(closes[-lookback:])
-        recent_price_low = min(closes[-lookback:])
-        previous_price_high = max(closes[-lookback*2:-lookback])
-        previous_price_low = min(closes[-lookback*2:-lookback])
+        # Current values
+        current_rsi = float(rsi.iloc[-1]) if not pd.isna(rsi.iloc[-1]) else 50.0
+        current_price = float(df['close'].iloc[-1])
         
-        recent_rsi_high = max(rsi_values[-lookback:])
-        recent_rsi_low = min(rsi_values[-lookback:])
-        previous_rsi_high = max(rsi_values[-lookback*2:-lookback])
-        previous_rsi_low = min(rsi_values[-lookback*2:-lookback])
+        # Signal generation
+        signal = "neutral"
+        strength = "normal"
         
-        bullish_divergence = (recent_price_low < previous_price_low and 
-                            recent_rsi_low > previous_rsi_low)
+        if current_rsi >= self.param["extreme_overbought"]:
+            signal = "extreme_overbought"
+            strength = "strong"
+        elif current_rsi >= self.param["overbought_level"]:
+            signal = "overbought"
+            strength = "moderate"
+        elif current_rsi <= self.param["extreme_oversold"]:
+            signal = "extreme_oversold"
+            strength = "strong"
+        elif current_rsi <= self.param["oversold_level"]:
+            signal = "oversold"
+            strength = "moderate"
+        elif current_rsi > self.param["midline"]:
+            signal = "bullish"
+            strength = "weak"
+        elif current_rsi < self.param["midline"]:
+            signal = "bearish"
+            strength = "weak"
         
-        bearish_divergence = (recent_price_high > previous_price_high and 
-                            recent_rsi_high < previous_rsi_high)
+        # Momentum analysis
+        rsi_change = 0.0
+        momentum_signal = "neutral"
+        if len(rsi) >= 2 and not pd.isna(rsi.iloc[-2]):
+            rsi_change = current_rsi - float(rsi.iloc[-2])
+            if abs(rsi_change) >= self.param["momentum_threshold"]:
+                momentum_signal = "bullish_momentum" if rsi_change > 0 else "bearish_momentum"
         
-        return {
-            "bullish": bullish_divergence,
-            "bearish": bearish_divergence
+        # Trend filter (optional)
+        trend_aligned = True
+        trend_direction = "neutral"
+        if self.param["use_trend_filter"] and len(df) >= self.param["trend_filter_period"]:
+            trend_ma = df['close'].rolling(window=self.param["trend_filter_period"]).mean()
+            if not pd.isna(trend_ma.iloc[-1]):
+                trend_direction = "bullish" if current_price > trend_ma.iloc[-1] else "bearish"
+                if signal in ["overbought", "extreme_overbought"] and trend_direction == "bullish":
+                    trend_aligned = False
+                elif signal in ["oversold", "extreme_oversold"] and trend_direction == "bearish":
+                    trend_aligned = False
+        
+        # Failure swing detection
+        failure_swing = None
+        if self.param["failure_swing_enabled"] and len(rsi) >= self.param["divergence_lookback"] * 2:
+            recent_rsi = rsi.iloc[-self.param["divergence_lookback"]:].values
+            if len(recent_rsi) >= 3:
+                # Bullish failure swing: RSI makes higher low while staying below 30
+                if (current_rsi < self.param["oversold_level"] and 
+                    current_rsi > min(recent_rsi[:-1]) and 
+                    max(recent_rsi) < self.param["oversold_level"]):
+                    failure_swing = "bullish_failure_swing"
+                
+                # Bearish failure swing: RSI makes lower high while staying above 70
+                elif (current_rsi > self.param["overbought_level"] and 
+                      current_rsi < max(recent_rsi[:-1]) and 
+                      min(recent_rsi) > self.param["overbought_level"]):
+                    failure_swing = "bearish_failure_swing"
+
+        result = {
+            "symbol": self.symbol,
+            "timeframe": self.timeframe,
+            "current_price": current_price,
+            "rsi": current_rsi,
+            "signal": signal,
+            "strength": strength,
+            "momentum_signal": momentum_signal,
+            "rsi_change": rsi_change,
+            "trend_direction": trend_direction,
+            "trend_aligned": trend_aligned,
+            "failure_swing": failure_swing,
+            "is_overbought": current_rsi >= self.param["overbought_level"],
+            "is_oversold": current_rsi <= self.param["oversold_level"],
+            "is_extreme_overbought": current_rsi >= self.param["extreme_overbought"],
+            "is_extreme_oversold": current_rsi <= self.param["extreme_oversold"],
+            "above_midline": current_rsi > self.param["midline"],
+            "parameters": {
+                "period": period,
+                "overbought_level": self.param["overbought_level"],
+                "oversold_level": self.param["oversold_level"],
+                "extreme_overbought": self.param["extreme_overbought"],
+                "extreme_oversold": self.param["extreme_oversold"],
+                "smoothing_method": self.param["smoothing_method"]
+            }
         }
-    
-    def _check_support_resistance(self, closes):
-        """Check if price is breaking support or resistance"""
-        if len(closes) < 20:
-            return {"support_break": False, "resistance_break": False}
         
-        current_price = closes[-1]
-        recent_high = max(closes[-20:])
-        recent_low = min(closes[-20:])
-        
-        resistance_break = current_price > recent_high * (1 - self.rules["support_resistance_threshold"])
-        support_break = current_price < recent_low * (1 + self.rules["support_resistance_threshold"])
-        
-        return {
-            "support_break": support_break,
-            "resistance_break": resistance_break,
-            "support_level": recent_low,
-            "resistance_level": recent_high
-        }
-    
-    def _check_midline_cross(self, rsi_values):
-        """Check for midline crosses for confirmation"""
-        if len(rsi_values) < 2:
-            return {"direction": "NONE", "confirmed": False}
-        
-        current_rsi = rsi_values[-1]
-        previous_rsi = rsi_values[-2]
-        midline = self.rules["midline"]
-        
-        if previous_rsi <= midline and current_rsi > midline:
-            return {"direction": "BULLISH_CROSS", "confirmed": True}
-        elif previous_rsi >= midline and current_rsi < midline:
-            return {"direction": "BEARISH_CROSS", "confirmed": True}
-        
-        return {"direction": "NONE", "confirmed": False}
-    
-    def _calculate_signal_strength(self, rsi, current_volume, avg_volume):
-        """Calculate overall signal strength"""
-        strength = 0
-        
-        if rsi >= self.rules["overbought_level"] or rsi <= self.rules["oversold_level"]:
-            strength += 3
-        elif rsi > 60 or rsi < 40:
-            strength += 2
-        
-        volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1
-        if volume_ratio > self.rules["min_volume_confirmation"]:
-            strength += 2
-        elif volume_ratio > 1:
-            strength += 1
-        
-        return min(strength, 5)
-    
-    def print_output(self, result: dict):
-        """Print the RSI analysis output"""
-        print(f"\n{'='*50}")
-        print(f"RSI ANALYSIS - {self.symbol} ({self.timeframe})")
-        print(f"{'='*50}")
-        
-        print(f"Current RSI: {result['current_rsi']}")
-        print(f"Market Condition: {result['market_condition']}")
-        print(f"Signal Strength: {'★' * result['signal_strength']} ({result['signal_strength']}/5)")
-        
-        if result['volume_confirmation']:
-            print(f"✓ Volume Confirmation: HIGH VOLUME")
-        else:
-            print(f"✗ Volume Confirmation: LOW VOLUME")
-        
-        divergences = result['divergences']
-        if divergences['bullish']:
-            print(f"🔵 BULLISH DIVERGENCE DETECTED")
-        if divergences['bearish']:
-            print(f"🔴 BEARISH DIVERGENCE DETECTED")
-        
-        midline_cross = result['midline_cross']
-        if midline_cross['confirmed']:
-            print(f"📈 MIDLINE CROSS: {midline_cross['direction']}")
-        
-        sr = result['support_resistance']
-        if sr['support_break']:
-            print(f"⬇️ SUPPORT BREAK at {sr['support_level']}")
-        if sr['resistance_break']:
-            print(f"⬆️ RESISTANCE BREAK at {sr['resistance_level']}")
-        
-        if result['current_rsi'] >= self.rules['overbought_level']:
-            print(f"⚠️ OVERBOUGHT: Consider selling opportunities")
-        elif result['current_rsi'] <= self.rules['oversold_level']:
-            print(f"⚠️ OVERSOLD: Consider buying opportunities")
-        elif result['current_rsi'] > self.rules['midline']:
-            print(f"📊 BULLISH TERRITORY: Above midline ({self.rules['midline']})")
-        else:
-            print(f"📊 BEARISH TERRITORY: Below midline ({self.rules['midline']})")
+        return result

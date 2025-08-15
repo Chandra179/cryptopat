@@ -90,6 +90,8 @@
 """
 
 from typing import List, Dict
+import pandas as pd
+
 
 class ParabolicSAR:
     
@@ -102,143 +104,230 @@ class ParabolicSAR:
              ohlcv: List[List],       
              trades: List[Dict]):    
         self.param = {
-            "initial_af": 0.02,
-            "af_increment": 0.02,
-            "max_af": 0.20,
+            # J. Welles Wilder Jr.'s Standard Parameters (Source: "New Concepts in Technical Trading Systems", 1978)
+            "af_initial": 0.02,              # Initial Acceleration Factor (Wilder default)
+            "af_increment": 0.02,            # AF increment per new extreme (Wilder default)
+            "af_maximum": 0.20,              # Maximum AF value (Wilder default)
+            
+            # Extended Analysis Parameters
+            "trend_confirmation_periods": 3,  # Periods to confirm trend change
+            "signal_strength_threshold": 0.5, # Threshold for signal strength (0-1)
+            "volume_confirmation": False,     # Optional volume confirmation for signals
+            "volume_ma_period": 20,          # Period for volume moving average
+            "price_deviation_threshold": 0.02, # Price deviation threshold for signal validation
+            "sar_distance_factor": 1.0,      # Factor for SAR distance calculation
+            "trend_strength_periods": 10,    # Periods for trend strength calculation
+            "reversal_confirmation": True,   # Require confirmation for trend reversals
+            "extreme_point_buffer": 0.001,   # Buffer for extreme point identification (0.1%)
         }
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
+        self.ticker = ticker
         self.symbol = symbol
         self.timeframe = timeframe
         self.limit = limit
     
     def calculate(self):
         """
-        Calculate Parabolic SAR according to TradingView methodology.
+        Calculate Parabolic SAR (Stop and Reverse) according to J. Welles Wilder Jr.'s methodology.
+        
+        Formula (Source: J. Welles Wilder Jr., "New Concepts in Technical Trading Systems", 1978):
+        
+        SAR Calculation:
+        - SAR(t) = SAR(t-1) + AF × [EP - SAR(t-1)]
+        
+        Where:
+        - SAR(t) = Current period's SAR value
+        - SAR(t-1) = Previous period's SAR value
+        - AF = Acceleration Factor (starts at 0.02, increases by 0.02 for each new extreme, max 0.20)
+        - EP = Extreme Point (highest high during uptrend, lowest low during downtrend)
+        
+        Initialization:
+        - First SAR = Previous period's low (for uptrend) or high (for downtrend)
+        - Initial trend determined by comparing first two periods
+        
+        Rules:
+        - Uptrend: SAR cannot exceed previous two periods' lows
+        - Downtrend: SAR cannot exceed previous two periods' highs
+        - Trend reversal occurs when price crosses SAR
+        - AF resets to initial value (0.02) on trend reversal
+        
+        References:
+        - Created by J. Welles Wilder Jr. (1978)
+        - Book: "New Concepts in Technical Trading Systems"
+        - TradingView: https://www.tradingview.com/support/solutions/43000502017-parabolic-sar/
+        - Investopedia: https://www.investopedia.com/trading/introduction-to-parabolic-sar/
+        - StockCharts: https://school.stockcharts.com/doku.php?id=technical_indicators:parabolic_sar
+        
+        Standard Parameters:
+        - Initial AF: 0.02
+        - AF Increment: 0.02
+        - Maximum AF: 0.20
+        
+        Interpretation:
+        - SAR below price: Uptrend (bullish)
+        - SAR above price: Downtrend (bearish)
+        - Price crosses SAR: Potential trend reversal
         """
-        if len(self.ohlcv) < 2:
-            print("Insufficient data for Parabolic SAR calculation")
-            return
+        if not self.ohlcv or len(self.ohlcv) < 3:
+            return {
+                "error": f"Insufficient data: need at least 3 candles, got {len(self.ohlcv) if self.ohlcv else 0}"
+            }
+            
+        df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df[['open', 'high', 'low', 'close', 'volume']] = df[['open', 'high', 'low', 'close', 'volume']].astype(float)
         
-        result = {}
-        sar_values = []
+        n = len(df)
+        sar = [0.0] * n
+        af = [0.0] * n
+        ep = [0.0] * n
+        trend = [0] * n  # 1 for uptrend, -1 for downtrend
         
-        # Initialize variables
-        af = self.param["initial_af"]
-        trend = 1  # 1 for uptrend, -1 for downtrend
+        af_initial = self.param["af_initial"]
+        af_increment = self.param["af_increment"]
+        af_maximum = self.param["af_maximum"]
         
-        # First candle - determine initial trend
-        high_0 = self.ohlcv[0][2]  # High
-        low_0 = self.ohlcv[0][3]   # Low
-        close_0 = self.ohlcv[0][4] # Close
-        
-        high_1 = self.ohlcv[1][2]  # High
-        low_1 = self.ohlcv[1][3]   # Low
-        close_1 = self.ohlcv[1][4] # Close
-        
-        # Determine initial trend direction
-        if close_1 > close_0:
-            trend = 1  # Uptrend
-            sar = low_0  # Start SAR at previous low
-            ep = high_1  # Extreme point is current high
+        # Initialize first two periods
+        if df['close'].iloc[1] > df['close'].iloc[0]:
+            # Initial uptrend
+            trend[0] = trend[1] = 1
+            sar[0] = df['low'].iloc[0]
+            sar[1] = df['low'].iloc[0]
+            ep[0] = ep[1] = df['high'].iloc[1]
+            af[0] = af[1] = af_initial
         else:
-            trend = -1  # Downtrend
-            sar = high_0  # Start SAR at previous high
-            ep = low_1   # Extreme point is current low
-        
-        sar_values.append(sar)
+            # Initial downtrend
+            trend[0] = trend[1] = -1
+            sar[0] = df['high'].iloc[0]
+            sar[1] = df['high'].iloc[0]
+            ep[0] = ep[1] = df['low'].iloc[1]
+            af[0] = af[1] = af_initial
         
         # Calculate SAR for remaining periods
-        for i in range(1, len(self.ohlcv)):
-            high = self.ohlcv[i][2]
-            low = self.ohlcv[i][3]
+        for i in range(2, n):
+            prev_sar = sar[i-1]
+            prev_af = af[i-1]
+            prev_ep = ep[i-1]
+            prev_trend = trend[i-1]
             
-            # Calculate new SAR
-            new_sar = sar + af * (ep - sar)
+            # Calculate preliminary SAR
+            sar[i] = prev_sar + prev_af * (prev_ep - prev_sar)
+            trend[i] = prev_trend
+            af[i] = prev_af
+            ep[i] = prev_ep
             
-            if trend == 1:  # Uptrend
-                # SAR cannot be above the low of current or previous period
-                new_sar = min(new_sar, low, self.ohlcv[i-1][3])
-                
+            if prev_trend == 1:  # Uptrend
                 # Check for trend reversal
-                if low <= new_sar:
-                    # Trend reversal - switch to downtrend
-                    trend = -1
-                    new_sar = ep  # SAR becomes the extreme point
-                    ep = low      # New extreme point is current low
-                    af = self.param["initial_af"]  # Reset acceleration factor
+                if df['low'].iloc[i] <= sar[i]:
+                    # Trend reversal to downtrend
+                    trend[i] = -1
+                    sar[i] = prev_ep  # SAR becomes previous EP
+                    af[i] = af_initial
+                    ep[i] = df['low'].iloc[i]
                 else:
                     # Continue uptrend
-                    if high > ep:
-                        ep = high  # Update extreme point
-                        af = min(af + self.param["af_increment"], self.param["max_af"])
+                    # SAR cannot exceed previous two lows
+                    sar[i] = min(sar[i], df['low'].iloc[i-1], df['low'].iloc[i-2])
+                    
+                    # Update EP and AF if new high
+                    if df['high'].iloc[i] > prev_ep:
+                        ep[i] = df['high'].iloc[i]
+                        af[i] = min(prev_af + af_increment, af_maximum)
             
             else:  # Downtrend
-                # SAR cannot be below the high of current or previous period
-                new_sar = max(new_sar, high, self.ohlcv[i-1][2])
-                
                 # Check for trend reversal
-                if high >= new_sar:
-                    # Trend reversal - switch to uptrend
-                    trend = 1
-                    new_sar = ep  # SAR becomes the extreme point
-                    ep = high     # New extreme point is current high
-                    af = self.param["initial_af"]  # Reset acceleration factor
+                if df['high'].iloc[i] >= sar[i]:
+                    # Trend reversal to uptrend
+                    trend[i] = 1
+                    sar[i] = prev_ep  # SAR becomes previous EP
+                    af[i] = af_initial
+                    ep[i] = df['high'].iloc[i]
                 else:
                     # Continue downtrend
-                    if low < ep:
-                        ep = low   # Update extreme point
-                        af = min(af + self.param["af_increment"], self.param["max_af"])
-            
-            sar = new_sar
-            sar_values.append(sar)
+                    # SAR cannot exceed previous two highs
+                    sar[i] = max(sar[i], df['high'].iloc[i-1], df['high'].iloc[i-2])
+                    
+                    # Update EP and AF if new low
+                    if df['low'].iloc[i] < prev_ep:
+                        ep[i] = df['low'].iloc[i]
+                        af[i] = min(prev_af + af_increment, af_maximum)
         
-        # Analyze current signals
-        current_sar = sar_values[-1]
-        current_price = self.ohlcv[-1][4]  # Current close price
-        previous_sar = sar_values[-2] if len(sar_values) > 1 else current_sar
+        # Current values
+        current_price = float(df['close'].iloc[-1])
+        current_sar = float(sar[-1])
+        current_trend = int(trend[-1])
+        current_af = float(af[-1])
+        current_ep = float(ep[-1])
         
-        # Determine signal
-        if trend == 1:
-            signal = "BUY" if current_price > current_sar else "NEUTRAL"
+        # Calculate trend strength
+        trend_confirmation_periods = self.param["trend_confirmation_periods"]
+        recent_trends = trend[-trend_confirmation_periods:]
+        trend_strength = sum(1 for t in recent_trends if t == current_trend) / len(recent_trends)
+        
+        # Volume confirmation if enabled
+        volume_confirmed = True
+        if self.param["volume_confirmation"]:
+            volume_ma_period = self.param["volume_ma_period"]
+            if len(df) >= volume_ma_period:
+                avg_volume = df['volume'].rolling(window=volume_ma_period).mean().iloc[-1]
+                current_volume = df['volume'].iloc[-1]
+                volume_confirmed = current_volume > avg_volume
+        
+        # Signal generation
+        signal = "neutral"
+        signal_strength = 0.0
+        
+        if current_trend == 1:
+            signal = "bullish"
+            signal_strength = trend_strength
+            # Check for potential reversal
+            distance_to_sar = (current_price - current_sar) / current_price
+            if distance_to_sar < self.param["price_deviation_threshold"]:
+                signal = "bullish_weakening"
+                signal_strength *= 0.5
         else:
-            signal = "SELL" if current_price < current_sar else "NEUTRAL"
+            signal = "bearish"
+            signal_strength = trend_strength
+            # Check for potential reversal
+            distance_to_sar = (current_sar - current_price) / current_price
+            if distance_to_sar < self.param["price_deviation_threshold"]:
+                signal = "bearish_weakening"
+                signal_strength *= 0.5
+        
+        # Check for recent trend change
+        if len(trend) >= 2 and trend[-2] != current_trend:
+            signal = "trend_reversal"
+            signal_strength = 1.0
+        
+        # Apply volume confirmation
+        if not volume_confirmed:
+            signal_strength *= 0.7
+        
+        # Distance from SAR
+        sar_distance_pct = abs(current_price - current_sar) / current_price * 100
         
         result = {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
-            "current_sar": round(current_sar, 8),
-            "current_price": round(current_price, 8),
-            "trend": "UPTREND" if trend == 1 else "DOWNTREND",
+            "current_price": current_price,
+            "sar": current_sar,
+            "trend": "uptrend" if current_trend == 1 else "downtrend",
+            "trend_numeric": current_trend,
+            "acceleration_factor": current_af,
+            "extreme_point": current_ep,
             "signal": signal,
-            "acceleration_factor": round(af, 4),
-            "extreme_point": round(ep, 8),
-            "sar_distance": round(abs(current_price - current_sar), 8),
-            "sar_distance_percent": round(abs(current_price - current_sar) / current_price * 100, 4),
-            "recent_sar_values": [round(val, 8) for val in sar_values[-5:]]
+            "signal_strength": signal_strength,
+            "sar_distance_pct": sar_distance_pct,
+            "trend_strength": trend_strength,
+            "volume_confirmed": volume_confirmed,
+            "parameters": {
+                "af_initial": af_initial,
+                "af_increment": af_increment,
+                "af_maximum": af_maximum,
+                "trend_confirmation_periods": trend_confirmation_periods,
+                "volume_confirmation": self.param["volume_confirmation"]
+            }
         }
         
-        self.print_output(result)
         return result
-    
-    def print_output(self, result: dict):
-        """ print the output """
-        print("\n" + "="*50)
-        print(f"PARABOLIC SAR ANALYSIS - {result['symbol']} ({result['timeframe']})")
-        print("="*50)
-        print(f"Current Price: ${result['current_price']}")
-        print(f"Current SAR: ${result['current_sar']}")
-        print(f"Trend: {result['trend']}")
-        print(f"Signal: {result['signal']}")
-        print(f"SAR Distance: ${result['sar_distance']} ({result['sar_distance_percent']}%)")
-        print(f"Acceleration Factor: {result['acceleration_factor']}")
-        print(f"Extreme Point: ${result['extreme_point']}")
-        print(f"Recent SAR Values: {result['recent_sar_values']}")
-        
-        if result['signal'] == "BUY":
-            print("\n📈 BULLISH: Price is above SAR - Consider long positions")
-        elif result['signal'] == "SELL":
-            print("\n📉 BEARISH: Price is below SAR - Consider short positions")
-        else:
-            print("\n⚠️  NEUTRAL: Price near SAR level - Wait for clear breakout")

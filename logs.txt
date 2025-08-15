@@ -1,1 +1,2 @@
 do you understand the goals in base.txt or do you need more context?
+implement Volume Weighted Average Price at vwap.py include citation reference for the formula and params like in bollingerbands.py and do not do print_output     

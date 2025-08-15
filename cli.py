@@ -18,7 +18,7 @@ from techin.pivotpoint import PivotPoint
 from techin.renko import Renko
 from techin.supertrend import Supertrend
 from techin.vwap import VWAP
-from techin.ema_20_50 import EMA_20_50
+from techin.ema_20_50 import EMA2050
 from techin.rsi import RSI
 
 class CryptoPatCLI:
@@ -132,7 +132,7 @@ class CryptoPatCLI:
             supertrend.calculate()
             vwap = VWAP(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
             vwap.calculate()
-            ema_20_50 = EMA_20_50(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+            ema_20_50 = EMA2050(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
             ema_20_50.calculate()
             rsi = RSI(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
             rsi.calculate()
