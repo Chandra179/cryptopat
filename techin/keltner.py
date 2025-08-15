@@ -102,7 +102,7 @@ class KeltnerChannel:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.rules = {
+        self.param = {
             "ema_period": 20,
             "atr_period": 10,
             "multiplier": 2.0,
@@ -158,9 +158,9 @@ class KeltnerChannel:
         return atr_values
     
     def calculate(self):
-        if len(self.ohlcv) < self.rules["min_periods"]:
+        if len(self.ohlcv) < self.param["min_periods"]:
             result = {
-                "error": f"Insufficient data. Need at least {self.rules['min_periods']} periods",
+                "error": f"Insufficient data. Need at least {self.param['min_periods']} periods",
                 "data_length": len(self.ohlcv)
             }
             self.print_output(result)
@@ -172,8 +172,8 @@ class KeltnerChannel:
         highs = df['high'].tolist()
         lows = df['low'].tolist()
         
-        ema_values = self.calculate_ema(closes, self.rules["ema_period"])
-        atr_values = self.calculate_atr(highs, lows, closes, self.rules["atr_period"])
+        ema_values = self.calculate_ema(closes, self.param["ema_period"])
+        atr_values = self.calculate_atr(highs, lows, closes, self.param["atr_period"])
         
         upper_band = []
         lower_band = []
@@ -182,7 +182,7 @@ class KeltnerChannel:
         for i in range(len(df)):
             if ema_values[i] is not None and atr_values[i] is not None:
                 middle = ema_values[i]
-                atr_offset = atr_values[i] * self.rules["multiplier"]
+                atr_offset = atr_values[i] * self.param["multiplier"]
                 
                 middle_line.append(middle)
                 upper_band.append(middle + atr_offset)
@@ -218,9 +218,9 @@ class KeltnerChannel:
                 "band_width": current_upper - current_lower if current_upper and current_lower else None
             },
             "parameters": {
-                "ema_period": self.rules["ema_period"],
-                "atr_period": self.rules["atr_period"],
-                "multiplier": self.rules["multiplier"]
+                "ema_period": self.param["ema_period"],
+                "atr_period": self.param["atr_period"],
+                "multiplier": self.param["multiplier"]
             },
             "analysis": {
                 "trend_direction": "Bullish" if current_price and current_middle and current_price > current_middle else "Bearish",

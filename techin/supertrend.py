@@ -101,7 +101,7 @@ class Supertrend:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.rules = {
+        self.param = {
             "atr_period": 10,
             "multiplier": 3.0,
             "atr_formula": lambda high_low_close: sum(max(h-l, abs(h-c_prev), abs(l-c_prev)) for h, l, c_prev in high_low_close) / len(high_low_close)
@@ -117,8 +117,8 @@ class Supertrend:
         """
         Calculate Supertrend according to TradingView methodology.
         """
-        if len(self.ohlcv) < self.rules["atr_period"]:
-            result = {"error": f"Not enough data points. Need at least {self.rules['atr_period']}, got {len(self.ohlcv)}"}
+        if len(self.ohlcv) < self.param["atr_period"]:
+            result = {"error": f"Not enough data points. Need at least {self.param['atr_period']}, got {len(self.ohlcv)}"}
             self.print_output(result)
             return
 
@@ -129,9 +129,9 @@ class Supertrend:
         for i in range(len(self.ohlcv)):
             timestamp, open_price, high, low, close, volume = self.ohlcv[i]
             
-            if i >= self.rules["atr_period"] - 1:
+            if i >= self.param["atr_period"] - 1:
                 atr_data = []
-                for j in range(i - self.rules["atr_period"] + 1, i + 1):
+                for j in range(i - self.param["atr_period"] + 1, i + 1):
                     if j == 0:
                         prev_close = self.ohlcv[j][1]  # Use open as prev close for first candle
                     else:
@@ -151,10 +151,10 @@ class Supertrend:
                 atr_values.append(atr)
                 
                 hl2 = (high + low) / 2
-                upper_band = hl2 + (self.rules["multiplier"] * atr)
-                lower_band = hl2 - (self.rules["multiplier"] * atr)
+                upper_band = hl2 + (self.param["multiplier"] * atr)
+                lower_band = hl2 - (self.param["multiplier"] * atr)
                 
-                if i == self.rules["atr_period"] - 1:
+                if i == self.param["atr_period"] - 1:
                     supertrend = lower_band if close > hl2 else upper_band
                     direction = "up" if close > hl2 else "down"
                 else:
@@ -192,8 +192,8 @@ class Supertrend:
             "supertrend_value": current_supertrend,
             "trend_direction": current_direction,
             "signal": signal,
-            "atr_period": self.rules["atr_period"],
-            "multiplier": self.rules["multiplier"],
+            "atr_period": self.param["atr_period"],
+            "multiplier": self.param["multiplier"],
             "total_periods": len(supertrend_values)
         }
         

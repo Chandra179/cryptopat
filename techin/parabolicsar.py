@@ -101,7 +101,7 @@ class ParabolicSAR:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.rules = {
+        self.param = {
             "initial_af": 0.02,
             "af_increment": 0.02,
             "max_af": 0.20,
@@ -125,7 +125,7 @@ class ParabolicSAR:
         sar_values = []
         
         # Initialize variables
-        af = self.rules["initial_af"]
+        af = self.param["initial_af"]
         trend = 1  # 1 for uptrend, -1 for downtrend
         
         # First candle - determine initial trend
@@ -167,12 +167,12 @@ class ParabolicSAR:
                     trend = -1
                     new_sar = ep  # SAR becomes the extreme point
                     ep = low      # New extreme point is current low
-                    af = self.rules["initial_af"]  # Reset acceleration factor
+                    af = self.param["initial_af"]  # Reset acceleration factor
                 else:
                     # Continue uptrend
                     if high > ep:
                         ep = high  # Update extreme point
-                        af = min(af + self.rules["af_increment"], self.rules["max_af"])
+                        af = min(af + self.param["af_increment"], self.param["max_af"])
             
             else:  # Downtrend
                 # SAR cannot be below the high of current or previous period
@@ -184,12 +184,12 @@ class ParabolicSAR:
                     trend = 1
                     new_sar = ep  # SAR becomes the extreme point
                     ep = high     # New extreme point is current high
-                    af = self.rules["initial_af"]  # Reset acceleration factor
+                    af = self.param["initial_af"]  # Reset acceleration factor
                 else:
                     # Continue downtrend
                     if low < ep:
                         ep = low   # Update extreme point
-                        af = min(af + self.rules["af_increment"], self.rules["max_af"])
+                        af = min(af + self.param["af_increment"], self.param["max_af"])
             
             sar = new_sar
             sar_values.append(sar)

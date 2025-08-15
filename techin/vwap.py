@@ -12,7 +12,7 @@ class VWAP:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.rules = {
+        self.param = {
             "period_length": 20,  # VWAP calculation period
             "deviation_threshold": 0.02,  # 2% deviation from VWAP considered significant
             "volume_weight_formula": lambda price, volume: price * volume
@@ -46,7 +46,7 @@ class VWAP:
         df['vwap'] = df['cumulative_pv'] / df['cumulative_volume']
         
         # Calculate rolling VWAP for specified period
-        period = self.rules["period_length"]
+        period = self.param["period_length"]
         df['rolling_pv'] = df['price_volume'].rolling(window=period).sum()
         df['rolling_volume'] = df['volume'].rolling(window=period).sum()
         df['rolling_vwap'] = df['rolling_pv'] / df['rolling_volume']
@@ -57,7 +57,7 @@ class VWAP:
         df['rolling_deviation'] = (df['close'] - df['rolling_vwap']) / df['rolling_vwap']
         
         # Identify significant deviations
-        threshold = self.rules["deviation_threshold"]
+        threshold = self.param["deviation_threshold"]
         df['above_vwap_threshold'] = df['deviation_from_vwap'] > threshold
         df['below_vwap_threshold'] = df['deviation_from_vwap'] < -threshold
         

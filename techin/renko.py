@@ -100,7 +100,7 @@ class Renko:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.rules = {
+        self.param = {
             "brick_size_percentage": 0.01,
             "atr_multiplier": 2.0,
             "min_bricks_for_trend": 3,
@@ -140,9 +140,9 @@ class Renko:
         
         atr = self.calculate_atr()
         if atr:
-            return round(atr * self.rules["atr_multiplier"], self.rules["price_precision"])
+            return round(atr * self.param["atr_multiplier"], self.param["price_precision"])
         else:
-            return round(current_price * self.rules["brick_size_percentage"], self.rules["price_precision"])
+            return round(current_price * self.param["brick_size_percentage"], self.param["price_precision"])
     
     def build_renko_bricks(self):
         """Convert OHLCV data to Renko bricks"""
@@ -183,10 +183,10 @@ class Renko:
     
     def identify_trend(self, bricks):
         """Identify current trend based on consecutive brick direction"""
-        if len(bricks) < self.rules["min_bricks_for_trend"]:
+        if len(bricks) < self.param["min_bricks_for_trend"]:
             return "neutral"
         
-        recent_bricks = bricks[-self.rules["min_bricks_for_trend"]:]
+        recent_bricks = bricks[-self.param["min_bricks_for_trend"]:]
         directions = [brick['direction'] for brick in recent_bricks]
         
         if all(d == 'up' for d in directions):
@@ -203,9 +203,9 @@ class Renko:
         
         reversals = []
         
-        for i in range(self.rules["reversal_threshold"], len(bricks)):
+        for i in range(self.param["reversal_threshold"], len(bricks)):
             current_direction = bricks[i]['direction']
-            prev_directions = [bricks[j]['direction'] for j in range(i - self.rules["reversal_threshold"], i)]
+            prev_directions = [bricks[j]['direction'] for j in range(i - self.param["reversal_threshold"], i)]
             
             if (current_direction == 'up' and all(d == 'down' for d in prev_directions)) or \
                (current_direction == 'down' and all(d == 'up' for d in prev_directions)):

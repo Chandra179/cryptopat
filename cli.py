@@ -6,11 +6,6 @@ import signal
 import readline
 from typing import Dict
 from data import get_data_collector
-from orderflow.absorption import AbsorptionStrategy
-from orderflow.cvd import CVDStrategy
-from orderflow.footprint import VolumeFootprint
-from orderflow.smartmoney import SmartMoneyConcepts
-from orderflow.stopsweep import StopSweep
 from techin.bollingerbands import BollingerBands
 from techin.chaikin import ChaikinMoneyFlow
 from techin.donchain import DonchianChannel
@@ -125,16 +120,6 @@ class CryptoPatCLI:
             keltner.calculate()
             macd = MACD(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
             macd.calculate()
-            absorption = AbsorptionStrategy(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            absorption.calculate()
-            cvd = CVDStrategy(symbol, timeframe, limit, order_book, ohlcv_data, ticker, trades)
-            cvd.calculate()
-            footprint = VolumeFootprint(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            footprint.calculate()
-            smartmoney = SmartMoneyConcepts(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            smartmoney.calculate()
-            stopsweep = StopSweep(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            stopsweep.calculate()
             obv = OBV(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
             obv.calculate()
             parabolicsar = ParabolicSAR(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)

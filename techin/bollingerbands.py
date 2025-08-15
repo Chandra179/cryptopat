@@ -159,19 +159,62 @@ class BollingerBands:
         else:
             signal = "BEARISH"
         
+        # Calculate additional metrics for the new structure
+        sma_slope = 0
+        if len(sma) > 1:
+            sma_slope = float(sma.iloc[-1] - sma.iloc[-2])
+        
+        position_from_sma_pct = ((current_price - current_sma) / current_sma) * 100
+        squeeze_level = 9.5  # threshold for squeeze detection
+        expansion_level = 25.0  # threshold for expansion detection
+        
+        # Determine trend bias
+        if current_price > current_sma and sma_slope > 0:
+            trend_bias = "UPTREND"
+        elif current_price < current_sma and sma_slope < 0:
+            trend_bias = "DOWNTREND"
+        else:
+            trend_bias = "SIDEWAYS"
+        
+        # Calculate confidence percentage based on multiple factors
+        confidence = 50  # base confidence
+        if abs(position_in_bands - 50) > 20:  # strong position in bands
+            confidence += 15
+        if abs(position_from_sma_pct) > 2:  # significant deviation from SMA
+            confidence += 10
+        if expansion and band_width > expansion_level:  # strong expansion
+            confidence += 25
+        confidence = min(confidence, 100)
+        
         result = {
             "symbol": self.symbol,
             "timeframe": self.timeframe,
-            "current_price": current_price,
-            "sma": current_sma,
-            "upper_band": current_upper,
-            "lower_band": current_lower,
-            "band_width_pct": round(band_width, 2),
-            "position_in_bands_pct": round(position_in_bands, 2),
-            "squeeze": squeeze,
-            "expansion": expansion,
-            "signal": signal,
-            "timestamp": df['timestamp'].iloc[-1]
+            "timestamp": int(df['timestamp'].iloc[-1]),
+            "parameters": {
+                "lookback_period": self.rules["period"],
+                "std_dev_multiplier": self.rules["std_dev_multiplier"]
+            },
+            "price_metrics": {
+                "current_price": round(current_price, 2),
+                "sma": round(current_sma, 2),
+                "sma_slope": round(sma_slope, 1),
+                "upper_band": round(current_upper, 2),
+                "lower_band": round(current_lower, 2),
+                "position_in_bands_pct": round(position_in_bands, 1),
+                "position_from_sma_pct": round(position_from_sma_pct, 1)
+            },
+            "volatility_metrics": {
+                "band_width_pct": round(band_width, 2),
+                "squeeze": squeeze,
+                "expansion": expansion,
+                "squeeze_level": squeeze_level,
+                "expansion_level": expansion_level
+            },
+            "signal_metrics": {
+                "signal": signal,
+                "trend_bias": trend_bias,
+                "confidence_pct": round(confidence, 1)
+            }
         }
         
         self.print_output(result)
@@ -182,13 +225,18 @@ class BollingerBands:
             print(f"❌ Bollinger Bands Error: {result['error']}")
             return
             
+        pm = result['price_metrics']
+        vm = result['volatility_metrics']
+        sm = result['signal_metrics']
+        
         print(f"\n🎯 Bollinger Bands Analysis - {result['symbol']} ({result['timeframe']})")
-        print(f"📊 Current Price: ${result['current_price']:.4f}")
-        print(f"📈 Upper Band: ${result['upper_band']:.4f}")
-        print(f"📊 SMA (20): ${result['sma']:.4f}")
-        print(f"📉 Lower Band: ${result['lower_band']:.4f}")
-        print(f"📏 Band Width: {result['band_width_pct']:.2f}%")
-        print(f"📍 Position in Bands: {result['position_in_bands_pct']:.2f}%")
-        print(f"🔄 Squeeze: {'Yes' if result['squeeze'] else 'No'}")
-        print(f"💥 Expansion: {'Yes' if result['expansion'] else 'No'}")
-        print(f"🚦 Signal: {result['signal']}")
+        print(f"📊 Current Price: ${pm['current_price']:.2f}")
+        print(f"📈 Upper Band: ${pm['upper_band']:.2f}")
+        print(f"📊 SMA ({result['parameters']['lookback_period']}): ${pm['sma']:.2f} (slope: {pm['sma_slope']:.1f})")
+        print(f"📉 Lower Band: ${pm['lower_band']:.2f}")
+        print(f"📏 Band Width: {vm['band_width_pct']:.2f}%")
+        print(f"📍 Position in Bands: {pm['position_in_bands_pct']:.1f}%")
+        print(f"📍 Position from SMA: {pm['position_from_sma_pct']:+.1f}%")
+        print(f"🔄 Squeeze: {'Yes' if vm['squeeze'] else 'No'} (threshold: {vm['squeeze_level']}%)")
+        print(f"💥 Expansion: {'Yes' if vm['expansion'] else 'No'} (threshold: {vm['expansion_level']}%)")
+        print(f"🚦 Signal: {sm['signal']} | Trend: {sm['trend_bias']} | Confidence: {sm['confidence_pct']:.1f}%") 

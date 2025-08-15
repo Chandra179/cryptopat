@@ -19,7 +19,7 @@ class OBV:
                  ticker: dict,            
                  ohlcv: List[List],       
                  trades: List[Dict]):    
-        self.rules = {
+        self.param = {
             "obv_divergence_threshold": 0.1,  # 10% divergence threshold
             "trend_confirmation_periods": 5,   # periods to confirm trend
             "volume_significance_multiplier": 1.5,  # volume must be X times average
@@ -72,7 +72,7 @@ class OBV:
         current_price = obv_values[-1]['close']
         
         # Calculate OBV trend (last 5 periods)
-        trend_periods = min(self.rules["trend_confirmation_periods"], len(obv_values))
+        trend_periods = min(self.param["trend_confirmation_periods"], len(obv_values))
         recent_obv = [item['obv'] for item in obv_values[-trend_periods:]]
         recent_prices = [item['close'] for item in obv_values[-trend_periods:]]
         
@@ -96,7 +96,7 @@ class OBV:
         # Volume significance
         avg_volume = sum([item['volume'] for item in obv_values]) / len(obv_values)
         current_volume = obv_values[-1]['volume']
-        volume_significant = current_volume > (avg_volume * self.rules["volume_significance_multiplier"])
+        volume_significant = current_volume > (avg_volume * self.param["volume_significance_multiplier"])
         
         result = {
             "symbol": self.symbol,

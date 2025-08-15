@@ -10,7 +10,7 @@ class DonchianChannel:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.rules = {
+        self.param = {
             "period": 20,
             "breakout_threshold": 0.001
         }
@@ -26,14 +26,14 @@ class DonchianChannel:
         """
         Calculate Donchian Channel according to TradingView methodology.
         """
-        if len(self.ohlcv) < self.rules["period"]:
+        if len(self.ohlcv) < self.param["period"]:
             result = {
-                "error": f"Not enough data. Need at least {self.rules['period']} candles, got {len(self.ohlcv)}"
+                "error": f"Not enough data. Need at least {self.param['period']} candles, got {len(self.ohlcv)}"
             }
             self.print_output(result)
             return
         
-        period = self.rules["period"]
+        period = self.param["period"]
         upper_band = []
         lower_band = []
         middle_band = []

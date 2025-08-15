@@ -16,7 +16,7 @@ class EMA_20_50:
                  ticker: dict,            
                  ohlcv: List[List],       
                  trades: List[Dict]):    
-        self.rules = {
+        self.param = {
             "ema_short_period": 20,
             "ema_long_period": 50,
             "trend_strength_threshold": 0.02,  # 2% difference for strong trend
@@ -81,8 +81,8 @@ class EMA_20_50:
         """
         Calculate EMA 20/50 analysis according to TradingView methodology.
         """
-        if not self.ohlcv or len(self.ohlcv) < self.rules["ema_long_period"]:
-            logger.warning(f"Insufficient data for EMA calculation. Need at least {self.rules['ema_long_period']} periods")
+        if not self.ohlcv or len(self.ohlcv) < self.param["ema_long_period"]:
+            logger.warning(f"Insufficient data for EMA calculation. Need at least {self.param['ema_long_period']} periods")
             return
         
         # Extract closing prices
@@ -90,8 +90,8 @@ class EMA_20_50:
         current_price = closes[-1]
         
         # Calculate EMAs
-        ema_20_values = self.calculate_ema(closes, self.rules["ema_short_period"])
-        ema_50_values = self.calculate_ema(closes, self.rules["ema_long_period"])
+        ema_20_values = self.calculate_ema(closes, self.param["ema_short_period"])
+        ema_50_values = self.calculate_ema(closes, self.param["ema_long_period"])
         
         if not ema_20_values or not ema_50_values:
             logger.warning("Unable to calculate EMAs")
@@ -127,7 +127,7 @@ class EMA_20_50:
             "resistance_level": round(resistance_level, 6),
             "distance_from_ema20_percent": round(distance_from_ema20, 2),
             "distance_from_ema50_percent": round(distance_from_ema50, 2),
-            "is_strong_trend": trend_strength > self.rules["trend_strength_threshold"]
+            "is_strong_trend": trend_strength > self.param["trend_strength_threshold"]
         }
         
         self.print_output(result)

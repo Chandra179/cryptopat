@@ -101,7 +101,7 @@ class IchimokuCloud:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.rules = {
+        self.param = {
             "tenkan_period": 9,
             "kijun_period": 26,
             "senkou_b_period": 52,
@@ -119,9 +119,9 @@ class IchimokuCloud:
         """
         Calculate Ichimoku Cloud according to TradingView methodology.
         """
-        if len(self.ohlcv) < self.rules["min_data_points"]:
+        if len(self.ohlcv) < self.param["min_data_points"]:
             result = {
-                "error": f"Insufficient data points. Need at least {self.rules['min_data_points']}, got {len(self.ohlcv)}"
+                "error": f"Insufficient data points. Need at least {self.param['min_data_points']}, got {len(self.ohlcv)}"
             }
             self.print_output(result)
             return
@@ -170,7 +170,7 @@ class IchimokuCloud:
     def _calculate_tenkan_sen(self, highs: List[float], lows: List[float]) -> List[float]:
         """Tenkan-sen (Conversion Line): (9-period high + 9-period low) / 2"""
         tenkan = []
-        period = self.rules["tenkan_period"]
+        period = self.param["tenkan_period"]
         
         for i in range(period - 1, len(highs)):
             period_high = max(highs[i - period + 1:i + 1])
@@ -182,7 +182,7 @@ class IchimokuCloud:
     def _calculate_kijun_sen(self, highs: List[float], lows: List[float]) -> List[float]:
         """Kijun-sen (Base Line): (26-period high + 26-period low) / 2"""
         kijun = []
-        period = self.rules["kijun_period"]
+        period = self.param["kijun_period"]
         
         for i in range(period - 1, len(highs)):
             period_high = max(highs[i - period + 1:i + 1])
@@ -207,7 +207,7 @@ class IchimokuCloud:
     def _calculate_senkou_span_b(self, highs: List[float], lows: List[float]) -> List[float]:
         """Senkou Span B (Leading Span B): (52-period high + 52-period low) / 2, plotted 26 periods ahead"""
         senkou_b = []
-        period = self.rules["senkou_b_period"]
+        period = self.param["senkou_b_period"]
         
         for i in range(period - 1, len(highs)):
             period_high = max(highs[i - period + 1:i + 1])
@@ -218,7 +218,7 @@ class IchimokuCloud:
     
     def _calculate_chikou_span(self, closes: List[float]) -> List[float]:
         """Chikou Span (Lagging Span): Current close price plotted 26 periods behind"""
-        displacement = self.rules["displacement"]
+        displacement = self.param["displacement"]
         
         if len(closes) < displacement:
             return []
@@ -286,9 +286,9 @@ class IchimokuCloud:
                 signals["price_cloud_breakout"] = "bearish"
         
         # Chikou confirmation
-        if chikou and len(self.ohlcv) >= self.rules["displacement"]:
+        if chikou and len(self.ohlcv) >= self.param["displacement"]:
             chikou_price = chikou[0]
-            historical_price = self.ohlcv[-(self.rules["displacement"] + 1)][4]  # Close price 26 periods ago
+            historical_price = self.ohlcv[-(self.param["displacement"] + 1)][4]  # Close price 26 periods ago
             
             if chikou_price > historical_price:
                 signals["chikou_confirmation"] = "bullish"
