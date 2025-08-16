@@ -1,0 +1,681 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CryptoPat Analysis Output Schema",
+  "description": "Comprehensive schema for cryptocurrency technical analysis output",
+  "type": "object",
+  "required": ["metadata", "analysis_summary", "indicators"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "description": "Analysis metadata and context",
+      "required": ["symbol", "timeframe", "timestamp", "data_points"],
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "description": "Trading pair symbol",
+          "examples": ["BTC/USDT", "ETH/USDT"]
+        },
+        "timeframe": {
+          "type": "string",
+          "description": "Chart timeframe",
+          "enum": ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d", "3d", "1w", "1M"]
+        },
+        "timestamp": {
+          "type": "integer",
+          "description": "Analysis timestamp (Unix milliseconds)"
+        },
+        "data_points": {
+          "type": "integer",
+          "description": "Number of OHLCV candles analyzed"
+        },
+        "current_price": {
+          "type": "number",
+          "description": "Current market price"
+        }
+      }
+    },
+    "analysis_summary": {
+      "type": "object",
+      "description": "High-level analysis summary",
+      "required": ["sentiment", "trend_direction", "signal_distribution", "momentum"],
+      "properties": {
+        "sentiment": {
+          "type": "string",
+          "enum": ["strong_bullish", "bullish", "neutral", "bearish", "strong_bearish"],
+          "description": "Overall market sentiment"
+        },
+        "sentiment_score": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2,
+          "description": "Weighted sentiment score"
+        },
+        "trend_direction": {
+          "type": "string",
+          "enum": ["upward", "downward", "sideways"],
+          "description": "Primary trend direction"
+        },
+        "trend_strength": {
+          "type": "string",
+          "enum": ["strong", "moderate", "weak"],
+          "description": "Trend conviction level"
+        },
+        "support_levels": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Identified support price levels"
+        },
+        "resistance_levels": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Identified resistance price levels"
+        },
+        "support_range": {
+          "type": "string",
+          "description": "Support level range summary"
+        },
+        "resistance_range": {
+          "type": "string",
+          "description": "Resistance level range summary"
+        },
+        "signal_distribution": {
+          "type": "object",
+          "required": ["bullish", "bearish", "neutral"],
+          "properties": {
+            "bullish": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "bearish": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "neutral": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "momentum": {
+          "type": "string",
+          "description": "Overall momentum assessment"
+        },
+        "key_observations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Notable market conditions"
+        },
+        "key_pivot_level": {
+          "type": "number",
+          "description": "Primary pivot point level"
+        }
+      }
+    },
+    "indicators": {
+      "type": "object",
+      "description": "Individual indicator results organized by category",
+      "required": ["trend", "momentum", "volatility", "support_resistance"],
+      "properties": {
+        "trend": {
+          "type": "object",
+          "description": "Trend-based indicators",
+          "properties": {
+            "ichimoku_cloud": {
+              "$ref": "#/definitions/ichimoku_result"
+            },
+            "supertrend": {
+              "$ref": "#/definitions/supertrend_result"
+            },
+            "ema_20_50": {
+              "$ref": "#/definitions/ema_result"
+            },
+            "vwap": {
+              "$ref": "#/definitions/vwap_result"
+            }
+          }
+        },
+        "momentum": {
+          "type": "object",
+          "description": "Momentum-based indicators",
+          "properties": {
+            "rsi": {
+              "$ref": "#/definitions/rsi_result"
+            },
+            "macd": {
+              "$ref": "#/definitions/macd_result"
+            },
+            "chaikin_money_flow": {
+              "$ref": "#/definitions/cmf_result"
+            },
+            "obv": {
+              "$ref": "#/definitions/obv_result"
+            }
+          }
+        },
+        "volatility": {
+          "type": "object",
+          "description": "Volatility and channel indicators",
+          "properties": {
+            "bollinger_bands": {
+              "$ref": "#/definitions/bollinger_result"
+            },
+            "keltner_channel": {
+              "$ref": "#/definitions/keltner_result"
+            },
+            "donchian_channel": {
+              "$ref": "#/definitions/donchian_result"
+            }
+          }
+        },
+        "support_resistance": {
+          "type": "object",
+          "description": "Support and resistance indicators",
+          "properties": {
+            "pivot_point": {
+              "$ref": "#/definitions/pivot_result"
+            },
+            "parabolic_sar": {
+              "$ref": "#/definitions/sar_result"
+            },
+            "renko_chart": {
+              "$ref": "#/definitions/renko_result"
+            }
+          }
+        }
+      }
+    },
+    "detailed_breakdown": {
+      "type": "object",
+      "description": "Detailed markdown-formatted analysis breakdown",
+      "properties": {
+        "core_summary": {
+          "type": "string",
+          "description": "Formatted core summary section"
+        },
+        "trend_analysis": {
+          "type": "string",
+          "description": "Detailed trend indicator breakdown"
+        },
+        "momentum_analysis": {
+          "type": "string",
+          "description": "Detailed momentum indicator breakdown"
+        },
+        "volatility_analysis": {
+          "type": "string",
+          "description": "Detailed volatility indicator breakdown"
+        },
+        "support_resistance_analysis": {
+          "type": "string",
+          "description": "Detailed support/resistance breakdown"
+        },
+        "full_markdown": {
+          "type": "string",
+          "description": "Complete markdown analysis report"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "base_indicator": {
+      "type": "object",
+      "required": ["name", "signal", "strength"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "signal": {
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "strength": {
+          "type": "string",
+          "enum": ["strong", "moderate", "weak", "neutral"]
+        },
+        "support": {
+          "type": "number"
+        },
+        "resistance": {
+          "type": "number"
+        },
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+    "rsi_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "rsi": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "is_overbought": {
+              "type": "boolean"
+            },
+            "is_oversold": {
+              "type": "boolean"
+            },
+            "is_extreme_overbought": {
+              "type": "boolean"
+            },
+            "is_extreme_oversold": {
+              "type": "boolean"
+            },
+            "above_midline": {
+              "type": "boolean"
+            },
+            "momentum_signal": {
+              "type": "string"
+            },
+            "rsi_change": {
+              "type": "number"
+            },
+            "trend_direction": {
+              "type": "string"
+            },
+            "trend_aligned": {
+              "type": "boolean"
+            },
+            "failure_swing": {
+              "type": ["string", "null"]
+            }
+          }
+        }
+      ]
+    },
+    "macd_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "macd_line": {
+              "type": "number"
+            },
+            "signal_line": {
+              "type": "number"
+            },
+            "histogram": {
+              "type": "number"
+            },
+            "fast_ema": {
+              "type": "number"
+            },
+            "slow_ema": {
+              "type": "number"
+            },
+            "trend": {
+              "type": "string"
+            },
+            "momentum_strength": {
+              "type": "number"
+            },
+            "zero_crossover_up": {
+              "type": "boolean"
+            },
+            "zero_crossover_down": {
+              "type": "boolean"
+            },
+            "signal_crossover_up": {
+              "type": "boolean"
+            },
+            "signal_crossover_down": {
+              "type": "boolean"
+            },
+            "histogram_increasing": {
+              "type": "boolean"
+            },
+            "histogram_decreasing": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "ichimoku_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "tenkan_sen": {
+              "type": "number"
+            },
+            "kijun_sen": {
+              "type": "number"
+            },
+            "senkou_span_a": {
+              "type": "number"
+            },
+            "senkou_span_b": {
+              "type": "number"
+            },
+            "chikou_span": {
+              "type": "number"
+            },
+            "cloud_position": {
+              "type": "string"
+            },
+            "cloud_color": {
+              "type": "string"
+            },
+            "price_above_cloud": {
+              "type": "boolean"
+            },
+            "price_below_cloud": {
+              "type": "boolean"
+            },
+            "bullish_signals": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "bearish_signals": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "bollinger_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "upper_band": {
+              "type": "number"
+            },
+            "middle_band": {
+              "type": "number"
+            },
+            "lower_band": {
+              "type": "number"
+            },
+            "bandwidth": {
+              "type": "number"
+            },
+            "percent_b": {
+              "type": "number"
+            },
+            "squeeze": {
+              "type": "boolean"
+            },
+            "expansion": {
+              "type": "boolean"
+            },
+            "price_position": {
+              "type": "string"
+            },
+            "band_touch": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "supertrend_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "supertrend_value": {
+              "type": "number"
+            },
+            "trend_direction": {
+              "type": "string"
+            },
+            "trend_change": {
+              "type": "boolean"
+            },
+            "support_level": {
+              "type": "number"
+            },
+            "resistance_level": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "vwap_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "vwap": {
+              "type": "number"
+            },
+            "deviation_percent": {
+              "type": "number"
+            },
+            "position": {
+              "type": "string"
+            },
+            "volume_profile": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "ema_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "ema_20": {
+              "type": "number"
+            },
+            "ema_50": {
+              "type": "number"
+            },
+            "crossover": {
+              "type": "string"
+            },
+            "trend": {
+              "type": "string"
+            },
+            "distance_20": {
+              "type": "number"
+            },
+            "distance_50": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "cmf_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "cmf": {
+              "type": "number"
+            },
+            "money_flow_volume": {
+              "type": "number"
+            },
+            "accumulation_distribution": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "obv_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "obv": {
+              "type": "number"
+            },
+            "obv_ma": {
+              "type": "number"
+            },
+            "volume_trend": {
+              "type": "string"
+            },
+            "divergence": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "keltner_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "upper_band": {
+              "type": "number"
+            },
+            "middle_line": {
+              "type": "number"
+            },
+            "lower_band": {
+              "type": "number"
+            },
+            "squeeze": {
+              "type": "boolean"
+            },
+            "expansion": {
+              "type": "boolean"
+            },
+            "position": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "donchian_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "upper_band": {
+              "type": "number"
+            },
+            "middle_band": {
+              "type": "number"
+            },
+            "lower_band": {
+              "type": "number"
+            },
+            "channel_position": {
+              "type": "string"
+            },
+            "breakout": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "pivot_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "pivot": {
+              "type": "number"
+            },
+            "r1": {
+              "type": "number"
+            },
+            "r2": {
+              "type": "number"
+            },
+            "r3": {
+              "type": "number"
+            },
+            "s1": {
+              "type": "number"
+            },
+            "s2": {
+              "type": "number"
+            },
+            "s3": {
+              "type": "number"
+            },
+            "current_level": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "sar_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "sar": {
+              "type": "number"
+            },
+            "trend": {
+              "type": "string"
+            },
+            "reversal": {
+              "type": "boolean"
+            },
+            "acceleration": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "renko_result": {
+      "allOf": [
+        {"$ref": "#/definitions/base_indicator"},
+        {
+          "type": "object",
+          "properties": {
+            "brick_size": {
+              "type": "number"
+            },
+            "last_brick": {
+              "type": "string"
+            },
+            "trend": {
+              "type": "string"
+            },
+            "reversal_level": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

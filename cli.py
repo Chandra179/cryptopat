@@ -20,7 +20,7 @@ from techin.supertrend import Supertrend
 from techin.vwap import VWAP
 from techin.ema_20_50 import EMA2050
 from techin.rsi import RSI
-from analysis_summary import generate_analysis_summary, clear_all_results
+from analysis_summary import generate_analysis_summary, clear_all_results, get_structured_analysis
 
 class CryptoPatCLI:
     def __init__(self):
@@ -142,17 +142,31 @@ class CryptoPatCLI:
                 except Exception as e:
                     print(f"✗ {name}: {e}")
             
-            # Generate and display analysis summary
+            # Generate and display structured analysis summary
             print("\n" + "="*60)
             print("MARKET ANALYSIS SUMMARY")
             print("="*60)
             
             try:
-                summary = generate_analysis_summary(symbol, timeframe)
-                print(f"\n{summary}\n")
+                # Get current price from ticker for metadata
+                current_price = ticker.get('last', ticker.get('close', 0)) if ticker else 0
+                
+                # Get structured analysis data
+                analysis_data = get_structured_analysis(symbol, timeframe, current_price)
+                
+                # Display formatted breakdown
+                breakdown = analysis_data["detailed_breakdown"]
+                print(f"\n{breakdown['full_markdown']}\n")
+                
             except Exception as e:
                 print(f"Error generating analysis summary: {e}")
                 print("Check individual indicator calculations.\n")
+                # Fallback to legacy summary
+                try:
+                    legacy_summary = generate_analysis_summary(symbol, timeframe)
+                    print(f"\nFallback Summary:\n{legacy_summary}\n")
+                except:
+                    print("Unable to generate any summary.\n")
 
                         
         except Exception as e:
