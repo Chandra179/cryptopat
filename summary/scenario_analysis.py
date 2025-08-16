@@ -25,7 +25,7 @@ class ScenarioAnalyzer:
     def __init__(self):
         self.scenarios = ['bull_case', 'base_case', 'bear_case']
     
-    def generate_scenarios(self, signal_analysis, support_levels: List[float],
+    def generate_scenarios(self, support_levels: List[float],
                          resistance_levels: List[float], current_price: float = None,
                          probabilities: Optional[ProbabilisticAssessment] = None) -> ScenarioAnalysis:
         """Generate structured scenario analysis per CFA Institute standards.
@@ -49,9 +49,6 @@ class ScenarioAnalyzer:
                 current_price = float(current_price)
             except (TypeError, ValueError):
                 current_price = None
-                
-        if not current_price or not support_levels or not resistance_levels:
-            return self._create_empty_scenarios()
         
         # Calculate scenario targets using academic methodology
         # Ensure all support and resistance levels are floats
@@ -143,31 +140,3 @@ class ScenarioAnalyzer:
         reward = abs(target - current)
         risk = abs(current - stop)
         return round(reward / risk, 2) if risk > 0 else 0.0
-    
-    def _create_empty_scenarios(self) -> ScenarioAnalysis:
-        """Create empty scenario structure for insufficient data cases.
-        
-        Returns:
-            ScenarioAnalysis with empty/default values
-        """
-        empty_scenario = ScenarioData(
-            probability=0.0,
-            target_price=0.0,
-            scenario_description="Insufficient data",
-            key_drivers=[],
-            risk_reward_ratio=0.0
-        )
-        
-        base_scenario = ScenarioData(
-            probability=1.0,
-            target_price=0.0,
-            scenario_description="No data available",
-            key_drivers=[],
-            risk_reward_ratio=0.0
-        )
-        
-        return ScenarioAnalysis(
-            bull_case=empty_scenario,
-            base_case=base_scenario,
-            bear_case=empty_scenario
-        )

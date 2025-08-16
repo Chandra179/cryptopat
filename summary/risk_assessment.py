@@ -15,7 +15,6 @@ using signal strength as input parameters for Monte Carlo simulation.
 import logging
 import random
 import math
-from typing import Dict
 
 from .analysis_data import ProbabilisticAssessment, ConfluenceData
 
@@ -57,22 +56,38 @@ class ProbabilisticRiskAssessment:
         
         for _ in range(self.num_simulations):
             # Random walk with signal bias (academic standard approach)
-            random_factor = random.gauss(0, 0.1)  # 10% volatility assumption
+            random_factor = random.gauss(0, 0.15)  # Increased volatility for more distribution
             adjusted_prob = base_prob + (confluence_adjustment - 1) * 0.1 + random_factor
             
-            if adjusted_prob > 0.15:
+            # Use balanced thresholds that ensure some distribution across all scenarios
+            # Use dynamic thresholds based on the adjusted probability range
+            upper_threshold = max(0.02, abs(adjusted_prob) * 0.3)
+            lower_threshold = -upper_threshold
+            
+            if adjusted_prob > upper_threshold:
                 bullish_outcomes += 1
-            elif adjusted_prob < -0.15:
+            elif adjusted_prob < lower_threshold:
                 bearish_outcomes += 1
             else:
                 neutral_outcomes += 1
         
-        # Convert to probabilities
+        # Convert to probabilities and ensure they sum to 1.0
         total = self.num_simulations
+        bullish_prob = bullish_outcomes / total
+        bearish_prob = bearish_outcomes / total
+        neutral_prob = neutral_outcomes / total
+        
+        # Normalize to ensure exact sum of 1.0
+        prob_sum = bullish_prob + bearish_prob + neutral_prob
+        if prob_sum > 0:
+            bullish_prob /= prob_sum
+            bearish_prob /= prob_sum
+            neutral_prob /= prob_sum
+        
         return ProbabilisticAssessment(
-            bullish_probability=round(bullish_outcomes / total, 3),
-            bearish_probability=round(bearish_outcomes / total, 3),
-            neutral_probability=round(neutral_outcomes / total, 3),
+            bullish_probability=round(bullish_prob, 3),
+            bearish_probability=round(bearish_prob, 3),
+            neutral_probability=round(neutral_prob, 3),
             confidence_level=0.95  # Standard 95% confidence per academic research
         )
     

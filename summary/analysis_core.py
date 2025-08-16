@@ -7,13 +7,12 @@ level analysis, momentum analysis, and observation extraction.
 
 import logging
 import math
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Optional
 
 from .config import IndicatorConfig
-from .formatters import IndicatorResult, FormatterFactory
+from .formatters import IndicatorResult
 from .analysis_data import (
-    SentimentType, TrendDirection, TrendStrength, SignalDistribution,
-    MarketLevels, ConfluenceData
+    SentimentType, TrendDirection, TrendStrength, ConfluenceData
 )
 
 logger = logging.getLogger(__name__)
@@ -140,8 +139,7 @@ class SignalAggregator:
                 signal_value = 0.0  # neutral
             
             # Apply confluence weighting adjustment (academic research based)
-            confluence_adjustment = self._get_confluence_adjustment(
-                result, confluence_data, signal_value)
+            confluence_adjustment = self._get_confluence_adjustment(confluence_data, signal_value)
             
             # Ensure confluence_adjustment is numeric
             if not isinstance(confluence_adjustment, (int, float)):
@@ -169,8 +167,7 @@ class SignalAggregator:
             'counts': signal_counts
         }
     
-    def _get_confluence_adjustment(self, result: IndicatorResult, 
-                                 confluence_data: ConfluenceData, 
+    def _get_confluence_adjustment(self, confluence_data: ConfluenceData, 
                                  signal_value: float) -> float:
         """Calculate confluence-based weight adjustment.
         
