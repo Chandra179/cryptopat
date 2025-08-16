@@ -7,7 +7,7 @@ from YAML files, with fallback to default values.
 
 import os
 import yaml
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)

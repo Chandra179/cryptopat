@@ -2,7 +2,6 @@
 OHLCV data fetcher module for candlestick data collection.
 """
 
-import ccxt
 import csv
 import os
 import logging
