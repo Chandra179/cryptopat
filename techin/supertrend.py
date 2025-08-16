@@ -92,6 +92,7 @@
 from typing import List, Dict
 import pandas as pd
 import numpy as np
+from analysis_summary import add_indicator_result, IndicatorResult
 
 class Supertrend:
     
@@ -283,24 +284,24 @@ class Supertrend:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="SuperTrend",
+            signal=result["signal"],
+            value=result["supertrend"],
+            strength="strong" if result.get("trend_strength", 0.5) > 0.8 else "medium",
+            support=result["supertrend"] if result["trend"] == "up" else None,
+            resistance=result["supertrend"] if result["trend"] == "down" else None,
+            metadata={
+                "trend": result["trend"],
+                "atr": result["atr"],
+                "trend_strength": result.get("trend_strength", 0.5),
+                "recent_cross": result.get("recent_cross", False),
+                "cross_type": result.get("cross_type", "none"),
+                "distance_percent": result.get("distance_percent", result["distance_pct"]),
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print SuperTrend analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nSuperTrend Error: {result['error']}")
-            return
-            
-        # One-line summary
-        trend_info = f"{result['trend']} trend ({result['distance_pct']:.2f}% from SuperTrend)"
-        market_info = f" in {result['market_condition']} market" if result['market_condition'] != 'normal' else ""
-        summary = f"\nSuperTrend: In {trend_info}{market_info}, signal: {result['signal']}"
-        
-        # SuperTrend acts as dynamic S/R
-        if result['trend'] == 'up':
-            support_resistance = f"   S/R: Support ${result['supertrend']:.4f} | Upper Band ${result['upper_band']:.4f}"
-        else:
-            support_resistance = f"   S/R: Lower Band ${result['lower_band']:.4f} | Resistance ${result['supertrend']:.4f}"
-        
-        print(summary)
-        print(support_resistance)
+        return result

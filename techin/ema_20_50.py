@@ -91,6 +91,7 @@
 
 from typing import List, Dict
 import pandas as pd
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class EMA2050:
@@ -177,8 +178,7 @@ class EMA2050:
             result = {
                 "error": f"Insufficient data: need at least {slow_period} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
-            self.print_output(result)
-            return
+            return result
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['close'] = pd.to_numeric(df['close'])
@@ -267,15 +267,27 @@ class EMA2050:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="EMA 20/50",
+            signal=result["signal"],
+            value=result["ema_distance_pct"],
+            strength=result["trend_strength"],
+            support=result["ema_slow"] if result["trend_bullish"] else None,
+            resistance=result["ema_slow"] if result["trend_bearish"] else None,
+            metadata={
+                "ema_fast": result["ema_fast"],
+                "ema_slow": result["ema_slow"],
+                "trend_bullish": result["trend_bullish"],
+                "trend_bearish": result["trend_bearish"],
+                "crossover_up": result["crossover_up"],
+                "crossover_down": result["crossover_down"],
+                "confirmed_bullish": result["confirmed_bullish"],
+                "confirmed_bearish": result["confirmed_bearish"],
+                "volume_confirmed": result["volume_confirmed"],
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print EMA 20/50 analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nEMA 20/50 Error: {result['error']}")
-            return
-            
-        # One-line summary
-        ema_trend = "fast above slow" if result["ema_fast"] > result["ema_slow"] else "fast below slow"
-        summary = f"\nEMA 20/50: {ema_trend} ({result['ema_distance_pct']:.2f}%), signal: {result['signal']}"
-        print(summary)
+        return result

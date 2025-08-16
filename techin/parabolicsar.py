@@ -91,6 +91,7 @@
 
 from typing import List, Dict
 import pandas as pd
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class ParabolicSAR:
@@ -171,9 +172,10 @@ class ParabolicSAR:
         - Price crosses SAR: Potential trend reversal
         """
         if not self.ohlcv or len(self.ohlcv) < 3:
-            return {
+            result = {
                 "error": f"Insufficient data: need at least 3 candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
+            return result
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df[['open', 'high', 'low', 'close', 'volume']] = df[['open', 'high', 'low', 'close', 'volume']].astype(float)
@@ -330,16 +332,24 @@ class ParabolicSAR:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="Parabolic SAR",
+            signal=result["signal"],
+            value=result["sar"],
+            strength=f"{result['signal_strength']:.1f}" if result['signal_strength'] > 0.5 else "weak",
+            support=result["sar"] if result["trend_numeric"] == 1 else None,
+            resistance=result["sar"] if result["trend_numeric"] == -1 else None,
+            metadata={
+                "trend": result["trend"],
+                "acceleration_factor": result["acceleration_factor"],
+                "extreme_point": result["extreme_point"],
+                "sar_distance_pct": result["sar_distance_pct"],
+                "trend_strength": result["trend_strength"],
+                "volume_confirmed": result["volume_confirmed"],
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print Parabolic SAR analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nParabolic SAR Error: {result['error']}")
-            return
-            
-        # One-line summary
-        trend_info = f"{result['trend']} ({result['trend_strength']:.1%} strength)"
-        sar_distance = f"SAR {result['sar_distance_pct']:.2f}% away"
-        summary = f"\nParabolic SAR: In {trend_info}, {sar_distance}, signal: {result['signal']}"
-        print(summary)
+        return result

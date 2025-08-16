@@ -1,6 +1,7 @@
 from typing import List, Dict
 import pandas as pd
 import logging
+from analysis_summary import add_indicator_result, IndicatorResult
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +85,7 @@ class ChaikinMoneyFlow:
             result = {
                 "error": f"Insufficient data: need at least {self.param['period']} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
-            self.print_output(result)
-            return
+            return result
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['high'] = pd.to_numeric(df['high'])
@@ -187,15 +187,22 @@ class ChaikinMoneyFlow:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="Chaikin Money Flow",
+            signal=result["signal"],
+            value=result["cmf"],
+            strength=result["strength"],
+            metadata={
+                "flow_direction": result["flow_direction"],
+                "money_flow_multiplier": result["money_flow_multiplier"],
+                "money_flow_volume": result["money_flow_volume"],
+                "high_volume": result["high_volume"],
+                "bullish_divergence": result["bullish_divergence"],
+                "bearish_divergence": result["bearish_divergence"],
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print Chaikin Money Flow analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nChaikin Money Flow Error: {result['error']}")
-            return
-            
-        # One-line summary
-        flow_direction = "accumulation" if result["cmf"] > 0 else "distribution" if result["cmf"] < 0 else "neutral"
-        summary = f"\nChaikin Money Flow: {flow_direction} with CMF: {result['cmf']:.3f}, signal: {result['signal']}"
-        print(summary)
+        return result

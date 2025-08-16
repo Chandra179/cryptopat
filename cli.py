@@ -20,6 +20,7 @@ from techin.supertrend import Supertrend
 from techin.vwap import VWAP
 from techin.ema_20_50 import EMA2050
 from techin.rsi import RSI
+from analysis_summary import generate_analysis_summary, clear_all_results
 
 class CryptoPatCLI:
     def __init__(self):
@@ -107,35 +108,51 @@ class CryptoPatCLI:
             if trades:
                 print(f"✓ Retrieved {len(trades)} recent trades")
                 print(f"✓ Latest trade: {trades[-1].get('price')} @ {trades[-1].get('amount')}")
-
-            bollingerbands = BollingerBands(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            bollingerbands.calculate()
-            chaikinmoneyflow = ChaikinMoneyFlow(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            chaikinmoneyflow.calculate()
-            donchain = DonchianChannel(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            donchain.calculate()
-            ichimoku = IchimokuCloud(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            ichimoku.calculate()
-            keltner = KeltnerChannel(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            keltner.calculate()
-            macd = MACD(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            macd.calculate()
-            obv = OBV(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            obv.calculate()
-            parabolicsar = ParabolicSAR(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            parabolicsar.calculate()
-            pivotpoint = PivotPoint(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            pivotpoint.calculate()
-            renko = Renko(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            renko.calculate()
-            supertrend = Supertrend(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            supertrend.calculate()
-            vwap = VWAP(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            vwap.calculate()
-            ema_20_50 = EMA2050(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            ema_20_50.calculate()
-            rsi = RSI(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-            rsi.calculate()
+            
+            # Clear previous analysis results
+            clear_all_results()
+            
+            # Run all technical indicators (they now store results in memory)
+            print("\n" + "="*60)
+            print("RUNNING TECHNICAL ANALYSIS")
+            print("="*60)
+            
+            indicators = [
+                ("Bollinger Bands", BollingerBands),
+                ("Chaikin Money Flow", ChaikinMoneyFlow),
+                ("Donchian Channel", DonchianChannel),
+                ("Ichimoku Cloud", IchimokuCloud),
+                ("Keltner Channel", KeltnerChannel),
+                ("MACD", MACD),
+                ("OBV", OBV),
+                ("Parabolic SAR", ParabolicSAR),
+                ("Pivot Point", PivotPoint),
+                ("Renko", Renko),
+                ("SuperTrend", Supertrend),
+                ("VWAP", VWAP),
+                ("EMA 20/50", EMA2050),
+                ("RSI", RSI)
+            ]
+            
+            for name, indicator_class in indicators:
+                try:
+                    indicator = indicator_class(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
+                    indicator.calculate()
+                    print(f"✓ {name}")
+                except Exception as e:
+                    print(f"✗ {name}: {e}")
+            
+            # Generate and display analysis summary
+            print("\n" + "="*60)
+            print("MARKET ANALYSIS SUMMARY")
+            print("="*60)
+            
+            try:
+                summary = generate_analysis_summary(symbol, timeframe)
+                print(f"\n{summary}\n")
+            except Exception as e:
+                print(f"Error generating analysis summary: {e}")
+                print("Check individual indicator calculations.\n")
 
                         
         except Exception as e:
@@ -147,7 +164,7 @@ class CryptoPatCLI:
         print("  s=SYMBOL t=TIMEFRAME l=LIMIT  - Fetch market data")
         print("  Example: s=BTC/USDT t=1d l=100")
         print("  ")
-        print("  clear                         - Clear the screen")
+        print("  clear                        - Clear the screen")
         print("  help                         - Show this help")
         print("  exit                         - Exit the CLI")
         print("")

@@ -91,6 +91,7 @@
 from typing import List, Dict
 import pandas as pd
 import numpy as np
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class Renko:
@@ -165,9 +166,10 @@ class Renko:
         - Signal generation: Breakouts from brick patterns
         """
         if not self.ohlcv or len(self.ohlcv) < 20:
-            return {
+            result = {
                 "error": f"Insufficient data: need at least 20 candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
+            return result
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['close'] = pd.to_numeric(df['close'])
@@ -191,9 +193,10 @@ class Renko:
         renko_data = self._generate_renko_bricks(df, prices, brick_size)
         
         if len(renko_data) < 2:
-            return {
+            result = {
                 "error": "Insufficient price movement to generate Renko bricks"
             }
+            return result
         
         # Analyze current trend and signals
         trend_analysis = self._analyze_trend(renko_data)
@@ -236,22 +239,28 @@ class Renko:
             "renko_bricks": renko_data[-10:] if len(renko_data) >= 10 else renko_data  # Last 10 bricks
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="Renko Chart",
+            signal=result["signal"],
+            value=result["brick_size"],
+            strength="strong" if result["consecutive_bricks"] >= 5 else "medium",
+            support=result["support_level"],
+            resistance=result["resistance_level"],
+            metadata={
+                "trend": result["trend"],
+                "consecutive_bricks": result["consecutive_bricks"],
+                "brick_size": result["brick_size"],
+                "trend_strength": result["trend_strength"],
+                "reversal_signal": result["reversal_signal"],
+                "continuation_signal": result["continuation_signal"],
+                "parameters": result["parameters"],
+                "renko_bricks": result["renko_bricks"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print Renko Chart analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nRenko Chart Error: {result['error']}")
-            return
-            
-        # One-line summary
-        brick_info = f"{result['consecutive_bricks']} consecutive {result['trend']} bricks"
-        alerts = []
-        if result['reversal_alert']: alerts.append("reversal")
-        if result['breakout_alert']: alerts.append("breakout")
-        alert_info = f" ({', '.join(alerts)} alert)" if alerts else ""
-        summary = f"\nRenko Chart: Has {brick_info}, signal: {result['signal']}{alert_info}"
-        print(summary)
+        return result
     
     def _calculate_brick_size(self, df: pd.DataFrame, prices: pd.Series) -> float:
         """Calculate brick size based on the selected method."""

@@ -91,6 +91,7 @@
 
 from typing import List, Dict
 import pandas as pd
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class BollingerBands:
@@ -264,20 +265,28 @@ class BollingerBands:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        position_desc = ("above upper band" if result["current_price"] > result["upper_band"] else
+                        "below lower band" if result["current_price"] < result["lower_band"] else
+                        "within bands")
         
-    def print_output(self, result):
-        """Print Bollinger Bands analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nBollinger Bands Error: {result['error']}")
-            return
-            
-        # One-line summary
-        price_position = "above upper" if result["current_price"] > result["upper_band"] else \
-                        "below lower" if result["current_price"] < result["lower_band"] else \
-                        "within bands"
-        summary = f"\nBollinger Bands: Price is {price_position} band, signal: {result['signal']}, %B: {result['percent_b']:.2f}"
-        support_resistance = f"   S/R: Support ${result['lower_band']:.4f} | Resistance ${result['upper_band']:.4f}"
-        print(summary)
-        print(support_resistance)
+        indicator_result = IndicatorResult(
+            name="Bollinger Bands",
+            signal=result["signal"],
+            value=result["percent_b"],
+            strength=result.get("strength", "medium"),
+            support=result["lower_band"],
+            resistance=result["upper_band"],
+            metadata={
+                "position": position_desc,
+                "percent_b": result["percent_b"],
+                "bandwidth": result["bandwidth"],
+                "middle_band": result["middle_band"],
+                "squeeze": result["squeeze"],
+                "expansion": result.get("expansion", False),
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
+        return result

@@ -90,6 +90,7 @@
 """
 from typing import List, Dict
 import pandas as pd
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class PivotPoint:
@@ -171,9 +172,10 @@ class PivotPoint:
         - Higher timeframes provide stronger pivot levels
         """
         if not self.ohlcv or len(self.ohlcv) < 2:
-            return {
+            result = {
                 "error": f"Insufficient data: need at least 2 candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
+            return result
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['high'] = pd.to_numeric(df['high'])
@@ -320,25 +322,29 @@ class PivotPoint:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        support_levels = [result["levels"].get("s1"), result["levels"].get("s2"), result["levels"].get("s3")]
+        support_levels = [s for s in support_levels if s is not None]
+        resistance_levels = [result["levels"].get("r1"), result["levels"].get("r2"), result["levels"].get("r3")]
+        resistance_levels = [r for r in resistance_levels if r is not None]
         
-    def print_output(self, result):
-        """Print Pivot Point analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nPivot Point Error: {result['error']}")
-            return
-            
-        # One-line summary
-        position_info = f"{result['position']} ({result['distance_from_pivot_pct']:.2f}% from pivot)"
-        nearest = result['nearest_resistance']['level'] if result.get('nearest_resistance') else result['nearest_support']['level'] if result.get('nearest_support') else "none"
-        summary = f"\nPivot Point: {position_info}, nearest: {nearest}, signal: {result['signal']}"
+        indicator_result = IndicatorResult(
+            name="Pivot Point",
+            signal=result["signal"],
+            value=result["pivot_point"],
+            strength="medium",
+            support=result["levels"].get("s1"),
+            resistance=result["levels"].get("r1"),
+            metadata={
+                "pivot": result.get("pivot_point", result["pivot_point"]),
+                "support_levels": support_levels,
+                "resistance_levels": resistance_levels,
+                "nearest_level": result.get("nearest_level", "unknown"),
+                "distance_to_nearest": result.get("distance_to_nearest", 0.0),
+                "level_strength": result.get("level_strength", "medium"),
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-        # Build S/R levels output
-        levels = result['levels']
-        support_levels = [f"S{i}: ${levels[f's{i}']:.4f}" for i in range(1, 4) if f's{i}' in levels]
-        resistance_levels = [f"R{i}: ${levels[f'r{i}']:.4f}" for i in range(1, 4) if f'r{i}' in levels]
-        pivot_info = f"Pivot: ${levels['pivot']:.4f}"
-        
-        support_resistance = f"   S/R: {' | '.join(support_levels)} | {pivot_info} | {' | '.join(resistance_levels)}"
-        print(summary)
-        print(support_resistance)
+        return result

@@ -91,6 +91,7 @@
 
 from typing import List, Dict
 import pandas as pd
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class OBV:
@@ -276,16 +277,22 @@ class OBV:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="OBV",
+            signal=result["signal"],
+            value=result["obv"],
+            strength="strong" if "strong" in result["signal"] else "medium",
+            metadata={
+                "flow_direction": result.get("flow_direction", "unknown"),
+                "obv_ma": result.get("obv_ma", result["obv_signal_line"]),
+                "obv_divergence": result.get("obv_divergence", result["divergence"]),
+                "volume_acceleration": result.get("volume_acceleration", result["obv_momentum"]),
+                "trend_strength": result.get("trend_strength", result["obv_trend"]),
+                "volume_breakout": result.get("volume_breakout", False),
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print OBV analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nOBV Error: {result['error']}")
-            return
-            
-        # One-line summary
-        volume_trend = "accumulation" if result["obv_trend"] > 0 else "distribution" if result["obv_trend"] < 0 else "neutral"
-        divergence_info = f" ({result['divergence']} divergence)" if result['divergence'] != "none" else ""
-        summary = f"\nOBV: {volume_trend}, OBV: {result['obv']:.0f}, signal: {result['signal']}{divergence_info}"
-        print(summary)
+        return result

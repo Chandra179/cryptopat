@@ -92,6 +92,7 @@
 from typing import List, Dict
 import pandas as pd
 import numpy as np
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class VWAP:
@@ -166,9 +167,10 @@ class VWAP:
         - Volume spikes near VWAP indicate institutional interest
         """
         if not self.ohlcv or len(self.ohlcv) < 2:
-            return {
+            result = {
                 "error": f"Insufficient data: need at least 2 candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
+            return result
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['open'] = pd.to_numeric(df['open'])
@@ -313,26 +315,24 @@ class VWAP:
                 "multipliers": self.param["std_dev_multiplier"]
             }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="VWAP",
+            signal=result["signal"],
+            value=result["vwap"],
+            strength="strong" if abs(result.get("deviation_pct", result["price_deviation_pct"])) > 15 else "medium",
+            support=result["vwap"] if not result.get("above_vwap", result["price_above_vwap"]) else None,
+            resistance=result["vwap"] if result.get("above_vwap", result["price_above_vwap"]) else None,
+            metadata={
+                "position": "above" if result.get("above_vwap", result["price_above_vwap"]) else "below",
+                "deviation_percent": result.get("deviation_pct", result["price_deviation_pct"]),
+                "volume_profile": result.get("volume_profile", "normal"),
+                "institutional_signal": result.get("institutional_signal", result["volume_spike"]),
+                "trend_alignment": result.get("trend_alignment", result["trend"]),
+                "volume_strength": result.get("volume_strength", "medium"),
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print VWAP analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nVWAP Error: {result['error']}")
-            return
-            
-        # One-line summary
-        position = "above" if result["price_above_vwap"] else "below"
-        deviation = f"({result['price_deviation_pct']:.2f}% deviation)"
-        volume_info = " with volume spike" if result['volume_spike'] else ""
-        summary = f"\nVWAP: Price is {position} VWAP {deviation}{volume_info}, signal: {result['signal']}"
-        
-        # VWAP acts as dynamic S/R, add deviation bands if available
-        if 'deviation_bands' in result and result['deviation_bands']:
-            bands = result['deviation_bands']
-            support_resistance = f"   S/R: Lower Band ${bands['lower_bands'][0]:.4f} | VWAP ${result['vwap']:.4f} | Upper Band ${bands['upper_bands'][0]:.4f}"
-        else:
-            support_resistance = f"   S/R: VWAP ${result['vwap']:.4f} (dynamic support/resistance)"
-        
-        print(summary)
-        print(support_resistance)
+        return result

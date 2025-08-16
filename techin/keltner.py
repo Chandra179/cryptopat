@@ -91,6 +91,7 @@
 
 from typing import List, Dict
 import pandas as pd
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class KeltnerChannel:
@@ -164,9 +165,10 @@ class KeltnerChannel:
         """
         if not self.ohlcv or len(self.ohlcv) < max(self.param["ema_period"], self.param["atr_period"]):
             min_required = max(self.param["ema_period"], self.param["atr_period"])
-            return {
+            result = {
                 "error": f"Insufficient data: need at least {min_required} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
+            return result
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['high'] = pd.to_numeric(df['high'])
@@ -293,17 +295,26 @@ class KeltnerChannel:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="Keltner Channel",
+            signal=result["signal"],
+            value=result["channel_position"],
+            strength="strong" if abs(result["channel_position"] - 0.5) > 0.3 else "medium",
+            support=result["lower_channel"],
+            resistance=result["upper_channel"],
+            metadata={
+                "trend_direction": result["trend_direction"],
+                "middle_line": result["middle_line"],
+                "channel_width": result["channel_width"],
+                "atr": result["atr"],
+                "squeeze": result["squeeze"],
+                "breakout_up": result["breakout_up"],
+                "breakout_down": result["breakout_down"],
+                "volume_confirmed": result["volume_confirmed"],
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print Keltner Channel analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nKeltner Channel Error: {result['error']}")
-            return
-            
-        # One-line summary
-        position = "above upper" if result["breakout_up"] else "below lower" if result["breakout_down"] else f"within channel ({result['channel_position']:.0%})"
-        summary = f"\nKeltner Channel: Price is {position}, signal: {result['signal']}, ATR: {result['atr']:.4f}"
-        support_resistance = f"   S/R: Support ${result['lower_channel']:.4f} | Resistance ${result['upper_channel']:.4f}"
-        print(summary)
-        print(support_resistance)
+        return result

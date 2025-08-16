@@ -91,6 +91,7 @@
 
 from typing import List, Dict
 import pandas as pd
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class DonchianChannel:
@@ -169,8 +170,7 @@ class DonchianChannel:
             result = {
                 "error": f"Insufficient data: need at least {self.param['period']} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
-            self.print_output(result)
-            return
+            return result
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['high'] = pd.to_numeric(df['high'])
@@ -288,17 +288,28 @@ class DonchianChannel:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="Donchian Channel",
+            signal=result["signal"],
+            value=result["price_position"],
+            strength="strong" if result["confidence"] > 0.7 else "medium",
+            support=result["lower_channel"],
+            resistance=result["upper_channel"],
+            metadata={
+                "middle_line": result["middle_line"],
+                "channel_width": result["channel_width"],
+                "channel_width_pct": result["channel_width_pct"],
+                "trend_strength": result["trend_strength"],
+                "confidence": result["confidence"],
+                "upper_breakout": result["upper_breakout"],
+                "lower_breakout": result["lower_breakout"],
+                "volume_confirmed": result["volume_confirmed"],
+                "near_upper_band": result["near_upper_band"],
+                "near_lower_band": result["near_lower_band"],
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print Donchian Channel analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nDonchian Channel Error: {result['error']}")
-            return
-            
-        # One-line summary
-        position = f"within channel ({result['price_position']:.0%})" if result['price_position'] <= 1 else "above upper" if result['upper_breakout'] else "below lower" if result['lower_breakout'] else "near bounds"
-        summary = f"\nDonchian Channel: Price is {position}, signal: {result['signal']}, trend: {result['trend_strength']:.2f}"
-        support_resistance = f"   S/R: Support ${result['lower_channel']:.4f} | Resistance ${result['upper_channel']:.4f}"
-        print(summary)
-        print(support_resistance)
+        return result

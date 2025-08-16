@@ -91,6 +91,7 @@
 
 from typing import List, Dict
 import pandas as pd
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class RSI:
@@ -296,16 +297,27 @@ class RSI:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="RSI",
+            signal=result["signal"],
+            value=result["rsi"],
+            strength=result["strength"],
+            metadata={
+                "condition": "extreme overbought" if result["is_extreme_overbought"] else
+                           "extreme oversold" if result["is_extreme_oversold"] else
+                           "overbought" if result["is_overbought"] else
+                           "oversold" if result["is_oversold"] else
+                           "bullish territory" if result["above_midline"] else
+                           "bearish territory",
+                "momentum_signal": result["momentum_signal"],
+                "rsi_change": result["rsi_change"],
+                "trend_direction": result["trend_direction"],
+                "trend_aligned": result["trend_aligned"],
+                "failure_swing": result["failure_swing"],
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print RSI analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nRSI Error: {result['error']}")
-            return
-            
-        # One-line summary
-        zone = "overbought" if result["is_overbought"] else "oversold" if result["is_oversold"] else "neutral"
-        failure_info = f" ({result['failure_swing']})" if result['failure_swing'] else ""
-        summary = f"\nRSI: {result['rsi']:.1f} ({zone}), signal: {result['signal']}{failure_info}"
-        print(summary)
+        return result

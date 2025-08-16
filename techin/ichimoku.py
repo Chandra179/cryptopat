@@ -91,6 +91,7 @@
 
 from typing import List, Dict
 import pandas as pd
+from analysis_summary import add_indicator_result, IndicatorResult
 
 
 class IchimokuCloud:
@@ -169,8 +170,7 @@ class IchimokuCloud:
             result = {
                 "error": f"Insufficient data: need at least {required_periods} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
-            self.print_output(result)
-            return
+            return result
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['high'] = pd.to_numeric(df['high'])
@@ -302,17 +302,28 @@ class IchimokuCloud:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        indicator_result = IndicatorResult(
+            name="Ichimoku Cloud",
+            signal=result["signal"],
+            value=result.get("tenkan_sen"),
+            strength="strong" if "strong" in result["signal"] else "medium",
+            support=result["cloud_bottom"] if result["cloud_bottom"] < result["current_price"] else None,
+            resistance=result["cloud_top"] if result["cloud_top"] > result["current_price"] else None,
+            metadata={
+                "cloud_position": result["price_position"],
+                "cloud_color": result["cloud_color"],
+                "trend": result["trend"],
+                "tenkan_sen": result["tenkan_sen"],
+                "kijun_sen": result["kijun_sen"],
+                "senkou_span_a": result["senkou_span_a"],
+                "senkou_span_b": result["senkou_span_b"],
+                "chikou_span": result["chikou_span"],
+                "cloud_bottom": result["cloud_bottom"],
+                "cloud_top": result["cloud_top"],
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
         
-    def print_output(self, result):
-        """Print Ichimoku Cloud analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nIchimoku Cloud Error: {result['error']}")
-            return
-            
-        # One-line summary
-        cloud_info = f"{result['cloud_color']} cloud ({result['price_position']})"
-        summary = f"\nIchimoku Cloud: In {cloud_info}, trend: {result['trend']}, signal: {result['signal']}"
-        support_resistance = f"   S/R: Cloud Bottom ${result['cloud_bottom']:.4f} | Cloud Top ${result['cloud_top']:.4f} | Kijun ${result['kijun_sen']:.4f}"
-        print(summary)
-        print(support_resistance)
+        return result

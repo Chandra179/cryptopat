@@ -92,6 +92,7 @@
 from typing import List, Dict
 import pandas as pd
 import numpy as np
+from analysis_summary import add_indicator_result, IndicatorResult
 
 class MACD:
     
@@ -287,16 +288,29 @@ class MACD:
             }
         }
         
-        self.print_output(result)
+        # Add result to analysis summary
+        position_desc = "above zero" if result["macd_line"] > 0 else "below zero"
+        histogram_trend = ("increasing" if result["histogram_increasing"] else 
+                          "decreasing" if result["histogram_decreasing"] else "stable")
         
-    def print_output(self, result):
-        """Print MACD analysis results with one-line summary"""
-        if "error" in result:
-            print(f"\nMACD Error: {result['error']}")
-            return
-            
-        # One-line summary
-        macd_direction = "above zero" if result["macd_line"] > 0 else "below zero"
-        histogram_trend = "increasing" if result["histogram_increasing"] else "decreasing" if result["histogram_decreasing"] else "flat"
-        summary = f"\nMACD: Line {macd_direction} ({result['macd_line']:.4f}), histogram {histogram_trend}, signal: {result['signal']}"
-        print(summary)
+        indicator_result = IndicatorResult(
+            name="MACD",
+            signal=result["signal"],
+            value=result["macd_line"],
+            strength=result.get("strength", "medium"),
+            metadata={
+                "macd_line": result["macd_line"],
+                "signal_line": result["signal_line"],
+                "histogram": result["histogram"],
+                "position": position_desc,
+                "histogram_trend": histogram_trend,
+                "histogram_increasing": result["histogram_increasing"],
+                "histogram_decreasing": result["histogram_decreasing"],
+                "crossover_type": result.get("crossover_type", "none"),
+                "divergence": result.get("divergence", "none"),
+                "parameters": result["parameters"]
+            }
+        )
+        add_indicator_result(indicator_result)
+        
+        return result
