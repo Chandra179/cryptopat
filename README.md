@@ -3,6 +3,7 @@
 A comprehensive Python-based cryptocurrency pattern detection and technical analysis system. CryptoPat fetches real-time market data from exchanges and performs advanced analysis using technical indicators
 
 ## Features
+![Alt text](diagram/cryptopat-arch.png)
 
 ### Technical Analysis Suite
 - **Trend Indicators**: MACD, EMA (20/50), Parabolic SAR, Supertrend
@@ -15,8 +16,7 @@ A comprehensive Python-based cryptocurrency pattern detection and technical anal
 ### Real-Time Market Data
 - **Exchange Integration**: Binance via CCXT library (extensible to 100+ exchanges)
 - **Data Types**: OHLCV candlesticks, Level 2 order books, ticker data, recent trades
-- **Timeframe Support**: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 3d, 1w, 1M
-- **Popular Trading Pairs**: BTC/USDT, ETH/USDT, XRP/USDT, SOL/USDT, PENGU/USDT
+- **Timeframe Support**: 1d, 1w, 1M
 
 ## Installation
 

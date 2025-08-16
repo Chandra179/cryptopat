@@ -4,6 +4,7 @@ import os
 import sys
 import signal
 import readline
+import asyncio
 from typing import Dict
 from data import get_data_collector
 from techin.bollingerbands import BollingerBands
@@ -72,41 +73,54 @@ class CryptoPatCLI:
         
     def validate_timeframe(self, timeframe: str) -> bool:
         """Validate if timeframe is supported"""
-        valid_timeframes = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '3d', '1w', '1M']
+        valid_timeframes = ['1d', '1w', '1M']
         return timeframe in valid_timeframes
         
-    def execute_fetch_command(self, args: Dict[str, str]) -> None:
+    async def execute_fetch_command(self, args: Dict[str, str]) -> None:
         """Execute data fetch command with parsed arguments"""
         symbol = args.get('s', 'BTC/USDT')
         timeframe = args.get('t', '1d')
         limit = int(args.get('l', '100'))
         
         if not self.validate_timeframe(timeframe):
-            print(f"Error: Invalid timeframe '{timeframe}'. Valid options: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 3d, 1w, 1M")
+            print(f"Error: Invalid timeframe '{timeframe}'. Valid options: 1d, 1w, 1M")
             return
             
         try:
             print(f"Fetching {symbol} data for timeframe {timeframe} with limit {limit}...")
             
-            # Fetch OHLCV data
-            ohlcv_data = self.data_collector.fetch_ohlcv_data(symbol, timeframe, limit)
-            print(f"✓ Fetched {len(ohlcv_data)} OHLCV records")
+            # Fetch all data concurrently using asyncio
+            async def fetch_ohlcv():
+                data = self.data_collector.fetch_ohlcv_data(symbol, timeframe, limit)
+                print(f"✓ Fetched {len(data)} OHLCV records")
+                return data
             
-            # Fetch ticker data
-            ticker = self.data_collector.fetch_ticker(symbol)
-            if ticker:
-                print(f"✓ Current price: {ticker['last']}")
+            async def fetch_ticker():
+                data = self.data_collector.fetch_ticker(symbol)
+                if data:
+                    print(f"✓ Current price: {data['last']}")
+                return data
             
-            # Fetch order book
-            order_book = self.data_collector.fetch_order_book(symbol, limit)
-            if order_book:
-                print(f"✓ Order book: {len(order_book['bids'])} bids, {len(order_book['asks'])} asks")
-
-            # Fetch trades
-            trades = self.data_collector.fetch_trades(symbol, limit)
-            if trades:
-                print(f"✓ Retrieved {len(trades)} recent trades")
-                print(f"✓ Latest trade: {trades[-1].get('price')} @ {trades[-1].get('amount')}")
+            async def fetch_order_book():
+                data = self.data_collector.fetch_order_book(symbol, limit)
+                if data:
+                    print(f"✓ Order book: {len(data['bids'])} bids, {len(data['asks'])} asks")
+                return data
+            
+            async def fetch_trades():
+                data = self.data_collector.fetch_trades(symbol, limit)
+                if data:
+                    print(f"✓ Retrieved {len(data)} recent trades")
+                    print(f"✓ Latest trade: {data[-1].get('price')} @ {data[-1].get('amount')}")
+                return data
+            
+            # Execute all fetches concurrently
+            ohlcv_data, ticker, order_book, trades = await asyncio.gather(
+                fetch_ohlcv(),
+                fetch_ticker(), 
+                fetch_order_book(),
+                fetch_trades()
+            )
             
             
             # Clear previous analysis results
@@ -134,13 +148,19 @@ class CryptoPatCLI:
                 ("RSI", RSI)
             ]
             
-            for name, indicator_class in indicators:
+            def run_indicator(name_and_class):
+                name, indicator_class = name_and_class
                 try:
                     indicator = indicator_class(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
                     indicator.calculate()
-                    print(f"✓ {name}")
+                    return f"✓ {name}"
                 except Exception as e:
-                    print(f"✗ {name}: {e}")
+                    return f"✗ {name}: {e}"
+            
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [executor.submit(run_indicator, indicator) for indicator in indicators]
+                for future in as_completed(futures):
+                    print(future.result())
             
             # Generate and display structured analysis summary
             print("\n" + "="*60)
@@ -169,8 +189,7 @@ class CryptoPatCLI:
         print("  help                         - Show this help")
         print("  exit                         - Exit the CLI")
         print("")
-        print("Supported symbols: BTC/USDT, ETH/USDT, XRP/USDT, SOL/USDT, PENGU/USDT")
-        print("Supported timeframes: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 3d, 1w, 1M")
+        print("Supported timeframes: 1d, 1w, 1M")
         print("Use Ctrl+C to exit")
         print()
         
@@ -202,7 +221,7 @@ class CryptoPatCLI:
                     # Parse and execute fetch command
                     args = self.parse_command(command)
                     if args:  # If we have parsed arguments, treat as fetch command
-                        self.execute_fetch_command(args)
+                        asyncio.run(self.execute_fetch_command(args))
                     else:
                         print(f"Unknown command: {command}")
                         print("Type 'help' for available commands")
