@@ -76,13 +76,6 @@ class ConfigLoader:
         merged_config.update(timeframe_params)
         
         return merged_config
-    
-    def reload_config(self):
-        """Reload configuration from file."""
-        logger.info("Reloading configuration...")
-        self._config = None
-        self._load_config()
-
 
 # Global instance
 config_loader = ConfigLoader()

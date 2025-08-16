@@ -294,29 +294,6 @@ class AnalysisSummarizer:
             )
         }
     
-    def _create_empty_analysis(self, symbol: str, timeframe: str) -> Dict[str, Any]:
-        """Create empty analysis structure when no data available."""
-        return {
-            "metadata": {
-                "symbol": symbol,
-                "timeframe": timeframe,
-                "timestamp": int(time.time() * 1000),
-                "data_points": 0,
-                "current_price": 0
-            },
-            "analysis_summary": {
-                "sentiment": "neutral",
-                "sentiment_score": 0,
-                "trend_direction": "sideways",
-                "trend_strength": "weak",
-                "signal_distribution": {"bullish": 0, "bearish": 0, "neutral": 0},
-                "momentum": "insufficient data",
-                "key_observations": ["Insufficient data for analysis"]
-            },
-            "indicators": {"trend": {}, "momentum": {}, "volatility": {}, "support_resistance": {}},
-            "detailed_breakdown": {"full_markdown": "## Insufficient Data\n\nNot enough indicator data available for comprehensive analysis."}
-        }
-    
     def _build_metadata(self, symbol: str, timeframe: str, current_price: float) -> Dict[str, Any]:
         """Build metadata section."""
         return {
@@ -456,7 +433,7 @@ class AnalysisSummarizer:
         
         counts = signal_analysis['counts']
         
-        summary = f"- Market Analysis for {symbol} ({timeframe} timeframe)\n\n"
+        summary = f"- Market Analysis for {symbol} ({timeframe} timeframe)\n"
         summary += "- Core Summary\n"
         summary += f"  - Overall Sentiment: {sentiment_phrase.title()}\n"
         summary += f"  - Trend Direction: {trend_direction} with {strength_desc} conviction\n"

@@ -21,6 +21,7 @@ from techin.vwap import VWAP
 from techin.ema_20_50 import EMA2050
 from techin.rsi import RSI
 from summary import clear_all_results, get_structured_analysis
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class CryptoPatCLI:
     def __init__(self):
