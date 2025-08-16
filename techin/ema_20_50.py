@@ -91,7 +91,8 @@
 
 from typing import List, Dict
 import pandas as pd
-from analysis_summary import add_indicator_result, IndicatorResult
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 
 class EMA2050:
@@ -103,36 +104,9 @@ class EMA2050:
              ob: dict,
              ticker: dict,            
              ohlcv: List[List],       
-             trades: List[Dict]):    
-        self.param = {
-            # Standard EMA Crossover Parameters (Source: TradingView, Investopedia, Fidelity)
-            "ema_fast_period": 20,               # Fast EMA period (commonly used short-term)
-            "ema_slow_period": 50,               # Slow EMA period (commonly used medium-term)
-            "price_source": "close",             # Standard price source for calculation
-            "smoothing_factor_fast": 2.0 / (20 + 1),  # Alpha for 20-period EMA
-            "smoothing_factor_slow": 2.0 / (50 + 1),  # Alpha for 50-period EMA
-            
-            # Signal Parameters
-            "crossover_confirmation_periods": 2,  # Periods to confirm crossover
-            "trend_strength_threshold": 0.001,   # Minimum percentage difference for trend strength
-            "volume_confirmation": False,        # Optional volume confirmation
-            "volume_ma_period": 20,             # Volume moving average period
-            "divergence_lookback": 10,          # Periods to look back for divergence
-            
-            # Position and Risk Management
-            "position_threshold_pct": 0.5,      # Position threshold percentage
-            "stop_loss_atr_multiplier": 2.0,    # ATR multiplier for stop loss
-            "take_profit_ratio": 2.0,           # Risk/reward ratio for take profit
-            "max_lookback_periods": 100,        # Maximum periods for historical analysis
-            
-            # Confidence Scoring Weights
-            "confidence_weights": {
-                "crossover_strength": 0.4,      # Weight for crossover momentum
-                "trend_consistency": 0.3,       # Weight for trend direction consistency  
-                "volume_confirmation": 0.2,     # Weight for volume support
-                "divergence_absence": 0.1       # Weight for lack of divergence
-            }
-        }
+             trades: List[Dict]):
+        
+        self.param = get_indicator_params('ema_20_50', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades

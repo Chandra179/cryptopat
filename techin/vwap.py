@@ -92,8 +92,8 @@
 from typing import List, Dict
 import pandas as pd
 import numpy as np
-from analysis_summary import add_indicator_result, IndicatorResult
-
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 class VWAP:
     
@@ -105,29 +105,7 @@ class VWAP:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = {
-            # VWAP Standard Parameters (Source: TradingView, Investopedia, Wikipedia)
-            "price_source": "hlc3",              # Typical Price (High + Low + Close) / 3 (standard)
-            "session_reset": "daily",           # Reset VWAP calculation (daily, weekly, monthly)
-            "volume_threshold": 0,              # Minimum volume threshold for inclusion
-            "periods_lookback": None,           # Number of periods for rolling VWAP (None = session-based)
-            
-            # Alternative Price Sources
-            "use_ohlc4": False,                 # Use (Open + High + Low + Close) / 4
-            "use_close": False,                 # Use Close price only
-            "use_hl2": False,                   # Use (High + Low) / 2
-            
-            # Analysis Parameters
-            "deviation_bands": True,            # Calculate VWAP deviation bands
-            "std_dev_multiplier": [1.0, 2.0],  # Standard deviation multipliers for bands
-            "volume_profile": False,            # Include volume profile analysis
-            "session_high_low": True,           # Track session high/low vs VWAP
-            
-            # Signal Parameters
-            "trend_confirmation_periods": 5,    # Periods for trend confirmation
-            "volume_spike_threshold": 1.5,     # Volume spike multiplier
-            "price_deviation_threshold": 0.02  # Price deviation threshold (2%)
-        }
+        self.param = get_indicator_params('vwap', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -197,17 +175,12 @@ class VWAP:
         volume_mask = df['volume'] >= self.param["volume_threshold"]
         filtered_volume = df['volume'].where(volume_mask, 0)
         filtered_typical_price = typical_price.where(volume_mask, 0)
-        
-        # Calculate cumulative values for VWAP
+
         df['price_volume'] = filtered_typical_price * filtered_volume
         df['cumulative_pv'] = df['price_volume'].cumsum()
         df['cumulative_volume'] = filtered_volume.cumsum()
-        
-        # Calculate VWAP
         df['vwap'] = df['cumulative_pv'] / df['cumulative_volume']
-        
-        # Handle division by zero
-        df['vwap'] = df['vwap'].fillna(typical_price)
+        df['vwap]'] = df['vwap'].fillna(typical_price)
         
         # Calculate rolling VWAP if periods_lookback is specified
         if self.param["periods_lookback"]:
@@ -248,6 +221,15 @@ class VWAP:
         # Price position relative to VWAP
         price_above_vwap = current_price > current_vwap
         price_deviation_pct = ((current_price - current_vwap) / current_vwap) * 100
+        
+        # Cap extreme deviations (proven method: anything >100% suggests data quality issues)
+        if abs(price_deviation_pct) > 100:
+            # Log the extreme deviation for investigation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"VWAP extreme deviation detected: {price_deviation_pct:.1f}% for {self.symbol} {self.timeframe}")
+            # Cap at +/-100% but preserve sign
+            price_deviation_pct = 100 if price_deviation_pct > 0 else -100
         
         # Volume analysis
         volume_spike = current_volume > (avg_volume * self.param["volume_spike_threshold"])

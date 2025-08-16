@@ -92,7 +92,8 @@
 from typing import List, Dict
 import pandas as pd
 import numpy as np
-from analysis_summary import add_indicator_result, IndicatorResult
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 class MACD:
     
@@ -104,28 +105,8 @@ class MACD:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = {
-            # Gerald Appel's Standard Parameters (Source: TradingView, Investopedia, StockCharts)
-            "fast_period": 12,               # Fast EMA period (Appel default)
-            "slow_period": 26,               # Slow EMA period (Appel default)
-            "signal_period": 9,              # Signal line EMA period (Appel default)
-            "price_source": "close",         # Standard source for calculation
-            
-            # Signal Detection Parameters
-            "zero_line_threshold": 0.0001,   # Threshold for zero line crossover detection
-            "signal_threshold": 0.0001,      # Threshold for signal line crossover detection
-            "divergence_lookback": 14,       # Periods to look back for divergence detection
-            "histogram_threshold": 0.001,    # Threshold for histogram reversal signals
-            "trend_confirmation_periods": 3, # Periods to confirm trend direction
-            "overbought_threshold": None,    # No standard overbought level for MACD
-            "oversold_threshold": None,      # No standard oversold level for MACD
-            
-            # Advanced Analysis Parameters
-            "momentum_smoothing": False,     # Optional smoothing for momentum calculation
-            "use_percentage": False,         # Use MACD percentage instead of absolute values
-            "centerline_oscillation": True, # Track centerline oscillations
-            "histogram_divergence": True,   # Enable histogram divergence detection
-        }
+        
+        self.param = get_indicator_params('macd', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades

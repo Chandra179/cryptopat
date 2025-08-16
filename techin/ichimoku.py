@@ -91,8 +91,8 @@
 
 from typing import List, Dict
 import pandas as pd
-from analysis_summary import add_indicator_result, IndicatorResult
-
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 class IchimokuCloud:
     
@@ -104,25 +104,8 @@ class IchimokuCloud:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = {
-            # Goichi Hosoda's Standard Parameters (Source: Wikipedia, Fidelity, TradingView)
-            "tenkan_period": 9,              # Conversion Line period (Tenkan-sen)
-            "kijun_period": 26,              # Base Line period (Kijun-sen) 
-            "senkou_span_b_period": 52,      # Leading Span B period (Senkou Span B)
-            "displacement": 26,              # Cloud displacement forward/backward
-            
-            # Signal Generation Parameters
-            "trend_confirmation": True,      # Require multiple line confirmations
-            "cloud_thickness_threshold": 0.01,  # Minimum cloud thickness for valid signals
-            "price_cloud_buffer": 0.002,     # Buffer zone for price-cloud interactions
-            "lagging_span_periods": 26,      # Chikou Span lookback
-            
-            # Advanced Analysis Parameters  
-            "breakout_confirmation_periods": 3,   # Periods to confirm cloud breakout
-            "momentum_confirmation": True,    # Use Tenkan/Kijun crossover for momentum
-            "support_resistance_levels": 5,  # Number of historical S/R levels to track
-            "trend_strength_threshold": 0.5, # Threshold for trend strength assessment
-        }
+        
+        self.param = self.param = get_indicator_params('ichimoku_cloud', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades

@@ -91,8 +91,8 @@
 
 from typing import List, Dict
 import pandas as pd
-from analysis_summary import add_indicator_result, IndicatorResult
-
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 class OBV:
     
@@ -104,22 +104,8 @@ class OBV:
                  ticker: dict,            
                  ohlcv: List[List],       
                  trades: List[Dict]):
-        self.param = {
-            # On-Balance Volume Standard Parameters (Source: Joseph Granville, TradingView, Wikipedia)
-            "smoothing_period": 0,           # Optional smoothing period (0 = no smoothing)
-            "smoothing_type": "sma",         # Type of smoothing: sma, ema
-            "signal_line_period": 10,        # Period for signal line moving average
-            "divergence_period": 14,         # Lookback period for divergence detection
-            "trend_confirmation_period": 5,  # Period to confirm trend changes
-            "volume_threshold": 1.0,         # Minimum volume multiplier to consider significant
-            "price_change_threshold": 0.001, # Minimum price change % to avoid noise
-            
-            # Signal Generation Parameters
-            "breakout_threshold": 0.02,      # OBV % change threshold for breakout signals
-            "divergence_min_periods": 5,     # Minimum periods for valid divergence
-            "trend_strength_period": 20,     # Period for trend strength calculation
-            "momentum_period": 10,           # Period for OBV momentum calculation
-        }
+        
+        self.param = self.param = get_indicator_params('obv', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades

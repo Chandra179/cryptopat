@@ -92,7 +92,8 @@
 from typing import List, Dict
 import pandas as pd
 import numpy as np
-from analysis_summary import add_indicator_result, IndicatorResult
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 class Supertrend:
     
@@ -104,24 +105,8 @@ class Supertrend:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = {
-            # Supertrend Standard Parameters (Source: TradingView, Olivier Seban)
-            "atr_period": 10,               # Period for ATR calculation (default: 10)
-            "multiplier": 3.0,              # ATR multiplier for bands (default: 3.0)
-            "use_hl2": True,               # Use (High + Low) / 2 for calculation (standard)
-            
-            # Extended Analysis Parameters
-            "trend_confirmation_period": 3, # Periods to confirm trend change
-            "signal_strength_period": 5,   # Period for signal strength calculation
-            "volume_confirmation": False,   # Optional volume confirmation for signals
-            "volume_ma_period": 20,        # Period for volume moving average
-            "breakout_confirmation": True,  # Require breakout confirmation
-            "support_resistance_levels": 3, # Number of S/R levels to track
-            "trend_momentum_period": 14,   # Period for trend momentum calculation
-            "price_action_filter": True,   # Filter signals based on price action
-            "volatility_filter": False,    # Filter based on volatility conditions
-            "atr_volatility_threshold": 1.5, # ATR threshold for volatility filter
-        }
+        
+        self.param = get_indicator_params('supertrend', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades

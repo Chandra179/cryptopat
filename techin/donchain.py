@@ -91,8 +91,8 @@
 
 from typing import List, Dict
 import pandas as pd
-from analysis_summary import add_indicator_result, IndicatorResult
-
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 class DonchianChannel:
     
@@ -104,25 +104,8 @@ class DonchianChannel:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = {
-            # Richard Donchian's Standard Parameters (Source: Wikipedia, TradingView)
-            "period": 20,                    # N-period for high/low lookback (Donchian default)
-            "middle_line": True,             # Calculate middle line (average of upper and lower)
-            "price_source": "high_low",      # Uses high and low prices for channel calculation
-            
-            # Extended Analysis Parameters
-            "breakout_confirmation": 1,      # Periods to confirm breakout signal
-            "volume_confirmation": False,    # Optional volume confirmation for signals
-            "channel_width_threshold": 0.05, # Threshold for narrow channel detection
-            "trend_strength_period": 10,    # Period for trend strength calculation
-            "volatility_percentile": 80,    # Percentile for high volatility detection
-            "support_resistance_levels": 3, # Number of S/R levels to identify
-            "position_threshold_pct": 1.0,  # Position threshold percentage
-            "signal_sensitivity": "normal", # Signal sensitivity: conservative, normal, aggressive
-            "false_breakout_filter": True,  # Filter false breakouts
-            "min_breakout_distance": 0.001, # Minimum distance for valid breakout (%)
-            "reversal_zone_pct": 0.1,      # Percentage zone near bands for reversal signals
-        }
+        
+        self.param = get_indicator_params('donchian_channel', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -197,10 +180,6 @@ class DonchianChannel:
         confirmation_period = self.param["breakout_confirmation"]
         upper_breakout = (df['close'] > upper_channel.shift(1)).rolling(window=confirmation_period).sum() >= confirmation_period
         lower_breakout = (df['close'] < lower_channel.shift(1)).rolling(window=confirmation_period).sum() >= confirmation_period
-        
-        # Support/Resistance levels
-        recent_highs = df['high'].rolling(window=period//2).max()
-        recent_lows = df['low'].rolling(window=period//2).min()
         
         # Trend strength
         trend_period = self.param["trend_strength_period"]

@@ -7,7 +7,7 @@ import readline
 from typing import Dict
 from data import get_data_collector
 from techin.bollingerbands import BollingerBands
-from techin.chaikin import ChaikinMoneyFlow
+from techin.chaikin_money_flow import ChaikinMoneyFlow
 from techin.donchain import DonchianChannel
 from techin.ichimoku import IchimokuCloud
 from techin.keltner import KeltnerChannel
@@ -20,7 +20,7 @@ from techin.supertrend import Supertrend
 from techin.vwap import VWAP
 from techin.ema_20_50 import EMA2050
 from techin.rsi import RSI
-from analysis_summary import generate_analysis_summary, clear_all_results, get_structured_analysis
+from summary import clear_all_results, get_structured_analysis
 
 class CryptoPatCLI:
     def __init__(self):
@@ -95,8 +95,6 @@ class CryptoPatCLI:
             ticker = self.data_collector.fetch_ticker(symbol)
             if ticker:
                 print(f"✓ Current price: {ticker['last']}")
-                print(f"✓ 24h change: {ticker['percentage']:.2f}%")
-                print(f"✓ Volume: {ticker['baseVolume']:.2f}")
             
             # Fetch order book
             order_book = self.data_collector.fetch_order_book(symbol, limit)
@@ -108,6 +106,7 @@ class CryptoPatCLI:
             if trades:
                 print(f"✓ Retrieved {len(trades)} recent trades")
                 print(f"✓ Latest trade: {trades[-1].get('price')} @ {trades[-1].get('amount')}")
+            
             
             # Clear previous analysis results
             clear_all_results()
@@ -147,27 +146,14 @@ class CryptoPatCLI:
             print("MARKET ANALYSIS SUMMARY")
             print("="*60)
             
-            try:
-                # Get current price from ticker for metadata
-                current_price = ticker.get('last', ticker.get('close', 0)) if ticker else 0
-                
-                # Get structured analysis data
-                analysis_data = get_structured_analysis(symbol, timeframe, current_price)
-                
-                # Display formatted breakdown
-                breakdown = analysis_data["detailed_breakdown"]
-                print(f"\n{breakdown['full_markdown']}\n")
-                
-            except Exception as e:
-                print(f"Error generating analysis summary: {e}")
-                print("Check individual indicator calculations.\n")
-                # Fallback to legacy summary
-                try:
-                    legacy_summary = generate_analysis_summary(symbol, timeframe)
-                    print(f"\nFallback Summary:\n{legacy_summary}\n")
-                except:
-                    print("Unable to generate any summary.\n")
-
+            # Get current price from ticker
+            current_price = ticker.get('last') if ticker else None
+            
+            # Generate structured analysis
+            analysis = get_structured_analysis(symbol, timeframe, current_price)
+            
+            # Display the core summary
+            print(analysis['detailed_breakdown']['core_summary'])
                         
         except Exception as e:
             print(f"Error fetching data: {e}")

@@ -91,7 +91,8 @@
 
 from typing import List, Dict
 import pandas as pd
-from analysis_summary import add_indicator_result, IndicatorResult
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 
 class BollingerBands:
@@ -104,32 +105,8 @@ class BollingerBands:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = {
-            # John Bollinger's Standard Parameters (Source: TradingView, Fidelity, Wikipedia)
-            "period": 20,                    # N-period for SMA and standard deviation (Bollinger default)
-            "std_dev_multiplier": 2.0,       # K multiplier for bands (Bollinger default, ~88-89% coverage)
-            "price_source": "close",         # Standard source for calculation (TradingView default)
-            "ma_type": "sma",               # Simple Moving Average (Bollinger original specification)
-            
-            # Extended Analysis Parameters
-            "squeeze_threshold": 0.05,       # Bandwidth threshold for squeeze detection
-            "breakout_period": 5,           # Periods to confirm breakout
-            "volume_confirmation": False,    # Optional volume confirmation for signals
-            "percent_b_overbought": 0.8,    # %B level for overbought (80% of band width)
-            "percent_b_oversold": 0.2,      # %B level for oversold (20% of band width)
-            "bandwidth_ma_period": 10,      # Period for bandwidth moving average
-            "squeeze_percentile_low": 20,   # Low percentile for squeeze detection
-            "squeeze_percentile_high": 80,  # High percentile for squeeze detection
-            "overbought_offset": 0.0,       # Offset for overbought threshold
-            "oversold_offset": 0.0,         # Offset for oversold threshold
-            "sma_slope_period": 2,          # Period for SMA slope calculation
-            "position_threshold_pct": 1.0,  # Position threshold percentage
-            "confidence_weights": {         # Weights for confidence scoring
-                "squeeze": 0.2,
-                "sma_slope": 0.3,
-                "position_from_sma": 0.5
-            }
-        }
+        
+        self.param = get_indicator_params('bollinger_bands', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -166,11 +143,9 @@ class BollingerBands:
         Coverage: ~88-89% of price action falls within the bands (not 95% as commonly assumed)
         """
         if not self.ohlcv or len(self.ohlcv) < self.param["period"]:
-            result = {
+            return {
                 "error": f"Insufficient data: need at least {self.param['period']} candles, got {len(self.ohlcv) if self.ohlcv else 0}"
             }
-            self.print_output(result)
-            return
             
         df = pd.DataFrame(self.ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['close'] = pd.to_numeric(df['close'])

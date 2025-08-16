@@ -1,37 +1,3 @@
 do you understand the goals in base.txt or do you need more context?
 implement Volume Weighted Average Price at vwap.py include citation reference for the formula and params like in bollingerbands.py and do not do print_output     
 
-Bollinger Bands: Price is within bands band, signal: bullish_breakout, %B: 0.55
-   S/R: Support $111883.7037 | Resistance $122018.2733
-
-Chaikin Money Flow: distribution with CMF: -0.050, signal: bearish
-
-Donchian Channel: Price is within channel (44%), signal: neutral, trend: 0.65
-   S/R: Support $111920.0000 | Resistance $124474.0000
-
-Ichimoku Cloud: In green cloud (above_cloud), trend: bullish, signal: strong_bullish
-   S/R: Cloud Bottom $110709.0000 | Cloud Top $116818.2775 | Kijun $118197.0000
-
-Keltner Channel: Price is above upper, signal: bullish_breakout, ATR: 3113.2250
-   S/R: Support $111307.3363 | Resistance $123760.2363
-
-MACD: Line above zero (946.2451), histogram decreasing, signal: weakening_bullish
-
-OBV: distribution, OBV: 125209, signal: distribution
-
-Parabolic SAR: In downtrend (66.7% strength), SAR 5.93% away, signal: bearish
-
-Pivot Point: bearish (-0.24% from pivot), nearest: r1, signal: neutral
-   S/R: S1: $116358.4200 | S2: $115374.7900 | S3: $113945.5900 | Pivot: $117787.6200 | R1: $118771.2500 | R2: $120200.4500 | R3: $121184.0800
-
-Renko Chart: Has 2 consecutive neutral bricks, signal: neutral
-
-SuperTrend: In up trend (nan% from SuperTrend), signal: hold
-   S/R: Support $nan | Upper Band $nan
-
-VWAP: Price is above VWAP (21.04% deviation), signal: overbought
-   S/R: Lower Band $84788.3502 | VWAP $97079.5056 | Upper Band $109370.6609
-
-EMA 20/50: fast above slow (2.26%), signal: neutral
-
-RSI: 51.3 (neutral), signal: bullish

@@ -91,7 +91,8 @@
 from typing import List, Dict
 import pandas as pd
 import numpy as np
-from analysis_summary import add_indicator_result, IndicatorResult
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 
 class Renko:
@@ -104,26 +105,8 @@ class Renko:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = {
-            # Standard Renko Parameters (Source: Steve Nison, TradingView)
-            "brick_size": None,              # Auto-calculate if None, otherwise fixed size
-            "auto_brick_method": "atr",      # 'atr', 'percent', 'fixed' methods for auto brick size
-            "atr_period": 14,               # ATR period for auto brick size calculation
-            "atr_multiplier": 1.0,          # ATR multiplier for brick size (Nison recommends 0.5-2.0)
-            "percent_size": 0.5,            # Percentage for percent-based brick size (0.5% default)
-            "price_source": "close",        # Price source: 'close', 'typical', 'hl2'
-            "wick_calculation": True,       # Include wicks in brick formation
-            "trend_reversal_bricks": 2,     # Number of bricks needed for trend reversal
-            
-            # Signal Generation Parameters
-            "min_trend_bricks": 3,          # Minimum bricks to confirm trend
-            "breakout_lookback": 5,         # Lookback periods for support/resistance
-            "volume_confirmation": False,    # Use volume for signal confirmation
-            "rsi_filter": False,            # Use RSI filter for overbought/oversold
-            "rsi_period": 14,              # RSI period for filtering
-            "rsi_overbought": 70,          # RSI overbought threshold
-            "rsi_oversold": 30,            # RSI oversold threshold
-        }
+        
+        self.param = get_indicator_params('renko', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades

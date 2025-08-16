@@ -1,7 +1,8 @@
 from typing import List, Dict
 import pandas as pd
 import logging
-from analysis_summary import add_indicator_result, IndicatorResult
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 logger = logging.getLogger(__name__)
 
@@ -16,26 +17,8 @@ class ChaikinMoneyFlow:
                  ticker: dict,            
                  ohlcv: List[List],       
                  trades: List[Dict]):    
-        self.param = {
-            # Marc Chaikin's Standard Parameters (Source: TradingView, Fidelity, Investopedia)
-            "period": 21,                    # N-period for CMF calculation (Chaikin default)
-            "zero_line": 0.0,               # Neutral line for trend determination
-            
-            # Signal Thresholds
-            "bullish_threshold": 0.05,       # CMF above this level indicates buying pressure
-            "bearish_threshold": -0.05,      # CMF below this level indicates selling pressure
-            "strong_bullish": 0.25,          # Strong buying pressure threshold
-            "strong_bearish": -0.25,         # Strong selling pressure threshold
-            
-            # Divergence Detection Parameters
-            "divergence_period": 5,          # Periods to look back for divergence detection
-            "price_trend_strength": 0.02,    # Minimum price movement for trend detection
-            "cmf_trend_strength": 0.05,      # Minimum CMF movement for trend detection
-            
-            # Volume Confirmation
-            "volume_ma_period": 20,          # Period for volume moving average
-            "high_volume_multiplier": 1.5,   # Multiplier for high volume detection
-        }
+        
+        self.param = get_indicator_params('chaikin_money_flow', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades

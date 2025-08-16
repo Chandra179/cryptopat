@@ -90,7 +90,8 @@
 """
 from typing import List, Dict
 import pandas as pd
-from analysis_summary import add_indicator_result, IndicatorResult
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 
 class PivotPoint:
@@ -103,34 +104,7 @@ class PivotPoint:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = {
-            # Standard Pivot Point Parameters
-            "calculation_method": "standard",        # Method: standard, fibonacci, woodie, camarilla, demark
-            "period_type": "previous",              # Use previous period's HLC data
-            "include_opening": False,               # Include opening price in calculation (O+H+L+C)/4
-            "emphasize_close": False,               # Emphasize closing price (H+L+C+C)/4
-            "support_levels": 3,                    # Number of support levels to calculate (S1, S2, S3)
-            "resistance_levels": 3,                 # Number of resistance levels to calculate (R1, R2, R3)
-            
-            # Advanced Parameters
-            "central_pivot_range": False,           # Calculate Central Pivot Range (CPR)
-            "trend_confirmation": True,             # Use pivot for trend confirmation
-            "breakout_threshold": 0.001,            # Threshold for breakout detection (0.1%)
-            "volume_confirmation": False,           # Require volume confirmation for signals
-            "price_source": "hlc",                 # Price source for calculation (hlc, ohlc, hlcc)
-            
-            # Signal Parameters
-            "strong_support_multiplier": 1.5,      # Multiplier for strong support/resistance
-            "weak_support_multiplier": 0.5,        # Multiplier for weak support/resistance
-            "pivot_zone_width": 0.002,             # Width of pivot zone (0.2%)
-            "momentum_period": 5,                  # Period for momentum calculation
-            "volume_ma_period": 20,                # Period for volume moving average
-            
-            # Risk Management
-            "max_distance_from_pivot": 0.05,       # Maximum distance from pivot (5%)
-            "confluence_bonus": 0.2,               # Bonus for multiple level confluence
-            "time_decay_factor": 0.1               # Factor for time-based signal decay
-        }
+        self.param = get_indicator_params('pivot_point', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades

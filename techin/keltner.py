@@ -91,7 +91,8 @@
 
 from typing import List, Dict
 import pandas as pd
-from analysis_summary import add_indicator_result, IndicatorResult
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 
 class KeltnerChannel:
@@ -104,24 +105,8 @@ class KeltnerChannel:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = {
-            # Chester Keltner's Original Parameters (Source: TradingView, Fidelity, Wikipedia)
-            "ema_period": 20,                # N-period for Exponential Moving Average (typical default)
-            "atr_period": 10,                # Period for Average True Range calculation (Keltner default)
-            "atr_multiplier": 2.0,           # Multiplier for ATR bands (typical default)
-            "price_source": "typical",       # Price source: "typical" (H+L+C)/3, "close", "hl2" (H+L)/2
-            "ma_type": "ema",                # Moving average type: "ema" (original), "sma", "wma"
-            
-            # Extended Analysis Parameters
-            "squeeze_threshold": 0.05,       # Channel width threshold for squeeze detection
-            "breakout_period": 5,            # Periods to confirm breakout
-            "volume_confirmation": False,    # Optional volume confirmation for signals
-            "channel_position_upper": 0.8,   # Upper channel position for overbought (80%)
-            "channel_position_lower": 0.2,   # Lower channel position for oversold (20%)
-            "trend_strength_period": 10,     # Period for trend strength calculation
-            "volatility_expansion_threshold": 1.5,  # Threshold for volatility expansion
-            "momentum_period": 14,           # Period for momentum calculation
-        }
+        
+        self.param = get_indicator_params('keltner_channel', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades

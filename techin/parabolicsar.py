@@ -91,7 +91,8 @@
 
 from typing import List, Dict
 import pandas as pd
-from analysis_summary import add_indicator_result, IndicatorResult
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 
 class ParabolicSAR:
@@ -104,23 +105,8 @@ class ParabolicSAR:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = {
-            # J. Welles Wilder Jr.'s Standard Parameters (Source: "New Concepts in Technical Trading Systems", 1978)
-            "af_initial": 0.02,              # Initial Acceleration Factor (Wilder default)
-            "af_increment": 0.02,            # AF increment per new extreme (Wilder default)
-            "af_maximum": 0.20,              # Maximum AF value (Wilder default)
-            
-            # Extended Analysis Parameters
-            "trend_confirmation_periods": 3,  # Periods to confirm trend change
-            "signal_strength_threshold": 0.5, # Threshold for signal strength (0-1)
-            "volume_confirmation": False,     # Optional volume confirmation for signals
-            "volume_ma_period": 20,          # Period for volume moving average
-            "price_deviation_threshold": 0.02, # Price deviation threshold for signal validation
-            "sar_distance_factor": 1.0,      # Factor for SAR distance calculation
-            "trend_strength_periods": 10,    # Periods for trend strength calculation
-            "reversal_confirmation": True,   # Require confirmation for trend reversals
-            "extreme_point_buffer": 0.001,   # Buffer for extreme point identification (0.1%)
-        }
+        
+        self.param = get_indicator_params('parabolic_sar', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades

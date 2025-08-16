@@ -91,7 +91,8 @@
 
 from typing import List, Dict
 import pandas as pd
-from analysis_summary import add_indicator_result, IndicatorResult
+from summary import add_indicator_result, IndicatorResult
+from config import get_indicator_params
 
 
 class RSI:
@@ -103,29 +104,9 @@ class RSI:
                  ob: dict,
                  ticker: dict,            
                  ohlcv: List[List],       
-                 trades: List[Dict]):    
-        self.param = {
-            # J. Welles Wilder Jr.'s Standard Parameters (Source: TradingView, Fidelity, Wikipedia)
-            "period": 14,                    # N-period for RSI calculation (Wilder default)
-            "price_source": "close",         # Standard source for calculation (TradingView default)
-            "smoothing_method": "wilder",    # Wilder's smoothing method (original specification)
-            
-            # Signal Levels (Industry Standard)
-            "overbought_level": 70.0,        # Traditional overbought threshold
-            "oversold_level": 30.0,          # Traditional oversold threshold
-            "extreme_overbought": 80.0,      # Extreme overbought level
-            "extreme_oversold": 20.0,        # Extreme oversold level
-            "midline": 50.0,                 # Neutral midline
-            
-            # Extended Analysis Parameters
-            "divergence_lookback": 5,        # Periods to look back for divergence detection
-            "momentum_threshold": 2.0,       # Minimum RSI change for momentum signal
-            "trend_filter_period": 20,       # Period for trend filter (SMA)
-            "use_trend_filter": False,       # Enable/disable trend filtering
-            "signal_confirmation": True,     # Require confirmation for signals
-            "failure_swing_enabled": True,   # Enable failure swing detection
-            "hidden_divergence": False,      # Enable hidden divergence detection
-        }
+                 trades: List[Dict]):
+        
+        self.param = get_indicator_params('rsi', timeframe)
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
