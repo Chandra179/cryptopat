@@ -91,11 +91,19 @@
 
 from typing import List, Dict
 import pandas as pd
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
-
+import yaml
+import os
 
 class KeltnerChannel:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'keltner.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -106,7 +114,15 @@ class KeltnerChannel:
              ohlcv: List[List],       
              trades: List[Dict]):    
         
-        self.param = get_indicator_params('keltner_channel', timeframe)
+        self.config = self._load_config()
+        kc_config = self.config['keltner_channel']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = kc_config['timeframes'].get(timeframe, kc_config['timeframes']['1d'])
+        general_params = kc_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -212,16 +228,9 @@ class KeltnerChannel:
         breakout_up = price_above_upper.rolling(window=breakout_period).sum() > 0
         breakout_down = price_below_lower.rolling(window=breakout_period).sum() > 0
         
-        # Trend direction based on price relative to middle line
-        trend_direction = "neutral"
         current_price = float(df['close'].iloc[-1])
         current_middle = float(middle_line.iloc[-1])
         
-        if current_price > current_middle:
-            trend_direction = "bullish"
-        elif current_price < current_middle:
-            trend_direction = "bearish"
-            
         # Current values
         current_upper = float(upper_channel.iloc[-1])
         current_lower = float(lower_channel.iloc[-1])
@@ -252,54 +261,53 @@ class KeltnerChannel:
         elif current_squeeze:
             signal = "squeeze"
 
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "middle_line": current_middle,
-            "upper_channel": current_upper,
-            "lower_channel": current_lower,
-            "channel_position": current_channel_position,
-            "channel_width": current_channel_width,
-            "atr": current_atr,
-            "trend_direction": trend_direction,
-            "squeeze": current_squeeze,
-            "signal": signal,
-            "breakout_up": current_breakout_up,
-            "breakout_down": current_breakout_down,
-            "volume_confirmed": volume_confirmed,
-            "ma_type": ma_type,
-            "price_source": price_source,
-            "parameters": {
-                "ema_period": ema_period,
-                "atr_period": atr_period,
-                "atr_multiplier": multiplier,
-                "squeeze_threshold": self.param["squeeze_threshold"],
-                "channel_position_upper": self.param["channel_position_upper"],
-                "channel_position_lower": self.param["channel_position_lower"]
-            }
-        }
+        # Determine position based on channel_position value
+        position = "middle"
+        if current_channel_position >= 0.8:
+            position = "upper"
+        elif current_channel_position <= 0.2:
+            position = "lower"
+        elif current_price > current_upper:
+            position = "above"
+        elif current_price < current_lower:
+            position = "below"
+
+        # Build result based on YAML output configuration  
+        output_config = self.config['keltner_channel']['output']['fields']
+        result = {}
         
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="Keltner Channel",
-            signal=result["signal"],
-            value=result["channel_position"],
-            strength="strong" if abs(result["channel_position"] - 0.5) > 0.3 else "medium",
-            support=result["lower_channel"],
-            resistance=result["upper_channel"],
-            metadata={
-                "trend_direction": result["trend_direction"],
-                "middle_line": result["middle_line"],
-                "channel_width": result["channel_width"],
-                "atr": result["atr"],
-                "squeeze": result["squeeze"],
-                "breakout_up": result["breakout_up"],
-                "breakout_down": result["breakout_down"],
-                "volume_confirmed": result["volume_confirmed"],
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "middle_line":
+                result[field_name] = current_middle
+            elif field_name == "upper_band":
+                result[field_name] = current_upper
+            elif field_name == "lower_band":
+                result[field_name] = current_lower
+            elif field_name == "atr":
+                result[field_name] = current_atr
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "position":
+                result[field_name] = position
+            elif field_name == "squeeze":
+                result[field_name] = current_squeeze
+            elif field_name == "channel_width":
+                result[field_name] = current_channel_width
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "ema_period": ema_period,
+                    "atr_period": atr_period,
+                    "atr_multiplier": multiplier,
+                    "squeeze_threshold": self.param["squeeze_threshold"],
+                    "channel_position_upper": self.param["channel_position_upper"],
+                    "channel_position_lower": self.param["channel_position_lower"]
+                }
         
         return result

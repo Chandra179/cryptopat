@@ -90,12 +90,19 @@
 """
 from typing import List, Dict
 import pandas as pd
-import numpy as np
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
-
+import yaml
+import os
 
 class Renko:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'renko.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -106,7 +113,15 @@ class Renko:
              ohlcv: List[List],       
              trades: List[Dict]):    
         
-        self.param = get_indicator_params('renko', timeframe)
+        self.config = self._load_config()
+        renko_config = self.config['renko']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = renko_config['timeframes'].get(timeframe, renko_config['timeframes']['1d'])
+        general_params = renko_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -183,65 +198,68 @@ class Renko:
         
         # Analyze current trend and signals
         trend_analysis = self._analyze_trend(renko_data)
-        signals = self._generate_signals(renko_data, df)
+        signals = self._generate_signals(renko_data)
         
         # Current values
         current_price = float(prices.iloc[-1])
         last_brick = renko_data[-1]
         
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "brick_size": brick_size,
-            "total_bricks": len(renko_data),
-            "last_brick": {
-                "open": last_brick['open'],
-                "close": last_brick['close'],
-                "direction": last_brick['direction'],
-                "timestamp": last_brick['timestamp']
-            },
-            "trend": trend_analysis["current_trend"],
-            "trend_strength": trend_analysis["trend_strength"],
-            "consecutive_bricks": trend_analysis["consecutive_bricks"],
-            "support_level": trend_analysis["support_level"],
-            "resistance_level": trend_analysis["resistance_level"],
-            "signal": signals["primary_signal"],
-            "signal_strength": signals["signal_strength"],
-            "reversal_alert": signals["reversal_alert"],
-            "breakout_alert": signals["breakout_alert"],
-            "parameters": {
-                "brick_size": brick_size,
-                "auto_brick_method": self.param["auto_brick_method"],
-                "atr_period": self.param["atr_period"] if self.param["auto_brick_method"] == "atr" else None,
-                "atr_multiplier": self.param["atr_multiplier"] if self.param["auto_brick_method"] == "atr" else None,
-                "percent_size": self.param["percent_size"] if self.param["auto_brick_method"] == "percent" else None,
-                "price_source": self.param["price_source"],
-                "min_trend_bricks": self.param["min_trend_bricks"]
-            },
-            "renko_bricks": renko_data[-10:] if len(renko_data) >= 10 else renko_data  # Last 10 bricks
+        # Map signals to match YAML enum values
+        signal_mapping = {
+            "bullish": "bullish",
+            "bearish": "bearish", 
+            "reversal": "reversal_up" if last_brick['direction'] > 0 else "reversal_down",
+            "breakout": "bullish" if last_brick['direction'] > 0 else "bearish",
+            "neutral": "neutral"
         }
+        mapped_signal = signal_mapping.get(signals["primary_signal"], "neutral")
         
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="Renko Chart",
-            signal=result["signal"],
-            value=result["brick_size"],
-            strength="strong" if result["consecutive_bricks"] >= 5 else "medium",
-            support=result["support_level"],
-            resistance=result["resistance_level"],
-            metadata={
-                "trend": result["trend"],
-                "consecutive_bricks": result["consecutive_bricks"],
-                "brick_size": result["brick_size"],
-                "trend_strength": result["trend_strength"],
-                "reversal_signal": result["reversal_signal"],
-                "continuation_signal": result["continuation_signal"],
-                "parameters": result["parameters"],
-                "renko_bricks": result["renko_bricks"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Map trend to match YAML enum values
+        trend_mapping = {
+            "bullish": "up",
+            "bearish": "down",
+            "neutral": "neutral"
+        }
+        mapped_trend = trend_mapping.get(trend_analysis["current_trend"], "neutral")
+        
+        # Build result based on YAML output configuration
+        output_config = self.config['renko']['output']['fields']
+        result = {}
+        
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "brick_size":
+                result[field_name] = brick_size
+            elif field_name == "last_brick_price":
+                result[field_name] = last_brick['close']
+            elif field_name == "signal":
+                result[field_name] = mapped_signal
+            elif field_name == "trend":
+                result[field_name] = mapped_trend
+            elif field_name == "new_brick":
+                result[field_name] = True  # Always true if we have bricks
+            elif field_name == "brick_direction":
+                result[field_name] = "up" if last_brick['direction'] > 0 else "down"
+            elif field_name == "consecutive_bricks":
+                result[field_name] = trend_analysis["consecutive_bricks"]
+            elif field_name == "reversal_detected":
+                result[field_name] = signals["reversal_alert"]
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "brick_size": brick_size,
+                    "auto_brick_method": self.param["auto_brick_method"],
+                    "atr_period": self.param["atr_period"] if self.param["auto_brick_method"] == "atr" else None,
+                    "atr_multiplier": self.param["atr_multiplier"] if self.param["auto_brick_method"] == "atr" else None,
+                    "percent_size": self.param["percent_size"] if self.param["auto_brick_method"] == "percent" else None,
+                    "price_source": self.param["price_source"],
+                    "min_trend_bricks": self.param["min_trend_bricks"]
+                }
         
         return result
     
@@ -292,7 +310,7 @@ class Renko:
         current_brick_close = float(prices.iloc[0])
         current_direction = 0  # 0 = unknown, 1 = up, -1 = down
         
-        for i, (idx, row) in enumerate(df.iterrows()):
+        for i, (_, row) in enumerate(df.iterrows()):
             price = float(prices.iloc[i])
             timestamp = int(row['timestamp'])
             
@@ -319,7 +337,7 @@ class Renko:
                             continue  # Not enough movement for reversal
                     
                     # Create bricks
-                    for brick_num in range(num_bricks):
+                    for _ in range(num_bricks):
                         brick_open = current_brick_close
                         
                         if brick_direction > 0:
@@ -392,7 +410,7 @@ class Renko:
             "resistance_level": resistance_level
         }
     
-    def _generate_signals(self, renko_data: List[Dict], df: pd.DataFrame) -> Dict:
+    def _generate_signals(self, renko_data: List[Dict]) -> Dict:
         """Generate trading signals from Renko analysis."""
         if len(renko_data) < 3:
             return {

@@ -1,0 +1,102 @@
+macd:
+  timeframes:
+    "1d":
+      fast_period: 12
+      slow_period: 26
+      signal_period: 9
+      zero_line_threshold: 0.0001
+      signal_threshold: 0.0001
+      divergence_lookback: 14
+    "1w":
+      fast_period: 6
+      slow_period: 13
+      signal_period: 5
+      zero_line_threshold: 0.0002
+      signal_threshold: 0.0002
+      divergence_lookback: 8
+    "1M":
+      fast_period: 3
+      slow_period: 6
+      signal_period: 3
+      zero_line_threshold: 0.0005
+      signal_threshold: 0.0005
+      divergence_lookback: 4
+  params:
+    price_source: "close"
+    histogram_threshold: 0.001
+    trend_confirmation_periods: 3
+    momentum_smoothing: false
+    use_percentage: false
+    centerline_oscillation: true
+    histogram_divergence: true
+  output:
+    description: "MACD (Moving Average Convergence Divergence) indicator with MACD line, signal line, histogram, and momentum analysis"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      macd_line:
+        type: float
+        description: "MACD line value (fast EMA - slow EMA)"
+      signal_line:
+        type: float
+        description: "Signal line value (EMA of MACD)"
+      histogram:
+        type: float
+        description: "MACD histogram (MACD - Signal)"
+      fast_ema:
+        type: float
+        description: "Fast EMA value"
+      slow_ema:
+        type: float
+        description: "Slow EMA value"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish_zero_cross", "bearish_zero_cross", "bullish_signal_cross", "bearish_signal_cross", "bullish_momentum", "bearish_momentum", "weakening_bullish", "weakening_bearish"]
+      trend:
+        type: str
+        description: "Overall trend direction"
+        enum: ["bullish", "bearish", "neutral"]
+      momentum_strength:
+        type: float
+        description: "Momentum strength ratio"
+      zero_crossover_up:
+        type: bool
+        description: "MACD crossed above zero line"
+      zero_crossover_down:
+        type: bool
+        description: "MACD crossed below zero line"
+      signal_crossover_up:
+        type: bool
+        description: "MACD crossed above signal line"
+      signal_crossover_down:
+        type: bool
+        description: "MACD crossed below signal line"
+      histogram_increasing:
+        type: bool
+        description: "Histogram is increasing"
+      histogram_decreasing:
+        type: bool
+        description: "Histogram is decreasing"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        bearish_zero_cross: -1.0
+        bearish_signal_cross: -0.8
+        bearish_momentum: -0.6
+        weakening_bullish: -0.3
+        neutral: 0.0
+        weakening_bearish: 0.3
+        bullish_momentum: 0.6
+        bullish_signal_cross: 0.8
+        bullish_zero_cross: 1.0

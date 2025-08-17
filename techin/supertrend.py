@@ -92,10 +92,19 @@
 from typing import List, Dict
 import pandas as pd
 import numpy as np
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
+import yaml
+import os
 
 class Supertrend:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'supertrend.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -106,7 +115,15 @@ class Supertrend:
              ohlcv: List[List],       
              trades: List[Dict]):    
         
-        self.param = get_indicator_params('supertrend', timeframe)
+        self.config = self._load_config()
+        st_config = self.config['supertrend']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = st_config['timeframes'].get(timeframe, st_config['timeframes']['1d'])
+        general_params = st_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -245,48 +262,41 @@ class Supertrend:
         elif volatility_ratio < 0.7:
             market_condition = "low_volatility"
         
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "supertrend": current_supertrend,
-            "trend": current_trend,
-            "signal": current_signal,
-            "atr": current_atr,
-            "upper_band": current_upper,
-            "lower_band": current_lower,
-            "distance_pct": distance_from_supertrend,
-            "signal_strength": signal_strength,
-            "trend_changes": int(trend_changes),
-            "volume_confirmed": volume_confirmed,
-            "market_condition": market_condition,
-            "volatility_ratio": volatility_ratio,
-            "parameters": {
-                "atr_period": atr_period,
-                "multiplier": multiplier,
-                "use_hl2": self.param["use_hl2"],
-                "volume_confirmation": self.param["volume_confirmation"]
-            }
-        }
+        # Build result based on YAML output configuration  
+        output_config = self.config['supertrend']['output']['fields']
+        result = {}
         
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="SuperTrend",
-            signal=result["signal"],
-            value=result["supertrend"],
-            strength="strong" if result.get("trend_strength", 0.5) > 0.8 else "medium",
-            support=result["supertrend"] if result["trend"] == "up" else None,
-            resistance=result["supertrend"] if result["trend"] == "down" else None,
-            metadata={
-                "trend": result["trend"],
-                "atr": result["atr"],
-                "trend_strength": result.get("trend_strength", 0.5),
-                "recent_cross": result.get("recent_cross", False),
-                "cross_type": result.get("cross_type", "none"),
-                "distance_percent": result.get("distance_percent", result["distance_pct"]),
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "supertrend":
+                result[field_name] = current_supertrend
+            elif field_name == "atr":
+                result[field_name] = current_atr
+            elif field_name == "hl2":
+                hl2_value = (df['high'].iloc[-1] + df['low'].iloc[-1]) / 2 if self.param["use_hl2"] else current_price
+                result[field_name] = float(hl2_value)
+            elif field_name == "signal":
+                result[field_name] = current_signal
+            elif field_name == "trend":
+                result[field_name] = current_trend
+            elif field_name == "price_above_supertrend":
+                result[field_name] = current_price > current_supertrend
+            elif field_name == "trend_change":
+                result[field_name] = df['trend_change'].iloc[-1] if len(df) > 1 else False
+            elif field_name == "support_resistance":
+                result[field_name] = current_supertrend
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "atr_period": atr_period,
+                    "multiplier": multiplier,
+                    "use_hl2": self.param["use_hl2"],
+                    "volume_confirmation": self.param["volume_confirmation"]
+                }
         
         return result

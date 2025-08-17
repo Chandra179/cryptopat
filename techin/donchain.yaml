@@ -1,0 +1,79 @@
+donchian_channel:
+  timeframes:
+    "1d":
+      period: 20
+      breakout_confirmation: 1
+      channel_width_threshold: 0.05
+      trend_strength_period: 10
+      reversal_zone_pct: 0.1
+    "1w":
+      period: 10
+      breakout_confirmation: 1
+      channel_width_threshold: 0.04
+      trend_strength_period: 6
+      reversal_zone_pct: 0.15
+    "1M":
+      period: 6
+      breakout_confirmation: 1
+      channel_width_threshold: 0.03
+      trend_strength_period: 4
+      reversal_zone_pct: 0.2
+  params:
+    middle_line: true
+    price_source: "high_low"
+    volume_confirmation: false
+    volatility_percentile: 80
+    support_resistance_levels: 3
+    position_threshold_pct: 1.0
+    signal_sensitivity: "normal"
+    false_breakout_filter: true
+    min_breakout_distance: 0.001
+  output:
+    description: "Donchian Channels with highest/lowest levels, channel analysis, and breakout detection"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      upper_channel:
+        type: float
+        description: "Upper Donchian channel (highest high)"
+      lower_channel:
+        type: float
+        description: "Lower Donchian channel (lowest low)"
+      middle_line:
+        type: float
+        description: "Middle line (average of upper and lower)"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish_breakout", "bearish_breakout", "upper_resistance", "lower_support"]
+      channel_position:
+        type: float
+        description: "Position within channel (0-1)"
+        range: [0.0, 1.0]
+      channel_width:
+        type: float
+        description: "Channel width percentage"
+      breakout_up:
+        type: bool
+        description: "Upward breakout detected"
+      breakout_down:
+        type: bool
+        description: "Downward breakout detected"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        bearish_breakout: -1.0
+        lower_support: -0.3
+        neutral: 0.0
+        upper_resistance: 0.3
+        bullish_breakout: 1.0

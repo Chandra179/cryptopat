@@ -1,13 +1,113 @@
+"""
+## Data structures
+**OHLCV Format:**
+[
+    [
+        1504541580000, // UTC timestamp in milliseconds, integer
+        4235.4,        // (O)pen price, float
+        4240.6,        // (H)ighest price, float
+        4230.0,        // (L)owest price, float
+        4230.7,        // (C)losing price, float
+        37.72941911    // (V)olume float (usually in terms of the base currency, the exchanges docstring may list whether quote or base units are used)
+    ],
+    ...
+]
+
+**Order Book Format:**
+{
+    'bids': [
+        [ price, amount ], // [ float, float ]
+        [ price, amount ],
+        ...
+    ],
+    'asks': [
+        [ price, amount ],
+        [ price, amount ],
+        ...
+    ],
+    'symbol': 'ETH/BTC', // a unified market symbol
+    'timestamp': 1499280391811, // Unix Timestamp in milliseconds (seconds * 1000)
+    'datetime': '2017-07-05T18:47:14.692Z', // ISO8601 datetime string with milliseconds
+    'nonce': 1499280391811, // an increasing unique identifier of the orderbook snapshot
+}
+
+
+**Ticker Format:**
+{
+    'symbol':        string symbol of the market ('BTC/USD', 'ETH/BTC', ...)
+    'info':        { the original non-modified unparsed reply from exchange API },
+    'timestamp':     int (64-bit Unix Timestamp in milliseconds since Epoch 1 Jan 1970)
+    'datetime':      ISO8601 datetime string with milliseconds
+    'high':          float, // highest price
+    'low':           float, // lowest price
+    'bid':           float, // current best bid (buy) price
+    'bidVolume':     float, // current best bid (buy) amount (may be missing or undefined)
+    'ask':           float, // current best ask (sell) price
+    'askVolume':     float, // current best ask (sell) amount (may be missing or undefined)
+    'vwap':          float, // volume weighed average price
+    'open':          float, // opening price
+    'close':         float, // price of last trade (closing price for current period)
+    'last':          float, // same as `close`, duplicated for convenience
+    'previousClose': float, // closing price for the previous period
+    'change':        float, // absolute change, `last - open`
+    'percentage':    float, // relative change, `(change/open) * 100`
+    'average':       float, // average price, `(last + open) / 2`
+    'baseVolume':    float, // volume of base currency traded for last 24 hours
+    'quoteVolume':   float, // volume of quote currency traded for last 24 hours
+}
+
+
+**Trades Format:**
+[
+    {
+        'info':          { ... },                  // the original decoded JSON as is
+        'id':           '12345-67890:09876/54321', // string trade id
+        'timestamp':     1502962946216,            // Unix timestamp in milliseconds
+        'datetime':     '2017-08-17 12:42:48.000', // ISO8601 datetime with milliseconds
+        'symbol':       'ETH/BTC',                 // symbol
+        'order':        '12345-67890:09876/54321', // string order id or undefined/None/null
+        'type':         'limit',                   // order type, 'market', 'limit' or undefined/None/null
+        'side':         'buy',                     // direction of the trade, 'buy' or 'sell'
+        'takerOrMaker': 'taker',                   // string, 'taker' or 'maker'
+        'price':         0.06917684,               // float price in quote currency
+        'amount':        1.5,                      // amount of base currency
+        'cost':          0.10376526,               // total cost, `price * amount`,
+        'fee':           {                         // if provided by exchange or calculated by ccxt
+            'cost':  0.0015,                       // float
+            'currency': 'ETH',                     // usually base currency for buys, quote currency for sells
+            'rate': 0.002,                         // the fee rate (if available)
+        },
+        'fees': [                                  // an array of fees if paid in multiple currencies
+            {                                      // if provided by exchange or calculated by ccxt
+                'cost':  0.0015,                   // float
+                'currency': 'ETH',                 // usually base currency for buys, quote currency for sells
+                'rate': 0.002,                     // the fee rate (if available)
+            },
+        ]
+    },
+    ...
+]
+"""
+
 from typing import List, Dict
 import pandas as pd
+import yaml
+import os
 import logging
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
 
 logger = logging.getLogger(__name__)
 
 
 class ChaikinMoneyFlow:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'chaikin_money_flow.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
                  symbol: str,
@@ -18,7 +118,15 @@ class ChaikinMoneyFlow:
                  ohlcv: List[List],       
                  trades: List[Dict]):    
         
-        self.param = get_indicator_params('chaikin_money_flow', timeframe)
+        self.config = self._load_config()
+        cmf_config = self.config['chaikin_money_flow']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = cmf_config['timeframes'].get(timeframe, cmf_config['timeframes']['1d'])
+        general_params = cmf_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -99,13 +207,8 @@ class ChaikinMoneyFlow:
         # Current values
         current_cmf = float(cmf.iloc[-1]) if not pd.isna(cmf.iloc[-1]) else 0.0
         current_price = float(df['close'].iloc[-1])
-        current_volume = float(df['volume'].iloc[-1])
         current_mfm = float(money_flow_multiplier.iloc[-1])
         current_mfv = float(money_flow_volume.iloc[-1])
-        
-        # Volume analysis
-        volume_ma = df['volume'].rolling(window=self.param["volume_ma_period"]).mean()
-        high_volume = current_volume > (volume_ma.iloc[-1] * self.param["high_volume_multiplier"])
         
         # Signal generation
         signal = "neutral"
@@ -124,68 +227,48 @@ class ChaikinMoneyFlow:
             signal = "bearish"
             strength = "weak" if current_cmf > -0.15 else "normal"
         
-        # Divergence detection (simplified)
-        if len(cmf) >= self.param["divergence_period"] + 1:
-            price_trend = df['close'].iloc[-1] - df['close'].iloc[-self.param["divergence_period"]]
-            cmf_trend = cmf.iloc[-1] - cmf.iloc[-self.param["divergence_period"]]
-            
-            # Bullish divergence: price falling, CMF rising
-            bullish_divergence = (price_trend < -self.param["price_trend_strength"] and 
-                                 cmf_trend > self.param["cmf_trend_strength"])
-            
-            # Bearish divergence: price rising, CMF falling
-            bearish_divergence = (price_trend > self.param["price_trend_strength"] and 
-                                 cmf_trend < -self.param["cmf_trend_strength"])
-        else:
-            bullish_divergence = False
-            bearish_divergence = False
-        
         # Money flow direction
         if current_mfm > 0.5:
-            flow_direction = "accumulation"
+            money_flow_trend = "accumulation"
         elif current_mfm < -0.5:
-            flow_direction = "distribution" 
+            money_flow_trend = "distribution" 
         else:
-            flow_direction = "neutral"
+            money_flow_trend = "neutral"
         
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "cmf": current_cmf,
-            "money_flow_multiplier": current_mfm,
-            "money_flow_volume": current_mfv,
-            "signal": signal,
-            "strength": strength,
-            "flow_direction": flow_direction,
-            "high_volume": high_volume,
-            "bullish_divergence": bullish_divergence,
-            "bearish_divergence": bearish_divergence,
-            "parameters": {
-                "period": period,
-                "bullish_threshold": self.param["bullish_threshold"],
-                "bearish_threshold": self.param["bearish_threshold"],
-                "strong_bullish": self.param["strong_bullish"],
-                "strong_bearish": self.param["strong_bearish"]
-            }
-        }
+        # Above zero line check
+        above_zero = current_cmf > self.param["zero_line"]
         
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="Chaikin Money Flow",
-            signal=result["signal"],
-            value=result["cmf"],
-            strength=result["strength"],
-            metadata={
-                "flow_direction": result["flow_direction"],
-                "money_flow_multiplier": result["money_flow_multiplier"],
-                "money_flow_volume": result["money_flow_volume"],
-                "high_volume": result["high_volume"],
-                "bullish_divergence": result["bullish_divergence"],
-                "bearish_divergence": result["bearish_divergence"],
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Build result based on YAML output configuration  
+        output_config = self.config['chaikin_money_flow']['output']['fields']
+        result = {}
+        
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "cmf":
+                result[field_name] = current_cmf
+            elif field_name == "money_flow_volume":
+                result[field_name] = current_mfv
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "money_flow_trend":
+                result[field_name] = money_flow_trend
+            elif field_name == "above_zero":
+                result[field_name] = above_zero
+            elif field_name == "strength":
+                result[field_name] = strength
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "period": period,
+                    "bullish_threshold": self.param["bullish_threshold"],
+                    "bearish_threshold": self.param["bearish_threshold"],
+                    "strong_bullish": self.param["strong_bullish"],
+                    "strong_bearish": self.param["strong_bearish"]
+                }
         
         return result

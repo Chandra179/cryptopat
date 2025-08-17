@@ -91,10 +91,19 @@
 
 from typing import List, Dict
 import pandas as pd
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
+import yaml
+import os
 
 class OBV:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'obv.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
                  symbol: str,
@@ -105,7 +114,15 @@ class OBV:
                  ohlcv: List[List],       
                  trades: List[Dict]):
         
-        self.param = self.param = get_indicator_params('obv', timeframe)
+        self.config = self._load_config()
+        obv_config = self.config['obv']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = obv_config['timeframes'].get(timeframe, obv_config['timeframes']['1d'])
+        general_params = obv_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -215,7 +232,6 @@ class OBV:
         current_momentum = float(obv_momentum.iloc[-1]) if not pd.isna(obv_momentum.iloc[-1]) else 0.0
         current_trend = int(obv_trend.iloc[-1]) if not pd.isna(obv_trend.iloc[-1]) else 0
         current_price = float(df['close'].iloc[-1])
-        current_volume = float(df['volume'].iloc[-1])
         
         # Signal generation
         signal = "neutral"
@@ -241,44 +257,57 @@ class OBV:
         elif current_trend < 0 and price_trend > 0:
             divergence = "bearish"
 
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "current_volume": current_volume,
-            "obv": current_obv,
-            "obv_signal_line": current_signal,
-            "obv_momentum": current_momentum,
-            "obv_trend": current_trend,
-            "signal": signal,
-            "divergence": divergence,
-            "volume_significant": bool(significant_volume.iloc[-1]),
-            "parameters": {
-                "smoothing_period": self.param["smoothing_period"],
-                "signal_line_period": signal_period,
-                "momentum_period": momentum_period,
-                "trend_confirmation_period": trend_period,
-                "volume_threshold": volume_threshold,
-                "breakout_threshold": breakout_threshold
-            }
-        }
+        # Additional calculations for YAML-based output
+        obv_above_sma = current_obv > current_signal
         
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="OBV",
-            signal=result["signal"],
-            value=result["obv"],
-            strength="strong" if "strong" in result["signal"] else "medium",
-            metadata={
-                "flow_direction": result.get("flow_direction", "unknown"),
-                "obv_ma": result.get("obv_ma", result["obv_signal_line"]),
-                "obv_divergence": result.get("obv_divergence", result["divergence"]),
-                "volume_acceleration": result.get("volume_acceleration", result["obv_momentum"]),
-                "trend_strength": result.get("trend_strength", result["obv_trend"]),
-                "volume_breakout": result.get("volume_breakout", False),
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Volume flow determination
+        volume_flow = "neutral"
+        if signal == "accumulation":
+            volume_flow = "accumulation"
+        elif signal == "distribution":
+            volume_flow = "distribution"
+        
+        # Trend determination
+        trend = "neutral"
+        if current_trend > 0:
+            trend = "bullish"
+        elif current_trend < 0:
+            trend = "bearish"
+        
+        # Build result based on YAML output configuration  
+        output_config = self.config['obv']['output']['fields']
+        result = {}
+        
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "obv":
+                result[field_name] = current_obv
+            elif field_name == "obv_sma":
+                result[field_name] = current_signal
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "trend":
+                result[field_name] = trend
+            elif field_name == "volume_flow":
+                result[field_name] = volume_flow
+            elif field_name == "obv_above_sma":
+                result[field_name] = obv_above_sma
+            elif field_name == "divergence":
+                result[field_name] = divergence
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "smoothing_period": self.param["smoothing_period"],
+                    "signal_line_period": signal_period,
+                    "momentum_period": momentum_period,
+                    "trend_confirmation_period": trend_period,
+                    "volume_threshold": volume_threshold,
+                    "breakout_threshold": breakout_threshold
+                }
         
         return result

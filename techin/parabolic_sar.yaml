@@ -1,0 +1,71 @@
+parabolic_sar:
+  timeframes:
+    "1d":
+      af_initial: 0.02
+      af_increment: 0.02
+      af_maximum: 0.20
+      trend_confirmation_periods: 3
+      price_deviation_threshold: 0.02
+    "1w":
+      af_initial: 0.015
+      af_increment: 0.015
+      af_maximum: 0.15
+      trend_confirmation_periods: 2
+      price_deviation_threshold: 0.03
+    "1M":
+      af_initial: 0.01
+      af_increment: 0.01
+      af_maximum: 0.10
+      trend_confirmation_periods: 1
+      price_deviation_threshold: 0.05
+  params:
+    signal_strength_threshold: 0.5
+    volume_confirmation: false
+    volume_ma_period: 20
+    sar_distance_factor: 1.0
+    trend_strength_periods: 10
+    reversal_confirmation: true
+    extreme_point_buffer: 0.001
+  output:
+    description: "Parabolic SAR with trend direction, reversal points, and acceleration factor"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      sar:
+        type: float
+        description: "Parabolic SAR value"
+      acceleration_factor:
+        type: float
+        description: "Current acceleration factor"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "buy_signal", "sell_signal"]
+      trend:
+        type: str
+        description: "Trend direction"
+        enum: ["up", "down"]
+      reversal:
+        type: bool
+        description: "Trend reversal detected"
+      price_above_sar:
+        type: bool
+        description: "Price is above SAR"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        sell_signal: -1.0
+        bearish: -0.5
+        neutral: 0.0
+        bullish: 0.5
+        buy_signal: 1.0

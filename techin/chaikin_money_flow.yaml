@@ -1,0 +1,72 @@
+chaikin_money_flow:
+  timeframes:
+    "1d":
+      period: 21
+      divergence_period: 5
+      volume_ma_period: 20
+      bullish_threshold: 0.05
+      bearish_threshold: -0.05
+    "1w":
+      period: 12
+      divergence_period: 3
+      volume_ma_period: 12
+      bullish_threshold: 0.08
+      bearish_threshold: -0.08
+    "1M":
+      period: 6
+      divergence_period: 2
+      volume_ma_period: 6
+      bullish_threshold: 0.12
+      bearish_threshold: -0.12
+  params:
+    zero_line: 0.0
+    strong_bullish: 0.25
+    strong_bearish: -0.25
+    price_trend_strength: 0.02
+    cmf_trend_strength: 0.05
+    high_volume_multiplier: 1.5
+  output:
+    description: "Chaikin Money Flow with accumulation/distribution analysis and money flow oscillation"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      cmf:
+        type: float
+        description: "Chaikin Money Flow value"
+        range: [-1.0, 1.0]
+      money_flow_volume:
+        type: float
+        description: "Money Flow Volume"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "strong_accumulation", "strong_distribution"]
+      money_flow_trend:
+        type: str
+        description: "Money flow trend"
+        enum: ["accumulation", "distribution", "neutral"]
+      above_zero:
+        type: bool
+        description: "CMF is above zero line"
+      strength:
+        type: str
+        description: "Signal strength"
+        enum: ["weak", "moderate", "strong"]
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        strong_distribution: -1.0
+        bearish: -0.5
+        neutral: 0.0
+        bullish: 0.5
+        strong_accumulation: 1.0

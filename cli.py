@@ -5,28 +5,30 @@ import sys
 import signal
 import readline
 import asyncio
+import yaml
 from typing import Dict
 from data import get_data_collector
-from techin.bollingerbands import BollingerBands
+from summary.summary import SignalAggregator
+from techin.bollinger_bands import BollingerBands
 from techin.chaikin_money_flow import ChaikinMoneyFlow
 from techin.donchain import DonchianChannel
 from techin.ichimoku import IchimokuCloud
 from techin.keltner import KeltnerChannel
 from techin.macd import MACD
 from techin.obv import OBV
-from techin.parabolicsar import ParabolicSAR
-from techin.pivotpoint import PivotPoint
+from techin.parabolic_sar import ParabolicSAR
+from techin.pivot_point import PivotPoint
 from techin.renko import Renko
 from techin.supertrend import Supertrend
 from techin.vwap import VWAP
 from techin.ema_20_50 import EMA2050
 from techin.rsi import RSI
-from summary import clear_all_results, get_structured_analysis
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class CryptoPatCLI:
     def __init__(self):
         self.data_collector = get_data_collector()
+        self.signal_aggregator = SignalAggregator()
         self.history_file = os.path.expanduser("~/.cryptopat_history")
         self.setup_readline()
         self.setup_signal_handlers()
@@ -123,9 +125,6 @@ class CryptoPatCLI:
             )
             
             
-            # Clear previous analysis results
-            clear_all_results()
-            
             # Run all technical indicators (they now store results in memory)
             print("\n" + "="*60)
             print("RUNNING TECHNICAL ANALYSIS")
@@ -152,29 +151,70 @@ class CryptoPatCLI:
                 name, indicator_class = name_and_class
                 try:
                     indicator = indicator_class(symbol, timeframe, limit, order_book, ticker, ohlcv_data, trades)
-                    indicator.calculate()
-                    return f"✓ {name}"
+                    result = indicator.calculate()
+                    
+                    # Load YAML signal mapping for this indicator
+                    indicator_name = indicator_class.__name__.lower()
+                    yaml_file = f"techin/{indicator_name}.yaml"
+                    if indicator_name == "bollingerbands":
+                        yaml_file = "techin/bollinger_bands.yaml"
+                    elif indicator_name == "chaikinmoneyflow":
+                        yaml_file = "techin/chaikin_money_flow.yaml"
+                    elif indicator_name == "donchianchannel":
+                        yaml_file = "techin/donchain.yaml"
+                    elif indicator_name == "ichimokucloud":
+                        yaml_file = "techin/ichimoku.yaml"
+                    elif indicator_name == "keltnerchannel":
+                        yaml_file = "techin/keltner.yaml"
+                    elif indicator_name == "parabolicsar":
+                        yaml_file = "techin/parabolic_sar.yaml"
+                    elif indicator_name == "pivotpoint":
+                        yaml_file = "techin/pivot_point.yaml"
+                    elif indicator_name == "ema2050":
+                        yaml_file = "techin/ema_20_50.yaml"
+                    
+                    try:
+                        with open(yaml_file, 'r') as f:
+                            yaml_config = yaml.safe_load(f)
+                            # Extract signal mapping from YAML
+                            config_key = list(yaml_config.keys())[0]  # Get first key (indicator name)
+                            signal_mapping = yaml_config[config_key]['output']['signals']['mapping']
+                            
+                            # Store result in aggregator
+                            self.signal_aggregator.add_indicator_result(name, result, signal_mapping)
+                    except Exception as yaml_e:
+                        print(f"Warning: Could not load YAML config for {name}: {yaml_e}")
+                    
+                    return f"✓ {name}", result
                 except Exception as e:
-                    return f"✗ {name}: {e}"
+                    return f"✗ {name}: {e}", None
             
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = [executor.submit(run_indicator, indicator) for indicator in indicators]
                 for future in as_completed(futures):
-                    print(future.result())
+                    result = future.result()
+                    if isinstance(result, tuple):
+                        print(result[0])  # Print status message
+                    else:
+                        print(result)
             
             # Generate and display structured analysis summary
+            summary = self.signal_aggregator.generate_summary()
+            
             print("\n" + "="*60)
             print("MARKET ANALYSIS SUMMARY")
             print("="*60)
+            print(f"Symbol: {symbol} | Timeframe: {timeframe}")
+            print(f"Analysis Time: {summary['timestamp']}")
+            print("-" * 60)
+            print(f"Majority Vote: {summary['majority_vote'].upper()}")
+            print(f"Weighted Signal: {summary['weighted_signal']} ({summary['signal_strength']})")
+            print(f"Consensus Strength: {summary['consensus_strength']:.1%}")
+            print(f"Indicators Analyzed: {summary['total_indicators']}")
             
-            # Get current price from ticker
-            current_price = ticker.get('last') if ticker else None
+            # Clear results for next analysis
+            self.signal_aggregator.clear_results()
             
-            # Generate structured analysis
-            analysis = get_structured_analysis(symbol, timeframe, current_price)
-            
-            # Display the core summary
-            print(analysis['detailed_breakdown']['core_summary'])
                         
         except Exception as e:
             print(f"Error fetching data: {e}")

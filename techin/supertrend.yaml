@@ -1,0 +1,78 @@
+supertrend:
+  timeframes:
+    "1d":
+      atr_period: 10
+      multiplier: 3.0
+      trend_confirmation_period: 3
+      signal_strength_period: 5
+      volume_ma_period: 20
+    "1w":
+      atr_period: 7
+      multiplier: 2.5
+      trend_confirmation_period: 2
+      signal_strength_period: 3
+      volume_ma_period: 10
+    "1M":
+      atr_period: 5
+      multiplier: 2.0
+      trend_confirmation_period: 1
+      signal_strength_period: 2
+      volume_ma_period: 6
+  params:
+    use_hl2: true
+    volume_confirmation: false
+    breakout_confirmation: true
+    support_resistance_levels: 3
+    trend_momentum_period: 14
+    price_action_filter: true
+    volatility_filter: false
+    atr_volatility_threshold: 1.5
+  output:
+    description: "SuperTrend indicator with trend detection, support/resistance levels, and signal generation"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      supertrend:
+        type: float
+        description: "SuperTrend line value"
+      atr:
+        type: float
+        description: "Average True Range value"
+      hl2:
+        type: float
+        description: "High-Low median value"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "buy", "sell"]
+      trend:
+        type: str
+        description: "Trend direction"
+        enum: ["up", "down", "neutral"]
+      price_above_supertrend:
+        type: bool
+        description: "Price is above SuperTrend line"
+      trend_change:
+        type: bool
+        description: "Trend direction changed"
+      support_resistance:
+        type: float
+        description: "Current support/resistance level"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        sell: -1.0
+        bearish: -0.5
+        neutral: 0.0
+        bullish: 0.5
+        buy: 1.0

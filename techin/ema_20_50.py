@@ -91,11 +91,19 @@
 
 from typing import List, Dict
 import pandas as pd
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
-
+import yaml
+import os
 
 class EMA2050:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'ema_20_50.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -106,7 +114,15 @@ class EMA2050:
              ohlcv: List[List],       
              trades: List[Dict]):
         
-        self.param = get_indicator_params('ema_20_50', timeframe)
+        self.config = self._load_config()
+        ema_config = self.config['ema_20_50']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = ema_config['timeframes'].get(timeframe, ema_config['timeframes']['1d'])
+        general_params = ema_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -203,65 +219,59 @@ class EMA2050:
         elif current_crossover_down and volume_confirmed:
             signal = "death_cross"
         elif current_confirmed_bullish and abs(current_ema_distance) > self.param["trend_strength_threshold"]:
-            signal = "bullish_trend"
+            signal = "bullish"
         elif current_confirmed_bearish and abs(current_ema_distance) > self.param["trend_strength_threshold"]:
-            signal = "bearish_trend"
-        elif abs(current_ema_distance) < self.param["trend_strength_threshold"]:
-            signal = "consolidation"
+            signal = "bearish"
         
-        # Trend strength classification
-        trend_strength = "weak"
-        if abs(current_ema_distance) > 2.0:
-            trend_strength = "strong"
-        elif abs(current_ema_distance) > 1.0:
-            trend_strength = "moderate"
         
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "ema_fast": current_ema_fast,
-            "ema_slow": current_ema_slow,
-            "ema_distance_pct": current_ema_distance,
-            "trend_bullish": current_trend_bullish,
-            "trend_bearish": current_trend_bearish,
-            "crossover_up": current_crossover_up,
-            "crossover_down": current_crossover_down,
-            "confirmed_bullish": current_confirmed_bullish,
-            "confirmed_bearish": current_confirmed_bearish,
-            "signal": signal,
-            "trend_strength": trend_strength,
-            "volume_confirmed": volume_confirmed,
-            "parameters": {
-                "ema_fast_period": fast_period,
-                "ema_slow_period": slow_period,
-                "confirmation_periods": confirmation_periods,
-                "trend_strength_threshold": self.param["trend_strength_threshold"],
-                "volume_confirmation": self.param["volume_confirmation"]
-            }
-        }
+        # Build result based on YAML output configuration  
+        output_config = self.config['ema_20_50']['output']['fields']
+        result = {}
         
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="EMA 20/50",
-            signal=result["signal"],
-            value=result["ema_distance_pct"],
-            strength=result["trend_strength"],
-            support=result["ema_slow"] if result["trend_bullish"] else None,
-            resistance=result["ema_slow"] if result["trend_bearish"] else None,
-            metadata={
-                "ema_fast": result["ema_fast"],
-                "ema_slow": result["ema_slow"],
-                "trend_bullish": result["trend_bullish"],
-                "trend_bearish": result["trend_bearish"],
-                "crossover_up": result["crossover_up"],
-                "crossover_down": result["crossover_down"],
-                "confirmed_bullish": result["confirmed_bullish"],
-                "confirmed_bearish": result["confirmed_bearish"],
-                "volume_confirmed": result["volume_confirmed"],
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Determine trend and crossover for YAML output format
+        trend = "neutral"
+        if current_trend_bullish:
+            trend = "bullish"
+        elif current_trend_bearish:
+            trend = "bearish"
+            
+        crossover = "none"
+        if current_crossover_up:
+            crossover = "bullish"
+        elif current_crossover_down:
+            crossover = "bearish"
+        
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "ema_20":
+                result[field_name] = current_ema_fast
+            elif field_name == "ema_50":
+                result[field_name] = current_ema_slow
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "trend":
+                result[field_name] = trend
+            elif field_name == "crossover":
+                result[field_name] = crossover
+            elif field_name == "price_above_ema20":
+                result[field_name] = current_price > current_ema_fast
+            elif field_name == "price_above_ema50":
+                result[field_name] = current_price > current_ema_slow
+            elif field_name == "ema20_above_ema50":
+                result[field_name] = current_ema_fast > current_ema_slow
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "ema_fast_period": fast_period,
+                    "ema_slow_period": slow_period,
+                    "confirmation_periods": confirmation_periods,
+                    "trend_strength_threshold": self.param["trend_strength_threshold"],
+                    "volume_confirmation": self.param["volume_confirmation"]
+                }
         
         return result

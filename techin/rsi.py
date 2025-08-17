@@ -91,11 +91,19 @@
 
 from typing import List, Dict
 import pandas as pd
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
+import yaml
+import os
 
-
-class RSI:
+class RSI():
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'rsi.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
                  symbol: str,
@@ -106,7 +114,15 @@ class RSI:
                  ohlcv: List[List],       
                  trades: List[Dict]):
         
-        self.param = get_indicator_params('rsi', timeframe)
+        self.config = self._load_config()
+        rsi_config = self.config['rsi']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = rsi_config['timeframes'].get(timeframe, rsi_config['timeframes']['1d'])
+        general_params = rsi_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -251,54 +267,52 @@ class RSI:
                       min(recent_rsi) > self.param["overbought_level"]):
                     failure_swing = "bearish_failure_swing"
 
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "rsi": current_rsi,
-            "signal": signal,
-            "strength": strength,
-            "momentum_signal": momentum_signal,
-            "rsi_change": rsi_change,
-            "trend_direction": trend_direction,
-            "trend_aligned": trend_aligned,
-            "failure_swing": failure_swing,
-            "is_overbought": current_rsi >= self.param["overbought_level"],
-            "is_oversold": current_rsi <= self.param["oversold_level"],
-            "is_extreme_overbought": current_rsi >= self.param["extreme_overbought"],
-            "is_extreme_oversold": current_rsi <= self.param["extreme_oversold"],
-            "above_midline": current_rsi > self.param["midline"],
-            "parameters": {
-                "period": period,
-                "overbought_level": self.param["overbought_level"],
-                "oversold_level": self.param["oversold_level"],
-                "extreme_overbought": self.param["extreme_overbought"],
-                "extreme_oversold": self.param["extreme_oversold"],
-                "smoothing_method": self.param["smoothing_method"]
-            }
-        }
+        # Build result based on YAML output configuration  
+        output_config = self.config['rsi']['output']['fields']
+        result = {}
         
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="RSI",
-            signal=result["signal"],
-            value=result["rsi"],
-            strength=result["strength"],
-            metadata={
-                "condition": "extreme overbought" if result["is_extreme_overbought"] else
-                           "extreme oversold" if result["is_extreme_oversold"] else
-                           "overbought" if result["is_overbought"] else
-                           "oversold" if result["is_oversold"] else
-                           "bullish territory" if result["above_midline"] else
-                           "bearish territory",
-                "momentum_signal": result["momentum_signal"],
-                "rsi_change": result["rsi_change"],
-                "trend_direction": result["trend_direction"],
-                "trend_aligned": result["trend_aligned"],
-                "failure_swing": result["failure_swing"],
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "rsi":
+                result[field_name] = current_rsi
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "strength":
+                result[field_name] = strength
+            elif field_name == "momentum_signal":
+                result[field_name] = momentum_signal
+            elif field_name == "rsi_change":
+                result[field_name] = rsi_change
+            elif field_name == "trend_direction":
+                result[field_name] = trend_direction
+            elif field_name == "trend_aligned":
+                result[field_name] = trend_aligned
+            elif field_name == "failure_swing":
+                result[field_name] = failure_swing
+            elif field_name == "is_overbought":
+                result[field_name] = current_rsi >= self.param["overbought_level"]
+            elif field_name == "is_oversold":
+                result[field_name] = current_rsi <= self.param["oversold_level"]
+            elif field_name == "is_extreme_overbought":
+                result[field_name] = current_rsi >= self.param["extreme_overbought"]
+            elif field_name == "is_extreme_oversold":
+                result[field_name] = current_rsi <= self.param["extreme_oversold"]
+            elif field_name == "above_midline":
+                result[field_name] = current_rsi > self.param["midline"]
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "period": period,
+                    "overbought_level": self.param["overbought_level"],
+                    "oversold_level": self.param["oversold_level"],
+                    "extreme_overbought": self.param["extreme_overbought"],
+                    "extreme_oversold": self.param["extreme_oversold"],
+                    "smoothing_method": self.param["smoothing_method"]
+                }
         
         return result

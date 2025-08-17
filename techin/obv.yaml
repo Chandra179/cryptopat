@@ -1,0 +1,77 @@
+obv:
+  timeframes:
+    "1d":
+      smoothing_period: 0
+      signal_line_period: 10
+      divergence_period: 14
+      trend_confirmation_period: 5
+      trend_strength_period: 20
+      momentum_period: 10
+    "1w":
+      smoothing_period: 3
+      signal_line_period: 6
+      divergence_period: 8
+      trend_confirmation_period: 3
+      trend_strength_period: 12
+      momentum_period: 6
+    "1M":
+      smoothing_period: 5
+      signal_line_period: 4
+      divergence_period: 4
+      trend_confirmation_period: 2
+      trend_strength_period: 6
+      momentum_period: 3
+  params:
+    smoothing_type: "sma"
+    volume_threshold: 1.0
+    price_change_threshold: 0.001
+    breakout_threshold: 0.02
+    divergence_min_periods: 5
+  output:
+    description: "OBV (On-Balance Volume) with volume flow analysis, trend confirmation, and divergence detection"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      obv:
+        type: float
+        description: "On-Balance Volume value"
+      obv_sma:
+        type: float
+        description: "OBV Simple Moving Average"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "bullish_divergence", "bearish_divergence"]
+      trend:
+        type: str
+        description: "OBV trend direction"
+        enum: ["bullish", "bearish", "neutral"]
+      volume_flow:
+        type: str
+        description: "Volume flow direction"
+        enum: ["accumulation", "distribution", "neutral"]
+      obv_above_sma:
+        type: bool
+        description: "OBV is above its SMA"
+      divergence:
+        type: str
+        description: "Price-OBV divergence"
+        enum: ["bullish", "bearish", "none"]
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        bearish_divergence: -1.0
+        bearish: -0.5
+        neutral: 0.0
+        bullish: 0.5
+        bullish_divergence: 1.0

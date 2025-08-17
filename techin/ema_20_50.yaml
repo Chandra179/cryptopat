@@ -1,0 +1,83 @@
+ema_20_50:
+  timeframes:
+    "1d":
+      ema_fast_period: 20
+      ema_slow_period: 50
+      crossover_confirmation_periods: 2
+      trend_strength_threshold: 0.001
+      volume_ma_period: 20
+    "1w":
+      ema_fast_period: 10
+      ema_slow_period: 25
+      crossover_confirmation_periods: 1
+      trend_strength_threshold: 0.002
+      volume_ma_period: 10
+    "1M":
+      ema_fast_period: 6
+      ema_slow_period: 12
+      crossover_confirmation_periods: 1
+      trend_strength_threshold: 0.005
+      volume_ma_period: 6
+  params:
+    price_source: "close"
+    volume_confirmation: false
+    divergence_lookback: 10
+    position_threshold_pct: 0.5
+    stop_loss_atr_multiplier: 2.0
+    take_profit_ratio: 2.0
+    max_lookback_periods: 100
+    confidence_weights:
+      crossover_strength: 0.4
+      trend_consistency: 0.3
+      volume_confirmation: 0.2
+      divergence_absence: 0.1
+  output:
+    description: "EMA 20/50 crossover strategy with short and long EMA analysis"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      ema_20:
+        type: float
+        description: "20-period EMA value"
+      ema_50:
+        type: float
+        description: "50-period EMA value"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "golden_cross", "death_cross"]
+      trend:
+        type: str
+        description: "Trend direction"
+        enum: ["bullish", "bearish", "neutral"]
+      crossover:
+        type: str
+        description: "EMA crossover direction"
+        enum: ["bullish", "bearish", "none"]
+      price_above_ema20:
+        type: bool
+        description: "Price is above 20 EMA"
+      price_above_ema50:
+        type: bool
+        description: "Price is above 50 EMA"
+      ema20_above_ema50:
+        type: bool
+        description: "20 EMA is above 50 EMA"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        death_cross: -1.0
+        bearish: -0.5
+        neutral: 0.0
+        bullish: 0.5
+        golden_cross: 1.0

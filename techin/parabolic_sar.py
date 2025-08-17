@@ -91,11 +91,20 @@
 
 from typing import List, Dict
 import pandas as pd
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
+import yaml
+import os
 
 
 class ParabolicSAR:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'parabolic_sar.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -106,7 +115,15 @@ class ParabolicSAR:
              ohlcv: List[List],       
              trades: List[Dict]):    
         
-        self.param = get_indicator_params('parabolic_sar', timeframe)
+        self.config = self._load_config()
+        psar_config = self.config['parabolic_sar']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = psar_config['timeframes'].get(timeframe, psar_config['timeframes']['1d'])
+        general_params = psar_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -295,47 +312,44 @@ class ParabolicSAR:
         # Distance from SAR
         sar_distance_pct = abs(current_price - current_sar) / current_price * 100
         
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "sar": current_sar,
-            "trend": "uptrend" if current_trend == 1 else "downtrend",
-            "trend_numeric": current_trend,
-            "acceleration_factor": current_af,
-            "extreme_point": current_ep,
-            "signal": signal,
-            "signal_strength": signal_strength,
-            "sar_distance_pct": sar_distance_pct,
-            "trend_strength": trend_strength,
-            "volume_confirmed": volume_confirmed,
-            "parameters": {
-                "af_initial": af_initial,
-                "af_increment": af_increment,
-                "af_maximum": af_maximum,
-                "trend_confirmation_periods": trend_confirmation_periods,
-                "volume_confirmation": self.param["volume_confirmation"]
-            }
-        }
+        # Determine if price is above SAR and check for reversal
+        price_above_sar = current_price > current_sar
+        reversal_detected = len(trend) >= 2 and trend[-2] != current_trend
         
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="Parabolic SAR",
-            signal=result["signal"],
-            value=result["sar"],
-            strength=f"{result['signal_strength']:.1f}" if result['signal_strength'] > 0.5 else "weak",
-            support=result["sar"] if result["trend_numeric"] == 1 else None,
-            resistance=result["sar"] if result["trend_numeric"] == -1 else None,
-            metadata={
-                "trend": result["trend"],
-                "acceleration_factor": result["acceleration_factor"],
-                "extreme_point": result["extreme_point"],
-                "sar_distance_pct": result["sar_distance_pct"],
-                "trend_strength": result["trend_strength"],
-                "volume_confirmed": result["volume_confirmed"],
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Map trend to simplified format
+        trend_direction = "up" if current_trend == 1 else "down"
+        
+        # Build result based on YAML output configuration  
+        output_config = self.config['parabolic_sar']['output']['fields']
+        result = {}
+        
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "sar":
+                result[field_name] = current_sar
+            elif field_name == "acceleration_factor":
+                result[field_name] = current_af
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "trend":
+                result[field_name] = trend_direction
+            elif field_name == "reversal":
+                result[field_name] = reversal_detected
+            elif field_name == "price_above_sar":
+                result[field_name] = price_above_sar
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "af_initial": af_initial,
+                    "af_increment": af_increment,
+                    "af_maximum": af_maximum,
+                    "trend_confirmation_periods": trend_confirmation_periods,
+                    "volume_confirmation": self.param["volume_confirmation"]
+                }
         
         return result

@@ -92,10 +92,19 @@
 from typing import List, Dict
 import pandas as pd
 import numpy as np
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
+import yaml
+import os
 
 class VWAP:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'vwap.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -105,7 +114,12 @@ class VWAP:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = get_indicator_params('vwap', timeframe)
+        
+        self.config = self._load_config()
+        vwap_config = self.config['vwap']
+        
+        # Get parameters from YAML config
+        self.param = vwap_config['params']
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -180,7 +194,7 @@ class VWAP:
         df['cumulative_pv'] = df['price_volume'].cumsum()
         df['cumulative_volume'] = filtered_volume.cumsum()
         df['vwap'] = df['cumulative_pv'] / df['cumulative_volume']
-        df['vwap]'] = df['vwap'].fillna(typical_price)
+        df['vwap'] = df['vwap'].fillna(typical_price)
         
         # Calculate rolling VWAP if periods_lookback is specified
         if self.param["periods_lookback"]:
@@ -256,65 +270,58 @@ class VWAP:
         elif not price_above_vwap and vwap_trend == "bearish":
             signal = "bearish"
         
-        # Build result
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "vwap": current_vwap,
-            "typical_price": current_typical_price,
-            "price_source": price_source_name,
-            "price_above_vwap": price_above_vwap,
-            "price_deviation_pct": price_deviation_pct,
-            "volume_spike": volume_spike,
-            "signal": signal,
-            "trend": vwap_trend,
-            "vwap_slope": float(vwap_slope),
-            "session_stats": {
-                "high": session_high,
-                "low": session_low,
-                "total_volume": total_volume,
-                "avg_volume": avg_volume,
-                "current_volume": current_volume
-            },
-            "parameters": {
-                "price_source": self.param["price_source"],
-                "volume_threshold": self.param["volume_threshold"],
-                "deviation_bands": self.param["deviation_bands"],
-                "periods_lookback": self.param["periods_lookback"]
-            }
-        }
+        # Build result based on YAML output configuration
+        output_config = self.config['vwap']['output']['fields']
+        result = {}
         
-        # Add rolling VWAP if calculated
-        if self.param["periods_lookback"]:
-            result["rolling_vwap"] = float(df['rolling_vwap'].iloc[-1])
-        
-        # Add deviation bands if calculated
-        if self.param["deviation_bands"] and upper_bands and lower_bands:
-            result["deviation_bands"] = {
-                "upper_bands": upper_bands,
-                "lower_bands": lower_bands,
-                "multipliers": self.param["std_dev_multiplier"]
-            }
-        
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="VWAP",
-            signal=result["signal"],
-            value=result["vwap"],
-            strength="strong" if abs(result.get("deviation_pct", result["price_deviation_pct"])) > 15 else "medium",
-            support=result["vwap"] if not result.get("above_vwap", result["price_above_vwap"]) else None,
-            resistance=result["vwap"] if result.get("above_vwap", result["price_above_vwap"]) else None,
-            metadata={
-                "position": "above" if result.get("above_vwap", result["price_above_vwap"]) else "below",
-                "deviation_percent": result.get("deviation_pct", result["price_deviation_pct"]),
-                "volume_profile": result.get("volume_profile", "normal"),
-                "institutional_signal": result.get("institutional_signal", result["volume_spike"]),
-                "trend_alignment": result.get("trend_alignment", result["trend"]),
-                "volume_strength": result.get("volume_strength", "medium"),
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "vwap":
+                result[field_name] = current_vwap
+            elif field_name == "typical_price":
+                result[field_name] = current_typical_price
+            elif field_name == "price_source":
+                result[field_name] = price_source_name
+            elif field_name == "price_above_vwap":
+                result[field_name] = price_above_vwap
+            elif field_name == "price_deviation_pct":
+                result[field_name] = price_deviation_pct
+            elif field_name == "volume_spike":
+                result[field_name] = volume_spike
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "trend":
+                result[field_name] = vwap_trend
+            elif field_name == "vwap_slope":
+                result[field_name] = float(vwap_slope)
+            elif field_name == "rolling_vwap" and self.param["periods_lookback"]:
+                result[field_name] = float(df['rolling_vwap'].iloc[-1])
+            elif field_name == "session_stats":
+                result[field_name] = {
+                    "high": session_high,
+                    "low": session_low,
+                    "total_volume": total_volume,
+                    "avg_volume": avg_volume,
+                    "current_volume": current_volume
+                }
+            elif field_name == "deviation_bands" and self.param["deviation_bands"] and upper_bands and lower_bands:
+                result[field_name] = {
+                    "upper_bands": upper_bands,
+                    "lower_bands": lower_bands,
+                    "multipliers": self.param["std_dev_multiplier"]
+                }
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "price_source": self.param["price_source"],
+                    "volume_threshold": self.param["volume_threshold"],
+                    "deviation_bands": self.param["deviation_bands"],
+                    "periods_lookback": self.param["periods_lookback"]
+                }
         
         return result

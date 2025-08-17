@@ -91,11 +91,19 @@
 
 from typing import List, Dict
 import pandas as pd
-import numpy as np
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
+import yaml
+import os
 
-class MACD:
+class MACD():
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'macd.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -106,7 +114,15 @@ class MACD:
              ohlcv: List[List],       
              trades: List[Dict]):    
         
-        self.param = get_indicator_params('macd', timeframe)
+        self.config = self._load_config()
+        macd_config = self.config['macd']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = macd_config['timeframes'].get(timeframe, macd_config['timeframes']['1d'])
+        general_params = macd_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -242,56 +258,53 @@ class MACD:
         # Momentum strength
         momentum_strength = abs(current_histogram) / abs(current_macd) if current_macd != 0 else 0
         
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "macd_line": current_macd,
-            "signal_line": current_signal,
-            "histogram": current_histogram,
-            "fast_ema": current_fast_ema,
-            "slow_ema": current_slow_ema,
-            "signal": signal,
-            "trend": trend,
-            "momentum_strength": momentum_strength,
-            "zero_crossover_up": zero_crossover_up,
-            "zero_crossover_down": zero_crossover_down,
-            "signal_crossover_up": signal_crossover_up,
-            "signal_crossover_down": signal_crossover_down,
-            "histogram_increasing": histogram_increasing,
-            "histogram_decreasing": histogram_decreasing,
-            "parameters": {
-                "fast_period": fast_period,
-                "slow_period": slow_period,
-                "signal_period": signal_period,
-                "zero_line_threshold": self.param["zero_line_threshold"],
-                "signal_threshold": self.param["signal_threshold"]
-            }
-        }
+        # Build result based on YAML output configuration
+        output_config = self.config['macd']['output']['fields']
+        result = {}
         
-        # Add result to analysis summary
-        position_desc = "above zero" if result["macd_line"] > 0 else "below zero"
-        histogram_trend = ("increasing" if result["histogram_increasing"] else 
-                          "decreasing" if result["histogram_decreasing"] else "stable")
-        
-        indicator_result = IndicatorResult(
-            name="MACD",
-            signal=result["signal"],
-            value=result["macd_line"],
-            strength=result.get("strength", "medium"),
-            metadata={
-                "macd_line": result["macd_line"],
-                "signal_line": result["signal_line"],
-                "histogram": result["histogram"],
-                "position": position_desc,
-                "histogram_trend": histogram_trend,
-                "histogram_increasing": result["histogram_increasing"],
-                "histogram_decreasing": result["histogram_decreasing"],
-                "crossover_type": result.get("crossover_type", "none"),
-                "divergence": result.get("divergence", "none"),
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "macd_line":
+                result[field_name] = current_macd
+            elif field_name == "signal_line":
+                result[field_name] = current_signal
+            elif field_name == "histogram":
+                result[field_name] = current_histogram
+            elif field_name == "fast_ema":
+                result[field_name] = current_fast_ema
+            elif field_name == "slow_ema":
+                result[field_name] = current_slow_ema
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "trend":
+                result[field_name] = trend
+            elif field_name == "momentum_strength":
+                result[field_name] = momentum_strength
+            elif field_name == "zero_crossover_up":
+                result[field_name] = zero_crossover_up
+            elif field_name == "zero_crossover_down":
+                result[field_name] = zero_crossover_down
+            elif field_name == "signal_crossover_up":
+                result[field_name] = signal_crossover_up
+            elif field_name == "signal_crossover_down":
+                result[field_name] = signal_crossover_down
+            elif field_name == "histogram_increasing":
+                result[field_name] = histogram_increasing
+            elif field_name == "histogram_decreasing":
+                result[field_name] = histogram_decreasing
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "fast_period": fast_period,
+                    "slow_period": slow_period,
+                    "signal_period": signal_period,
+                    "zero_line_threshold": self.param["zero_line_threshold"],
+                    "signal_threshold": self.param["signal_threshold"]
+                }
         
         return result

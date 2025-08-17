@@ -91,10 +91,19 @@
 
 from typing import List, Dict
 import pandas as pd
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
+import yaml
+import os
 
 class DonchianChannel:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'donchain.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -105,7 +114,15 @@ class DonchianChannel:
              ohlcv: List[List],       
              trades: List[Dict]):    
         
-        self.param = get_indicator_params('donchian_channel', timeframe)
+        self.config = self._load_config()
+        dc_config = self.config['donchian_channel']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = dc_config['timeframes'].get(timeframe, dc_config['timeframes']['1d'])
+        general_params = dc_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -191,7 +208,6 @@ class DonchianChannel:
         current_upper = float(upper_channel.iloc[-1])
         current_lower = float(lower_channel.iloc[-1])
         current_middle = float(middle_line.iloc[-1]) if middle_line is not None else None
-        current_width = float(channel_width.iloc[-1])
         current_width_pct = float(channel_width_pct.iloc[-1])
         current_position = float(price_position.iloc[-1])
         current_trend_strength = float(trend_strength.iloc[-1])
@@ -239,56 +255,42 @@ class DonchianChannel:
         # Adjust confidence based on volume
         if not volume_confirmed and signal in ["bullish_breakout", "bearish_breakout"]:
             confidence *= 0.7
+
+        # Build result based on YAML output configuration  
+        output_config = self.config['donchian_channel']['output']['fields']
+        result = {}
         
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "upper_channel": current_upper,
-            "lower_channel": current_lower,
-            "middle_line": current_middle,
-            "channel_width": current_width,
-            "channel_width_pct": current_width_pct,
-            "price_position": current_position,
-            "trend_strength": current_trend_strength,
-            "signal": signal,
-            "confidence": confidence,
-            "upper_breakout": current_upper_breakout,
-            "lower_breakout": current_lower_breakout,
-            "volume_confirmed": volume_confirmed,
-            "near_upper_band": near_upper,
-            "near_lower_band": near_lower,
-            "parameters": {
-                "period": period,
-                "middle_line": self.param["middle_line"],
-                "breakout_confirmation": self.param["breakout_confirmation"],
-                "channel_width_threshold": self.param["channel_width_threshold"],
-                "reversal_zone_pct": self.param["reversal_zone_pct"]
-            }
-        }
-        
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="Donchian Channel",
-            signal=result["signal"],
-            value=result["price_position"],
-            strength="strong" if result["confidence"] > 0.7 else "medium",
-            support=result["lower_channel"],
-            resistance=result["upper_channel"],
-            metadata={
-                "middle_line": result["middle_line"],
-                "channel_width": result["channel_width"],
-                "channel_width_pct": result["channel_width_pct"],
-                "trend_strength": result["trend_strength"],
-                "confidence": result["confidence"],
-                "upper_breakout": result["upper_breakout"],
-                "lower_breakout": result["lower_breakout"],
-                "volume_confirmed": result["volume_confirmed"],
-                "near_upper_band": result["near_upper_band"],
-                "near_lower_band": result["near_lower_band"],
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "upper_channel":
+                result[field_name] = current_upper
+            elif field_name == "lower_channel":
+                result[field_name] = current_lower
+            elif field_name == "middle_line":
+                result[field_name] = current_middle
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "channel_position":
+                result[field_name] = current_position
+            elif field_name == "channel_width":
+                result[field_name] = current_width_pct
+            elif field_name == "breakout_up":
+                result[field_name] = current_upper_breakout
+            elif field_name == "breakout_down":
+                result[field_name] = current_lower_breakout
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "period": period,
+                    "middle_line": self.param["middle_line"],
+                    "breakout_confirmation": self.param["breakout_confirmation"],
+                    "channel_width_threshold": self.param["channel_width_threshold"],
+                    "reversal_zone_pct": self.param["reversal_zone_pct"]
+                }
         
         return result

@@ -1,0 +1,105 @@
+bollinger_bands:
+  timeframes:
+    "1d":
+      period: 20                      # Standard daily period
+      std_dev_multiplier: 2.0         # Standard multiplier for daily
+      squeeze_threshold: 0.05
+      breakout_period: 5
+      percent_b_overbought: 0.8
+      percent_b_oversold: 0.2
+    "1w":
+      period: 20                      # Weekly analysis (20 weeks = ~5 months)
+      std_dev_multiplier: 2.1         # Slightly higher for weekly volatility
+      squeeze_threshold: 0.04         # Tighter squeeze for weekly
+      breakout_period: 3              # Shorter confirmation for weekly
+      percent_b_overbought: 0.85
+      percent_b_oversold: 0.15
+    "1M":
+      period: 15                      # Monthly analysis (15 months coverage)
+      std_dev_multiplier: 2.2         # Higher multiplier for monthly volatility
+      squeeze_threshold: 0.03         # Even tighter for monthly
+      breakout_period: 2              # Shorter confirmation for monthly
+      percent_b_overbought: 0.9
+      percent_b_oversold: 0.1
+  params:
+    price_source: "close"             # Standard source for calculation
+    ma_type: "sma"                    # Simple Moving Average (Bollinger original specification)
+    volume_confirmation: false        # Optional volume confirmation for signals
+    bandwidth_ma_period: 10           # Period for bandwidth moving average
+    squeeze_percentile_low: 20        # Low percentile for squeeze detection
+    squeeze_percentile_high: 80       # High percentile for squeeze detection
+    overbought_offset: 0.0            # Offset for overbought threshold
+    oversold_offset: 0.0              # Offset for oversold threshold
+    sma_slope_period: 2               # Period for SMA slope calculation
+    position_threshold_pct: 1.0       # Position threshold percentage
+    confidence_weights:               # Weights for confidence scoring
+      squeeze: 0.2
+      sma_slope: 0.3
+      position_from_sma: 0.5
+  output:
+    description: "Bollinger Bands indicator with upper/lower bands, %B, bandwidth, and signal detection"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      middle_band:
+        type: float
+        description: "Middle band (moving average)"
+      upper_band:
+        type: float
+        description: "Upper Bollinger Band"
+      lower_band:
+        type: float
+        description: "Lower Bollinger Band"
+      percent_b:
+        type: float
+        description: "Percent B position relative to bands"
+        range: [0.0, 1.0]
+      bandwidth:
+        type: float
+        description: "Band width relative to middle band"
+      squeeze:
+        type: bool
+        description: "Whether bands are in squeeze condition"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "overbought", "oversold", "bullish_breakout", "bearish_breakout", "squeeze"]
+      breakout_up:
+        type: bool
+        description: "Upward breakout detected"
+      breakout_down:
+        type: bool
+        description: "Downward breakout detected"
+      volume_confirmed:
+        type: bool
+        description: "Volume confirmation for signals"
+      ma_type:
+        type: str
+        description: "Moving average type used"
+        enum: ["sma", "ema", "wma"]
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+        fields:
+          period:
+            type: int
+            description: "Period for moving average"
+          multiplier:
+            type: float
+            description: "Standard deviation multiplier"
+          squeeze_threshold:
+            type: float
+            description: "Threshold for squeeze detection"
+          percent_b_overbought:
+            type: float
+            description: "Overbought threshold for %B"
+          percent_b_oversold:
+            type: float
+            description: "Oversold threshold for %B"

@@ -1,0 +1,78 @@
+vwap:
+  params:
+    price_source: "hlc3"
+    session_reset: "daily"
+    volume_threshold: 0
+    periods_lookback: null
+    use_ohlc4: false
+    use_close: false
+    use_hl2: false
+    deviation_bands: true
+    std_dev_multiplier: [1.0, 2.0]
+    volume_profile: false
+    session_high_low: true
+    trend_confirmation_periods: 5
+    volume_spike_threshold: 1.5
+    price_deviation_threshold: 0.02
+  output:
+    description: "VWAP (Volume Weighted Average Price) with price deviation, volume analysis, and trend detection"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      vwap:
+        type: float
+        description: "Current VWAP value"
+      typical_price:
+        type: float
+        description: "Current typical price"
+      price_source:
+        type: str
+        description: "Price source used for calculation"
+        enum: ["HLC3", "OHLC4", "Close", "HL2"]
+      price_above_vwap:
+        type: bool
+        description: "Price is above VWAP"
+      price_deviation_pct:
+        type: float
+        description: "Price deviation from VWAP in percentage"
+      volume_spike:
+        type: bool
+        description: "Volume spike detected"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "overbought", "oversold"]
+      trend:
+        type: str
+        description: "VWAP trend direction"
+        enum: ["bullish", "bearish", "neutral"]
+      vwap_slope:
+        type: float
+        description: "VWAP slope for trend analysis"
+      rolling_vwap:
+        type: float
+        description: "Rolling VWAP value (optional)"
+      session_stats:
+        type: dict
+        description: "Session statistics"
+      deviation_bands:
+        type: dict
+        description: "VWAP deviation bands (optional)"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        oversold: -0.8
+        bearish: -0.4
+        neutral: 0.0
+        bullish: 0.4
+        overbought: 0.8

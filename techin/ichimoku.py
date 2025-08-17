@@ -91,10 +91,19 @@
 
 from typing import List, Dict
 import pandas as pd
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
+import yaml
+import os
 
 class IchimokuCloud:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'ichimoku.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -105,7 +114,15 @@ class IchimokuCloud:
              ohlcv: List[List],       
              trades: List[Dict]):    
         
-        self.param = self.param = get_indicator_params('ichimoku_cloud', timeframe)
+        self.config = self._load_config()
+        ichimoku_config = self.config['ichimoku_cloud']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = ichimoku_config['timeframes'].get(timeframe, ichimoku_config['timeframes']['1d'])
+        general_params = ichimoku_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -214,17 +231,17 @@ class IchimokuCloud:
         
         # Price position relative to cloud
         if current_price > cloud_top:
-            price_position = "above_cloud"
+            price_position = "above"
             trend = "bullish"
         elif current_price < cloud_bottom:
-            price_position = "below_cloud" 
+            price_position = "below" 
             trend = "bearish"
         else:
-            price_position = "inside_cloud"
+            price_position = "inside"
             trend = "neutral"
         
         # Tenkan/Kijun relationship
-        tk_cross = "bullish" if current_tenkan > current_kijun else "bearish" if current_tenkan < current_kijun else "neutral"
+        tk_cross = "bullish" if current_tenkan > current_kijun else "bearish" if current_tenkan < current_kijun else "none"
         
         # Chikou Span analysis
         chikou_value = float(chikou_span.iloc[-displacement-1]) if len(chikou_span) > displacement else None
@@ -236,77 +253,69 @@ class IchimokuCloud:
         # Signal generation
         signal = "neutral"
         if trend == "bullish" and tk_cross == "bullish" and cloud_color == "green":
-            signal = "strong_bullish"
+            signal = "bullish_strong"
         elif trend == "bearish" and tk_cross == "bearish" and cloud_color == "red":
-            signal = "strong_bearish"
+            signal = "bearish_strong"
         elif trend == "bullish" and cloud_thickness_pct > self.param["cloud_thickness_threshold"]:
             signal = "bullish"
         elif trend == "bearish" and cloud_thickness_pct > self.param["cloud_thickness_threshold"]:
             signal = "bearish"
-        elif price_position == "inside_cloud":
+        elif price_position == "inside":
             signal = "consolidation"
         
         # Confidence scoring
         confidence_factors = {
-            "price_cloud_alignment": 1.0 if price_position != "inside_cloud" else 0.3,
+            "price_cloud_alignment": 1.0 if price_position != "inside" else 0.3,
             "tk_alignment": 1.0 if tk_cross != "neutral" else 0.5,
             "cloud_thickness": min(cloud_thickness_pct / self.param["cloud_thickness_threshold"], 1.0),
             "cloud_color_trend": 1.0 if (cloud_color == "green" and trend == "bullish") or (cloud_color == "red" and trend == "bearish") else 0.7
         }
         confidence = sum(confidence_factors.values()) / len(confidence_factors)
 
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "tenkan_sen": current_tenkan,
-            "kijun_sen": current_kijun,
-            "senkou_span_a": current_span_a,
-            "senkou_span_b": current_span_b,
-            "future_span_a": future_span_a,
-            "future_span_b": future_span_b,
-            "cloud_top": cloud_top,
-            "cloud_bottom": cloud_bottom,
-            "cloud_thickness": cloud_thickness,
-            "cloud_thickness_pct": cloud_thickness_pct,
-            "cloud_color": cloud_color,
-            "price_position": price_position,
-            "trend": trend,
-            "tk_cross": tk_cross,
-            "chikou_span": chikou_value,
-            "chikou_vs_price": chikou_vs_price,
-            "signal": signal,
-            "confidence": confidence,
-            "parameters": {
-                "tenkan_period": tenkan_period,
-                "kijun_period": kijun_period,
-                "senkou_span_b_period": senkou_b_period,
-                "displacement": displacement
-            }
-        }
+        # Build result based on YAML output configuration  
+        output_config = self.config['ichimoku_cloud']['output']['fields']
+        result = {}
         
-        # Add result to analysis summary
-        indicator_result = IndicatorResult(
-            name="Ichimoku Cloud",
-            signal=result["signal"],
-            value=result.get("tenkan_sen"),
-            strength="strong" if "strong" in result["signal"] else "medium",
-            support=result["cloud_bottom"] if result["cloud_bottom"] < result["current_price"] else None,
-            resistance=result["cloud_top"] if result["cloud_top"] > result["current_price"] else None,
-            metadata={
-                "cloud_position": result["price_position"],
-                "cloud_color": result["cloud_color"],
-                "trend": result["trend"],
-                "tenkan_sen": result["tenkan_sen"],
-                "kijun_sen": result["kijun_sen"],
-                "senkou_span_a": result["senkou_span_a"],
-                "senkou_span_b": result["senkou_span_b"],
-                "chikou_span": result["chikou_span"],
-                "cloud_bottom": result["cloud_bottom"],
-                "cloud_top": result["cloud_top"],
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "tenkan_sen":
+                result[field_name] = current_tenkan
+            elif field_name == "kijun_sen":
+                result[field_name] = current_kijun
+            elif field_name == "senkou_span_a":
+                result[field_name] = current_span_a
+            elif field_name == "senkou_span_b":
+                result[field_name] = current_span_b
+            elif field_name == "chikou_span":
+                result[field_name] = chikou_value
+            elif field_name == "cloud_top":
+                result[field_name] = cloud_top
+            elif field_name == "cloud_bottom":
+                result[field_name] = cloud_bottom
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "trend":
+                result[field_name] = trend
+            elif field_name == "cloud_color":
+                result[field_name] = cloud_color
+            elif field_name == "price_vs_cloud":
+                result[field_name] = price_position
+            elif field_name == "tenkan_kijun_cross":
+                result[field_name] = tk_cross
+            elif field_name == "chikou_clear":
+                result[field_name] = chikou_vs_price == "bullish" if chikou_vs_price else None
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "tenkan_period": tenkan_period,
+                    "kijun_period": kijun_period,
+                    "senkou_span_b_period": senkou_b_period,
+                    "displacement": displacement
+                }
         
         return result

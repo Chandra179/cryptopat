@@ -1,0 +1,81 @@
+renko:
+  timeframes:
+    "1d":
+      atr_period: 14
+      atr_multiplier: 1.0
+      percent_size: 0.5
+      min_trend_bricks: 3
+      breakout_lookback: 5
+    "1w":
+      atr_period: 10
+      atr_multiplier: 0.8
+      percent_size: 0.8
+      min_trend_bricks: 2
+      breakout_lookback: 3
+    "1M":
+      atr_period: 6
+      atr_multiplier: 0.6
+      percent_size: 1.2
+      min_trend_bricks: 2
+      breakout_lookback: 2
+  params:
+    brick_size: null
+    auto_brick_method: "atr"
+    price_source: "close"
+    wick_calculation: true
+    trend_reversal_bricks: 2
+    volume_confirmation: false
+    rsi_filter: false
+    rsi_period: 14
+    rsi_overbought: 70
+    rsi_oversold: 30
+  output:
+    description: "Renko Charts with trend analysis, reversal detection, and brick formation"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      brick_size:
+        type: float
+        description: "Renko brick size"
+      last_brick_price:
+        type: float
+        description: "Last completed brick price"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "reversal_up", "reversal_down"]
+      trend:
+        type: str
+        description: "Renko trend direction"
+        enum: ["up", "down", "neutral"]
+      new_brick:
+        type: bool
+        description: "New brick formed"
+      brick_direction:
+        type: str
+        description: "Last brick direction"
+        enum: ["up", "down"]
+      consecutive_bricks:
+        type: int
+        description: "Consecutive bricks in same direction"
+      reversal_detected:
+        type: bool
+        description: "Trend reversal detected"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        reversal_down: -1.0
+        bearish: -0.5
+        neutral: 0.0
+        bullish: 0.5
+        reversal_up: 1.0

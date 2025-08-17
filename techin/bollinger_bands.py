@@ -91,11 +91,19 @@
 
 from typing import List, Dict
 import pandas as pd
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
+import yaml
+import os
 
-
-class BollingerBands:
+class BollingerBands():
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'bollinger_bands.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -106,7 +114,15 @@ class BollingerBands:
              ohlcv: List[List],       
              trades: List[Dict]):    
         
-        self.param = get_indicator_params('bollinger_bands', timeframe)
+        self.config = self._load_config()
+        bb_config = self.config['bollinger_bands']
+        
+        # Get timeframe-specific parameters or use default (1d)
+        timeframe_params = bb_config['timeframes'].get(timeframe, bb_config['timeframes']['1d'])
+        general_params = bb_config['params']
+        
+        # Combine parameters
+        self.param = {**timeframe_params, **general_params}
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -216,52 +232,48 @@ class BollingerBands:
         elif current_squeeze:
             signal = "squeeze"
 
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "middle_band": current_ma,
-            "upper_band": current_upper,
-            "lower_band": current_lower,
-            "percent_b": current_percent_b,
-            "bandwidth": current_bandwidth,
-            "squeeze": current_squeeze,
-            "signal": signal,
-            "breakout_up": current_breakout_up,
-            "breakout_down": current_breakout_down,
-            "volume_confirmed": volume_confirmed,
-            "ma_type": ma_type,
-            "parameters": {
-                "period": period,
-                "multiplier": multiplier,
-                "squeeze_threshold": self.param["squeeze_threshold"],
-                "percent_b_overbought": self.param["percent_b_overbought"],
-                "percent_b_oversold": self.param["percent_b_oversold"]
-            }
-        }
+        # Build result based on YAML output configuration  
+        output_config = self.config['bollinger_bands']['output']['fields']
+        result = {}
         
-        # Add result to analysis summary
-        position_desc = ("above upper band" if result["current_price"] > result["upper_band"] else
-                        "below lower band" if result["current_price"] < result["lower_band"] else
-                        "within bands")
-        
-        indicator_result = IndicatorResult(
-            name="Bollinger Bands",
-            signal=result["signal"],
-            value=result["percent_b"],
-            strength=result.get("strength", "medium"),
-            support=result["lower_band"],
-            resistance=result["upper_band"],
-            metadata={
-                "position": position_desc,
-                "percent_b": result["percent_b"],
-                "bandwidth": result["bandwidth"],
-                "middle_band": result["middle_band"],
-                "squeeze": result["squeeze"],
-                "expansion": result.get("expansion", False),
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "middle_band":
+                result[field_name] = current_ma
+            elif field_name == "upper_band":
+                result[field_name] = current_upper
+            elif field_name == "lower_band":
+                result[field_name] = current_lower
+            elif field_name == "percent_b":
+                result[field_name] = current_percent_b
+            elif field_name == "bandwidth":
+                result[field_name] = current_bandwidth
+            elif field_name == "squeeze":
+                result[field_name] = current_squeeze
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "breakout_up":
+                result[field_name] = current_breakout_up
+            elif field_name == "breakout_down":
+                result[field_name] = current_breakout_down
+            elif field_name == "volume_confirmed":
+                result[field_name] = volume_confirmed
+            elif field_name == "ma_type":
+                result[field_name] = ma_type
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "period": period,
+                    "multiplier": multiplier,
+                    "squeeze_threshold": self.param["squeeze_threshold"],
+                    "percent_b_overbought": self.param["percent_b_overbought"],
+                    "percent_b_oversold": self.param["percent_b_oversold"]
+                }
         
         return result
+        

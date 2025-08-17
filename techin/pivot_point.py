@@ -90,11 +90,20 @@
 """
 from typing import List, Dict
 import pandas as pd
-from summary import add_indicator_result, IndicatorResult
-from config import get_indicator_params
+import yaml
+import os
 
 
 class PivotPoint:
+    _config = None
+    
+    @classmethod
+    def _load_config(cls):
+        if cls._config is None:
+            yaml_path = os.path.join(os.path.dirname(__file__), 'pivot_point.yaml')
+            with open(yaml_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+        return cls._config
     
     def __init__(self, 
              symbol: str,
@@ -104,7 +113,12 @@ class PivotPoint:
              ticker: dict,            
              ohlcv: List[List],       
              trades: List[Dict]):    
-        self.param = get_indicator_params('pivot_point', timeframe)
+        
+        self.config = self._load_config()
+        pp_config = self.config['pivot_point']
+        
+        # Use parameters from YAML config
+        self.param = pp_config['params']
         self.ob = ob
         self.ohlcv = ohlcv
         self.trades = trades
@@ -167,9 +181,9 @@ class PivotPoint:
         current_price = float(df['close'].iloc[-1])
         
         # Calculate pivot point based on method
-        if self.param["price_source"] == "ohlc" or self.param["include_opening"]:
+        if self.param["include_opening"]:
             pivot = (prev_open + prev_high + prev_low + prev_close) / 4
-        elif self.param["price_source"] == "hlcc" or self.param["emphasize_close"]:
+        elif self.param["emphasize_close"]:
             pivot = (prev_high + prev_low + prev_close + prev_close) / 4
         else:  # Standard HLC method
             pivot = (prev_high + prev_low + prev_close) / 3
@@ -234,29 +248,20 @@ class PivotPoint:
                 nearest_resistance = {"level": f"r{i}", "price": levels[f"r{i}"]}
                 break
         
-        # Signal generation
+        # Signal generation based on YAML signal types
         signal = "neutral"
-        signal_strength = 0.5
         
-        # Breakout detection
-        breakout_threshold = self.param["breakout_threshold"]
-        if nearest_resistance and abs(current_price - nearest_resistance["price"]) / current_price < breakout_threshold:
-            if current_price > nearest_resistance["price"]:
-                signal = "bullish_breakout"
-                signal_strength = 0.8
-        elif nearest_support and abs(current_price - nearest_support["price"]) / current_price < breakout_threshold:
-            if current_price < nearest_support["price"]:
-                signal = "bearish_breakout" 
-                signal_strength = 0.8
-        
-        # Trend confirmation
-        if self.param["trend_confirmation"]:
-            if position == "bullish" and distance_from_pivot > 0.01:
-                signal = "bullish_trend"
-                signal_strength = 0.7
-            elif position == "bearish" and distance_from_pivot < -0.01:
-                signal = "bearish_trend"
-                signal_strength = 0.7
+        # Check for strong resistance/support zones
+        if price_zone == "above_r3":
+            signal = "strong_resistance"
+        elif price_zone == "below_s3":
+            signal = "strong_support"
+        elif position == "bullish" and distance_from_pivot > 0.01:
+            signal = "bullish"
+        elif position == "bearish" and distance_from_pivot < -0.01:
+            signal = "bearish"
+        else:
+            signal = "neutral"
         
         # Volume confirmation if enabled
         volume_confirmed = True
@@ -267,58 +272,66 @@ class PivotPoint:
             if not volume_confirmed:
                 signal_strength *= 0.7
         
-        result = {
-            "symbol": self.symbol,
-            "timeframe": self.timeframe,
-            "current_price": current_price,
-            "pivot_point": pivot,
-            "position": position,
-            "distance_from_pivot_pct": distance_from_pivot * 100,
-            "levels": levels,
-            "nearest_support": nearest_support,
-            "nearest_resistance": nearest_resistance,
-            "signal": signal,
-            "signal_strength": signal_strength,
-            "volume_confirmed": volume_confirmed,
-            "central_pivot_range": cpr if cpr else None,
-            "previous_data": {
-                "high": prev_high,
-                "low": prev_low,
-                "close": prev_close,
-                "open": prev_open
-            },
-            "parameters": {
-                "calculation_method": self.param["calculation_method"],
-                "price_source": self.param["price_source"],
-                "support_levels": self.param["support_levels"],
-                "resistance_levels": self.param["resistance_levels"],
-                "breakout_threshold": self.param["breakout_threshold"]
-            }
-        }
+        # Determine price zone
+        price_zone = "neutral"
+        if current_price < levels.get("s3", float('-inf')):
+            price_zone = "below_s3"
+        elif current_price < levels.get("s2", float('-inf')):
+            price_zone = "s2_s3"
+        elif current_price < levels.get("s1", float('-inf')):
+            price_zone = "s1_s2"
+        elif current_price < pivot:
+            price_zone = "pp_s1"
+        elif current_price < levels.get("r1", float('inf')):
+            price_zone = "pp_r1"
+        elif current_price < levels.get("r2", float('inf')):
+            price_zone = "r1_r2"
+        elif current_price < levels.get("r3", float('inf')):
+            price_zone = "r2_r3"
+        else:
+            price_zone = "above_r3"
         
-        # Add result to analysis summary
-        support_levels = [result["levels"].get("s1"), result["levels"].get("s2"), result["levels"].get("s3")]
-        support_levels = [s for s in support_levels if s is not None]
-        resistance_levels = [result["levels"].get("r1"), result["levels"].get("r2"), result["levels"].get("r3")]
-        resistance_levels = [r for r in resistance_levels if r is not None]
+        # Build result based on YAML output configuration  
+        output_config = self.config['pivot_point']['output']['fields']
+        result = {}
         
-        indicator_result = IndicatorResult(
-            name="Pivot Point",
-            signal=result["signal"],
-            value=result["pivot_point"],
-            strength="medium",
-            support=result["levels"].get("s1"),
-            resistance=result["levels"].get("r1"),
-            metadata={
-                "pivot": result.get("pivot_point", result["pivot_point"]),
-                "support_levels": support_levels,
-                "resistance_levels": resistance_levels,
-                "nearest_level": result.get("nearest_level", "unknown"),
-                "distance_to_nearest": result.get("distance_to_nearest", 0.0),
-                "level_strength": result.get("level_strength", "medium"),
-                "parameters": result["parameters"]
-            }
-        )
-        add_indicator_result(indicator_result)
+        # Build result directly based on YAML fields
+        for field_name in output_config:
+            if field_name == "symbol":
+                result[field_name] = self.symbol
+            elif field_name == "timeframe":
+                result[field_name] = self.timeframe
+            elif field_name == "current_price":
+                result[field_name] = current_price
+            elif field_name == "pivot_point":
+                result[field_name] = pivot
+            elif field_name == "resistance_1":
+                result[field_name] = levels.get("r1")
+            elif field_name == "resistance_2":
+                result[field_name] = levels.get("r2")
+            elif field_name == "resistance_3":
+                result[field_name] = levels.get("r3")
+            elif field_name == "support_1":
+                result[field_name] = levels.get("s1")
+            elif field_name == "support_2":
+                result[field_name] = levels.get("s2")
+            elif field_name == "support_3":
+                result[field_name] = levels.get("s3")
+            elif field_name == "signal":
+                result[field_name] = signal
+            elif field_name == "price_zone":
+                result[field_name] = price_zone
+            elif field_name == "nearest_support":
+                result[field_name] = nearest_support["price"] if nearest_support else None
+            elif field_name == "nearest_resistance":
+                result[field_name] = nearest_resistance["price"] if nearest_resistance else None
+            elif field_name == "parameters":
+                result[field_name] = {
+                    "calculation_method": self.param["calculation_method"],
+                    "price_source": self.param["price_source"],
+                    "support_levels": self.param["support_levels"],
+                    "resistance_levels": self.param["resistance_levels"],
+                    "breakout_threshold": self.param["breakout_threshold"]
+                }
         
         return result

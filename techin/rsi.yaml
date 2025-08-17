@@ -1,0 +1,105 @@
+rsi:
+  timeframes:
+    "1d":
+      period: 14
+      overbought_level: 70.0
+      oversold_level: 30.0
+      extreme_overbought: 80.0
+      extreme_oversold: 20.0
+      momentum_threshold: 2.0
+      divergence_lookback: 5
+    "1w":
+      period: 10
+      overbought_level: 75.0
+      oversold_level: 25.0
+      extreme_overbought: 85.0
+      extreme_oversold: 15.0
+      momentum_threshold: 3.0
+      divergence_lookback: 3
+    "1M":
+      period: 6
+      overbought_level: 80.0
+      oversold_level: 20.0
+      extreme_overbought: 90.0
+      extreme_oversold: 10.0
+      momentum_threshold: 5.0
+      divergence_lookback: 2
+  params:
+    price_source: "close"
+    smoothing_method: "wilder"
+    midline: 50.0
+    trend_filter_period: 20
+    use_trend_filter: false
+    signal_confirmation: true
+    failure_swing_enabled: true
+    hidden_divergence: false
+  output:
+    description: "RSI (Relative Strength Index) with overbought/oversold levels, momentum analysis, and failure swing detection"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      rsi:
+        type: float
+        description: "RSI value"
+        range: [0.0, 100.0]
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "overbought", "oversold", "extreme_overbought", "extreme_oversold"]
+      strength:
+        type: str
+        description: "Signal strength"
+        enum: ["weak", "moderate", "strong", "normal"]
+      momentum_signal:
+        type: str
+        description: "Momentum direction"
+        enum: ["neutral", "bullish_momentum", "bearish_momentum"]
+      rsi_change:
+        type: float
+        description: "RSI change from previous period"
+      trend_direction:
+        type: str
+        description: "Trend filter direction"
+        enum: ["bullish", "bearish", "neutral"]
+      trend_aligned:
+        type: bool
+        description: "Whether signal aligns with trend"
+      failure_swing:
+        type: str
+        description: "Failure swing pattern"
+        enum: ["bullish_failure_swing", "bearish_failure_swing"]
+      is_overbought:
+        type: bool
+        description: "RSI above overbought level"
+      is_oversold:
+        type: bool
+        description: "RSI below oversold level"
+      is_extreme_overbought:
+        type: bool
+        description: "RSI above extreme overbought level"
+      is_extreme_oversold:
+        type: bool
+        description: "RSI below extreme oversold level"
+      above_midline:
+        type: bool
+        description: "RSI above 50 midline"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        extreme_oversold: -1.0
+        oversold: -0.7
+        bearish: -0.3
+        neutral: 0.0
+        bullish: 0.3
+        overbought: 0.7
+        extreme_overbought: 1.0

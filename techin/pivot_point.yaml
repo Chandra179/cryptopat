@@ -1,0 +1,79 @@
+pivot_point:
+  params:
+    calculation_method: "standard"
+    period_type: "previous"
+    include_opening: false
+    emphasize_close: false
+    support_levels: 3
+    resistance_levels: 3
+    central_pivot_range: false
+    trend_confirmation: true
+    breakout_threshold: 0.001
+    volume_confirmation: false
+    price_source: "hlc"
+    strong_support_multiplier: 1.5
+    weak_support_multiplier: 0.5
+    pivot_zone_width: 0.002
+    momentum_period: 5
+    volume_ma_period: 20
+    max_distance_from_pivot: 0.05
+    confluence_bonus: 0.2
+    time_decay_factor: 0.1
+  output:
+    description: "Pivot Points with support/resistance levels, price position analysis"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      pivot_point:
+        type: float
+        description: "Central pivot point"
+      resistance_1:
+        type: float
+        description: "First resistance level"
+      resistance_2:
+        type: float
+        description: "Second resistance level"
+      resistance_3:
+        type: float
+        description: "Third resistance level"
+      support_1:
+        type: float
+        description: "First support level"
+      support_2:
+        type: float
+        description: "Second support level"
+      support_3:
+        type: float
+        description: "Third support level"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "strong_resistance", "strong_support"]
+      price_zone:
+        type: str
+        description: "Price zone relative to levels"
+        enum: ["below_s3", "s2_s3", "s1_s2", "pp_s1", "pp_r1", "r1_r2", "r2_r3", "above_r3"]
+      nearest_support:
+        type: float
+        description: "Nearest support level"
+      nearest_resistance:
+        type: float
+        description: "Nearest resistance level"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        strong_support: -0.8
+        bearish: -0.3
+        neutral: 0.0
+        bullish: 0.3
+        strong_resistance: 0.8

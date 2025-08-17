@@ -1,0 +1,97 @@
+ichimoku_cloud:
+  timeframes:
+    "1d":
+      tenkan_period: 9
+      kijun_period: 26
+      senkou_span_b_period: 52
+      displacement: 26
+      cloud_thickness_threshold: 0.01
+      breakout_confirmation_periods: 3
+    "1w":
+      tenkan_period: 5
+      kijun_period: 13
+      senkou_span_b_period: 26
+      displacement: 13
+      cloud_thickness_threshold: 0.015
+      breakout_confirmation_periods: 2
+    "1M":
+      tenkan_period: 3
+      kijun_period: 6
+      senkou_span_b_period: 12
+      displacement: 6
+      cloud_thickness_threshold: 0.02
+      breakout_confirmation_periods: 1
+  params:
+    trend_confirmation: true
+    price_cloud_buffer: 0.002
+    momentum_confirmation: true
+    support_resistance_levels: 5
+    trend_strength_threshold: 0.5
+  output:
+    description: "Ichimoku Cloud with Tenkan, Kijun, Senkou A/B, Chikou, cloud analysis, and trend signals"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      tenkan_sen:
+        type: float
+        description: "Tenkan-sen (Conversion Line)"
+      kijun_sen:
+        type: float
+        description: "Kijun-sen (Base Line)"
+      senkou_span_a:
+        type: float
+        description: "Senkou Span A (Leading Span A)"
+      senkou_span_b:
+        type: float
+        description: "Senkou Span B (Leading Span B)"
+      chikou_span:
+        type: float
+        description: "Chikou Span (Lagging Line)"
+      cloud_top:
+        type: float
+        description: "Top of the cloud"
+      cloud_bottom:
+        type: float
+        description: "Bottom of the cloud"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "bullish_strong", "bearish_strong", "consolidation"]
+      trend:
+        type: str
+        description: "Overall trend direction"
+        enum: ["bullish", "bearish", "neutral"]
+      cloud_color:
+        type: str
+        description: "Cloud color"
+        enum: ["green", "red", "neutral"]
+      price_vs_cloud:
+        type: str
+        description: "Price position relative to cloud"
+        enum: ["above", "below", "inside"]
+      tenkan_kijun_cross:
+        type: str
+        description: "Tenkan-Kijun cross direction"
+        enum: ["bullish", "bearish", "none"]
+      chikou_clear:
+        type: bool
+        description: "Chikou span is clear of price"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        bearish_strong: -1.0
+        bearish: -0.6
+        consolidation: 0.0
+        neutral: 0.0
+        bullish: 0.6
+        bullish_strong: 1.0

@@ -1,0 +1,83 @@
+keltner_channel:
+  timeframes:
+    "1d":
+      ema_period: 20
+      atr_period: 10
+      atr_multiplier: 2.0
+      squeeze_threshold: 0.05
+      breakout_period: 5
+      channel_position_upper: 0.8
+      channel_position_lower: 0.2
+    "1w":
+      ema_period: 10
+      atr_period: 7
+      atr_multiplier: 1.8
+      squeeze_threshold: 0.04
+      breakout_period: 3
+      channel_position_upper: 0.85
+      channel_position_lower: 0.15
+    "1M":
+      ema_period: 6
+      atr_period: 5
+      atr_multiplier: 1.5
+      squeeze_threshold: 0.03
+      breakout_period: 2
+      channel_position_upper: 0.9
+      channel_position_lower: 0.1
+  params:
+    price_source: "typical"
+    ma_type: "ema"
+    volume_confirmation: false
+    trend_strength_period: 10
+    volatility_expansion_threshold: 1.5
+    momentum_period: 14
+  output:
+    description: "Keltner Channels with upper/lower bands, price position, and squeeze detection"
+    fields:
+      symbol:
+        type: str
+        description: "Trading pair symbol"
+      timeframe:
+        type: str
+        description: "Chart timeframe"
+      current_price:
+        type: float
+        description: "Current close price"
+      middle_line:
+        type: float
+        description: "Middle line (EMA)"
+      upper_band:
+        type: float
+        description: "Upper Keltner band"
+      lower_band:
+        type: float
+        description: "Lower Keltner band"
+      atr:
+        type: float
+        description: "Average True Range value"
+      signal:
+        type: str
+        description: "Trading signal"
+        enum: ["neutral", "bullish", "bearish", "breakout_up", "breakout_down", "squeeze"]
+      position:
+        type: str
+        description: "Price position in channel"
+        enum: ["lower", "middle", "upper", "above", "below"]
+      squeeze:
+        type: bool
+        description: "Squeeze condition detected"
+      channel_width:
+        type: float
+        description: "Channel width percentage"
+      parameters:
+        type: dict
+        description: "Parameters used for calculation"
+    signals:
+      numerical_range: [-1.0, 1.0]
+      mapping:
+        breakout_down: -1.0
+        bearish: -0.5
+        squeeze: 0.0
+        neutral: 0.0
+        bullish: 0.5
+        breakout_up: 1.0
