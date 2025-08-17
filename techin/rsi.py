@@ -315,4 +315,75 @@ class RSI():
                     "smoothing_method": self.param["smoothing_method"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for RSI indicator"""
+        if "error" in result:
+            print(f"⚠️  RSI Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        rsi = result.get('rsi', 50)
+        strength = result.get('strength', 'normal')
+        momentum_signal = result.get('momentum_signal', 'neutral')
+        trend_direction = result.get('trend_direction', 'neutral')
+        
+        print(f"\n🎯 RSI Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"RSI Value: {rsi:.2f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'extreme_overbought': '🔴',
+            'overbought': '🟠',
+            'extreme_oversold': '🟢',
+            'oversold': '🟡',
+            'bullish': '⬆️',
+            'bearish': '⬇️',
+            'neutral': '⚪'
+        }
+        
+        strength_emoji = {
+            'strong': '💪',
+            'moderate': '👍',
+            'weak': '👌',
+            'normal': '⚪'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.replace('_', ' ').upper()}")
+        print(f"Strength: {strength_emoji.get(strength, '⚪')} {strength.upper()}")
+        
+        # RSI zones
+        if rsi >= 80:
+            print("📍 Extreme overbought zone (>80) - Strong sell signal")
+        elif rsi >= 70:
+            print("📍 Overbought zone (70-80) - Consider selling")
+        elif rsi <= 20:
+            print("📍 Extreme oversold zone (<20) - Strong buy signal")
+        elif rsi <= 30:
+            print("📍 Oversold zone (20-30) - Consider buying")
+        elif rsi > 50:
+            print("📍 Above midline - Bullish bias")
+        else:
+            print("📍 Below midline - Bearish bias")
+            
+        # Momentum analysis
+        if momentum_signal != 'neutral':
+            momentum_emoji = '🚀' if 'bullish' in momentum_signal else '📉'
+            print(f"🔄 Momentum: {momentum_emoji} {momentum_signal.replace('_', ' ').upper()}")
+            
+        # Trend alignment
+        if trend_direction != 'neutral':
+            trend_emoji = '📈' if trend_direction == 'bullish' else '📉'
+            print(f"📊 Trend: {trend_emoji} {trend_direction.upper()}")
+            
+        # Failure swing detection
+        failure_swing = result.get('failure_swing')
+        if failure_swing:
+            swing_emoji = '🔄' if 'bullish' in failure_swing else '🔁'
+            print(f"⚠️  {swing_emoji} {failure_swing.replace('_', ' ').upper()} detected!")

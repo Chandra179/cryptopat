@@ -307,4 +307,63 @@ class MACD():
                     "signal_threshold": self.param["signal_threshold"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for MACD indicator"""
+        if "error" in result:
+            print(f"⚠️  MACD Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        macd_line = result.get('macd_line', 0)
+        signal_line = result.get('signal_line', 0)
+        histogram = result.get('histogram', 0)
+        trend = result.get('trend', 'neutral')
+        
+        print(f"\n📈 MACD Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"MACD Line: {macd_line:.6f}")
+        print(f"Signal Line: {signal_line:.6f}")
+        print(f"Histogram: {histogram:.6f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'bullish_zero_cross': '🚀',
+            'bearish_zero_cross': '📉',
+            'bullish_signal_cross': '🟢',
+            'bearish_signal_cross': '🔴',
+            'bullish_momentum': '⬆️',
+            'bearish_momentum': '⬇️',
+            'weakening_bullish': '🟡',
+            'weakening_bearish': '🟠',
+            'neutral': '⚪'
+        }
+        
+        trend_emoji = {
+            'bullish': '🟢',
+            'bearish': '🔴',
+            'neutral': '⚪'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.replace('_', ' ').upper()}")
+        print(f"Trend: {trend_emoji.get(trend, '⚪')} {trend.upper()}")
+        
+        # Key insights
+        if macd_line > 0:
+            print("📍 MACD above zero line - bullish momentum")
+        else:
+            print("📍 MACD below zero line - bearish momentum")
+            
+        if macd_line > signal_line:
+            print("📊 MACD above signal line")
+        else:
+            print("📊 MACD below signal line")
+            
+        if abs(histogram) > 0.001:
+            direction = "expanding" if abs(histogram) > abs(histogram * 0.9) else "contracting"
+            print(f"📶 Histogram {direction} - momentum {'strengthening' if direction == 'expanding' else 'weakening'}")

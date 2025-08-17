@@ -261,6 +261,7 @@ class Renko:
                     "min_trend_bricks": self.param["min_trend_bricks"]
                 }
         
+        self.print_output(result)
         return result
     
     def _calculate_brick_size(self, df: pd.DataFrame, prices: pd.Series) -> float:
@@ -476,3 +477,85 @@ class Renko:
             "reversal_alert": reversal_alert,
             "breakout_alert": breakout_alert
         }
+    
+    def print_output(self, result):
+        """Print analysis summary for Renko indicator"""
+        if "error" in result:
+            print(f"⚠️  Renko Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        brick_size = result.get('brick_size', 0)
+        last_brick_price = result.get('last_brick_price', 0)
+        trend = result.get('trend', 'neutral')
+        brick_direction = result.get('brick_direction', 'neutral')
+        consecutive_bricks = result.get('consecutive_bricks', 0)
+        reversal_detected = result.get('reversal_detected', False)
+        new_brick = result.get('new_brick', False)
+        
+        print(f"\n🧱 Renko Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"Brick Size: ${brick_size:.4f}")
+        print(f"Last Brick: ${last_brick_price:.4f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'bullish': '🟢',
+            'bearish': '🔴',
+            'reversal_up': '🔄',
+            'reversal_down': '🔄',
+            'neutral': '⚪'
+        }
+        
+        trend_emoji = {
+            'up': '📈',
+            'down': '📉',
+            'neutral': '📊'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Trend: {trend_emoji.get(trend, '📊')} {trend.upper()}")
+        print(f"Brick Direction: {brick_direction.upper()}")
+        
+        # Brick formation
+        if new_brick:
+            if brick_direction == 'up':
+                print("🟢 New bullish brick formed!")
+            elif brick_direction == 'down':
+                print("🔴 New bearish brick formed!")
+        
+        # Consecutive analysis
+        if consecutive_bricks > 1:
+            direction_text = "bullish" if brick_direction == 'up' else "bearish"
+            print(f"🔥 {consecutive_bricks} consecutive {direction_text} bricks - strong momentum!")
+        
+        # Reversal detection
+        if reversal_detected:
+            if signal == 'reversal_up':
+                print("🚀 Bullish reversal detected - trend may be changing!")
+            elif signal == 'reversal_down':
+                print("📉 Bearish reversal detected - trend may be changing!")
+            else:
+                print("🔄 Trend reversal detected!")
+        
+        # Price distance from brick
+        distance_pct = abs(current_price - last_brick_price) / last_brick_price * 100 if last_brick_price > 0 else 0
+        
+        # Signal-specific insights
+        if signal == 'bullish':
+            print("💡 Consider long positions - bullish brick pattern")
+        elif signal == 'bearish':
+            print("💡 Consider short positions - bearish brick pattern")
+        elif 'reversal' in signal:
+            print("💡 Watch for trend change confirmation")
+        elif trend == 'up':
+            print("💡 Uptrend continues - price above brick support")
+        elif trend == 'down':
+            print("💡 Downtrend continues - price below brick resistance")
+        
+        # Brick formation status
+        remaining_distance = brick_size - (abs(current_price - last_brick_price) % brick_size)
+        print(f"📏 Distance to next brick: ${remaining_distance:.4f} ({remaining_distance/brick_size*100:.1f}%)")

@@ -324,4 +324,66 @@ class VWAP:
                     "periods_lookback": self.param["periods_lookback"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for VWAP indicator"""
+        if "error" in result:
+            print(f"⚠️  VWAP Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        vwap = result.get('vwap', 0)
+        price_above_vwap = result.get('price_above_vwap', False)
+        price_deviation_pct = result.get('price_deviation_pct', 0)
+        volume_spike = result.get('volume_spike', False)
+        trend = result.get('trend', 'neutral')
+        
+        print(f"\n💰 VWAP Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"VWAP: ${vwap:.4f}")
+        print(f"Deviation: {price_deviation_pct:+.2f}%")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'bullish': '🟢',
+            'bearish': '🔴',
+            'overbought': '🔴',
+            'oversold': '🟢',
+            'neutral': '⚪'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Trend: {trend.upper()}")
+        
+        # Price position analysis
+        if price_above_vwap:
+            print("📈 Price trading ABOVE VWAP - bullish bias")
+            if price_deviation_pct > 2:
+                print("⚠️  Significant deviation above VWAP - potential reversal")
+        else:
+            print("📉 Price trading BELOW VWAP - bearish bias")
+            if price_deviation_pct < -2:
+                print("⚠️  Significant deviation below VWAP - potential reversal")
+        
+        # Volume analysis
+        if volume_spike:
+            print("📊 Volume spike detected - institutional interest!")
+        
+        # Session statistics
+        session_stats = result.get('session_stats', {})
+        if session_stats:
+            print(f"📊 Session: High ${session_stats.get('high', 0):.4f} | Low ${session_stats.get('low', 0):.4f}")
+            print(f"📊 Volume: Current {session_stats.get('current_volume', 0):.2f} | Avg {session_stats.get('avg_volume', 0):.2f}")
+        
+        # Deviation bands if available
+        deviation_bands = result.get('deviation_bands', {})
+        if deviation_bands:
+            upper_bands = deviation_bands.get('upper_bands', [])
+            lower_bands = deviation_bands.get('lower_bands', [])
+            if upper_bands and lower_bands:
+                print(f"📏 Bands: Upper ${upper_bands[0]:.4f} | Lower ${lower_bands[0]:.4f}")

@@ -271,4 +271,77 @@ class ChaikinMoneyFlow:
                     "strong_bearish": self.param["strong_bearish"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for Chaikin Money Flow indicator"""
+        if "error" in result:
+            print(f"⚠️  Chaikin Money Flow Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        cmf = result.get('cmf', 0)
+        trend = result.get('trend', 'neutral')
+        money_flow_volume = result.get('money_flow_volume', 0)
+        divergence = result.get('divergence', 'none')
+        
+        print(f"\n💰 Chaikin Money Flow Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"CMF: {cmf:.4f}")
+        print(f"Money Flow Volume: {money_flow_volume:,.0f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'strong_bullish': '🟢',
+            'bullish': '🟢',
+            'strong_bearish': '🔴',
+            'bearish': '🔴',
+            'neutral': '⚪'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Trend: {trend.upper()}")
+        
+        # CMF level analysis
+        if cmf > 0.2:
+            print(f"🟢 Strong buying pressure (CMF: {cmf:.3f})")
+        elif cmf > 0.05:
+            print(f"📈 Moderate buying pressure (CMF: {cmf:.3f})")
+        elif cmf < -0.2:
+            print(f"🔴 Strong selling pressure (CMF: {cmf:.3f})")
+        elif cmf < -0.05:
+            print(f"📉 Moderate selling pressure (CMF: {cmf:.3f})")
+        else:
+            print(f"⚖️  Balanced money flow (CMF: {cmf:.3f})")
+        
+        # Divergence analysis
+        if divergence == 'bullish':
+            print("🔄 Bullish divergence - price falling but money flow rising!")
+        elif divergence == 'bearish':
+            print("🔄 Bearish divergence - price rising but money flow falling!")
+        
+        # Signal-specific insights
+        if signal == 'strong_bullish':
+            print("💡 Strong institutional buying - consider long positions")
+        elif signal == 'bullish':
+            print("💡 Positive money flow - accumulation phase")
+        elif signal == 'strong_bearish':
+            print("💡 Strong institutional selling - consider short positions")
+        elif signal == 'bearish':
+            print("💡 Negative money flow - distribution phase")
+        elif cmf > 0:
+            print("💡 Money flowing in - buyers in control")
+        elif cmf < 0:
+            print("💡 Money flowing out - sellers in control")
+        else:
+            print("💡 Neutral money flow - wait for clear direction")
+        
+        # Volume insights
+        if money_flow_volume > 0:
+            print(f"📊 Positive volume flow: {money_flow_volume:,.0f}")
+        else:
+            print(f"📊 Negative volume flow: {abs(money_flow_volume):,.0f}")

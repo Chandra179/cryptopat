@@ -248,6 +248,25 @@ class PivotPoint:
                 nearest_resistance = {"level": f"r{i}", "price": levels[f"r{i}"]}
                 break
         
+        # Determine price zone
+        price_zone = "neutral"
+        if current_price < levels.get("s3", float('-inf')):
+            price_zone = "below_s3"
+        elif current_price < levels.get("s2", float('-inf')):
+            price_zone = "s2_s3"
+        elif current_price < levels.get("s1", float('-inf')):
+            price_zone = "s1_s2"
+        elif current_price < pivot:
+            price_zone = "pp_s1"
+        elif current_price < levels.get("r1", float('inf')):
+            price_zone = "pp_r1"
+        elif current_price < levels.get("r2", float('inf')):
+            price_zone = "r1_r2"
+        elif current_price < levels.get("r3", float('inf')):
+            price_zone = "r2_r3"
+        else:
+            price_zone = "above_r3"
+        
         # Signal generation based on YAML signal types
         signal = "neutral"
         
@@ -269,27 +288,6 @@ class PivotPoint:
             avg_volume = df['volume'].rolling(window=self.param["volume_ma_period"]).mean().iloc[-1]
             current_volume = df['volume'].iloc[-1]
             volume_confirmed = current_volume > avg_volume
-            if not volume_confirmed:
-                signal_strength *= 0.7
-        
-        # Determine price zone
-        price_zone = "neutral"
-        if current_price < levels.get("s3", float('-inf')):
-            price_zone = "below_s3"
-        elif current_price < levels.get("s2", float('-inf')):
-            price_zone = "s2_s3"
-        elif current_price < levels.get("s1", float('-inf')):
-            price_zone = "s1_s2"
-        elif current_price < pivot:
-            price_zone = "pp_s1"
-        elif current_price < levels.get("r1", float('inf')):
-            price_zone = "pp_r1"
-        elif current_price < levels.get("r2", float('inf')):
-            price_zone = "r1_r2"
-        elif current_price < levels.get("r3", float('inf')):
-            price_zone = "r2_r3"
-        else:
-            price_zone = "above_r3"
         
         # Build result based on YAML output configuration  
         output_config = self.config['pivot_point']['output']['fields']
@@ -334,4 +332,97 @@ class PivotPoint:
                     "breakout_threshold": self.param["breakout_threshold"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for Pivot Point indicator"""
+        if "error" in result:
+            print(f"⚠️  Pivot Point Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        pivot_point = result.get('pivot_point', 0)
+        price_zone = result.get('price_zone', 'neutral')
+        nearest_support = result.get('nearest_support', None)
+        nearest_resistance = result.get('nearest_resistance', None)
+        
+        print(f"\n🎯 Pivot Point Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"Pivot Point: ${pivot_point:.4f}")
+        
+        # Get resistance and support levels
+        r1 = result.get('resistance_1', 0)
+        r2 = result.get('resistance_2', 0)
+        r3 = result.get('resistance_3', 0)
+        s1 = result.get('support_1', 0)
+        s2 = result.get('support_2', 0)
+        s3 = result.get('support_3', 0)
+        
+        print(f"\n📈 Resistance Levels:")
+        if r3: print(f"  R3: ${r3:.4f}")
+        if r2: print(f"  R2: ${r2:.4f}")
+        if r1: print(f"  R1: ${r1:.4f}")
+        
+        print(f"\n📉 Support Levels:")
+        if s1: print(f"  S1: ${s1:.4f}")
+        if s2: print(f"  S2: ${s2:.4f}")
+        if s3: print(f"  S3: ${s3:.4f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'bullish': '🟢',
+            'bearish': '🔴',
+            'strong_resistance': '🔴',
+            'strong_support': '🟢',
+            'neutral': '⚪'
+        }
+        
+        print(f"\nSignal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Price Zone: {price_zone.upper()}")
+        
+        # Price position analysis
+        if current_price > pivot_point:
+            distance_pct = (current_price - pivot_point) / pivot_point * 100
+            print(f"📈 Price above Pivot Point (+{distance_pct:.2f}%) - bullish bias")
+        elif current_price < pivot_point:
+            distance_pct = (pivot_point - current_price) / pivot_point * 100
+            print(f"📉 Price below Pivot Point (-{distance_pct:.2f}%) - bearish bias")
+        else:
+            print("⚖️  Price at Pivot Point - neutral")
+        
+        # Nearest levels
+        if nearest_support:
+            support_distance = (current_price - nearest_support) / current_price * 100
+            print(f"🛡️  Nearest Support: ${nearest_support:.4f} ({support_distance:.2f}% below)")
+        
+        if nearest_resistance:
+            resistance_distance = (nearest_resistance - current_price) / current_price * 100
+            print(f"⚠️  Nearest Resistance: ${nearest_resistance:.4f} ({resistance_distance:.2f}% above)")
+        
+        # Zone-specific insights
+        if price_zone == "above_r3":
+            print("🚨 Price in extreme overbought zone - strong resistance area")
+        elif price_zone == "below_s3":
+            print("🚨 Price in extreme oversold zone - strong support area")
+        elif "r" in price_zone:
+            print("📊 Price in resistance zone - watch for reversal")
+        elif "s" in price_zone:
+            print("📊 Price in support zone - watch for bounce")
+        elif price_zone == "pp_r1":
+            print("📊 Price between Pivot and R1 - bullish momentum")
+        elif price_zone == "pp_s1":
+            print("📊 Price between Pivot and S1 - bearish momentum")
+        
+        # Signal-specific insights
+        if signal == 'bullish':
+            print("💡 Consider long positions - price above pivot with momentum")
+        elif signal == 'bearish':
+            print("💡 Consider short positions - price below pivot with momentum")
+        elif signal == 'strong_resistance':
+            print("💡 Strong resistance zone - consider profit taking or shorting")
+        elif signal == 'strong_support':
+            print("💡 Strong support zone - consider buying or covering shorts")

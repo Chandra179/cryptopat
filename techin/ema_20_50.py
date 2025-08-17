@@ -274,4 +274,62 @@ class EMA2050:
                     "volume_confirmation": self.param["volume_confirmation"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for EMA 20/50 crossover indicator"""
+        if "error" in result:
+            print(f"⚠️  EMA 20/50 Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        ema_20 = result.get('ema_20', 0)
+        ema_50 = result.get('ema_50', 0)
+        trend = result.get('trend', 'neutral')
+        crossover = result.get('crossover', 'none')
+        
+        print(f"\n📈 EMA 20/50 Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"EMA 20: ${ema_20:.4f}")
+        print(f"EMA 50: ${ema_50:.4f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'golden_cross': '🟡',
+            'death_cross': '⚫',
+            'bullish': '🟢',
+            'bearish': '🔴',
+            'neutral': '⚪'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Trend: {trend.upper()}")
+        
+        # Crossover analysis
+        if crossover == 'bullish':
+            print("🚀 Golden Cross detected - EMA 20 crossed above EMA 50!")
+        elif crossover == 'bearish':
+            print("📉 Death Cross detected - EMA 20 crossed below EMA 50!")
+        elif trend == 'bullish':
+            print("📈 Price trending above both EMAs")
+        elif trend == 'bearish':
+            print("📉 Price trending below both EMAs")
+        else:
+            print("🔄 No clear trend - consolidation phase")
+        
+        # Price position analysis
+        price_above_ema20 = result.get('price_above_ema20', False)
+        price_above_ema50 = result.get('price_above_ema50', False)
+        
+        if price_above_ema20 and price_above_ema50:
+            print("📍 Price above both EMAs - strong bullish momentum")
+        elif not price_above_ema20 and not price_above_ema50:
+            print("📍 Price below both EMAs - strong bearish momentum")
+        elif price_above_ema20 and not price_above_ema50:
+            print("📍 Price between EMAs - potential reversal zone")
+        else:
+            print("📍 Price position unclear")

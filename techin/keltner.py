@@ -310,4 +310,89 @@ class KeltnerChannel:
                     "channel_position_lower": self.param["channel_position_lower"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for Keltner Channel indicator"""
+        if "error" in result:
+            print(f"⚠️  Keltner Channel Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        middle_line = result.get('middle_line', 0)
+        upper_band = result.get('upper_band', 0)
+        lower_band = result.get('lower_band', 0)
+        position = result.get('position', 'neutral')
+        squeeze = result.get('squeeze', False)
+        channel_width = result.get('channel_width', 0)
+        atr = result.get('atr', 0)
+        
+        print(f"\n📊 Keltner Channel Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"Upper Band: ${upper_band:.4f}")
+        print(f"Middle Line: ${middle_line:.4f}")
+        print(f"Lower Band: ${lower_band:.4f}")
+        print(f"ATR: ${atr:.4f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'breakout_up': '🚀',
+            'breakout_down': '📉',
+            'overbought': '🔴',
+            'oversold': '🟢',
+            'squeeze': '🔒',
+            'neutral': '⚪'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Position: {position.upper()}")
+        
+        # Channel analysis
+        channel_width_pct = (channel_width / middle_line * 100) if middle_line > 0 else 0
+        print(f"Channel Width: {channel_width_pct:.2f}%")
+        
+        # Squeeze detection
+        if squeeze:
+            print("🔒 Squeeze detected - low volatility, potential breakout coming!")
+        
+        # Price position analysis
+        if position == 'above_upper':
+            distance_pct = (current_price - upper_band) / upper_band * 100
+            print(f"🚀 Price above upper band (+{distance_pct:.2f}%) - strong momentum")
+        elif position == 'below_lower':
+            distance_pct = (lower_band - current_price) / lower_band * 100
+            print(f"📉 Price below lower band (-{distance_pct:.2f}%) - strong selling")
+        elif position == 'upper':
+            print("📈 Price in upper channel - bullish momentum")
+        elif position == 'lower':
+            print("📉 Price in lower channel - bearish momentum")
+        elif position == 'middle':
+            print("⚖️  Price near middle line - balanced market")
+        
+        # Channel width analysis
+        if channel_width_pct > 4:
+            print("📏 Wide channel - high volatility environment")
+        elif channel_width_pct < 1:
+            print("📏 Narrow channel - low volatility, potential breakout setup")
+        else:
+            print("📏 Normal channel width - moderate volatility")
+        
+        # Signal-specific insights
+        if signal == 'breakout_up':
+            print("💡 Bullish breakout - consider long positions")
+        elif signal == 'breakout_down':
+            print("💡 Bearish breakout - consider short positions")
+        elif signal == 'overbought':
+            print("💡 Overbought condition - potential reversal or pullback")
+        elif signal == 'oversold':
+            print("💡 Oversold condition - potential bounce or reversal")
+        elif signal == 'squeeze':
+            print("💡 Volatility squeeze - prepare for directional move")
+        elif position == 'above_upper' or position == 'below_lower':
+            print("💡 Price outside bands - momentum trade opportunity")
+        else:
+            print("💡 Price within normal range - wait for clearer signals")

@@ -275,5 +275,56 @@ class BollingerBands():
                     "percent_b_oversold": self.param["percent_b_oversold"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for Bollinger Bands indicator"""
+        if "error" in result:
+            print(f"⚠️  Bollinger Bands Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        upper_band = result.get('upper_band', 0)
+        lower_band = result.get('lower_band', 0)
+        middle_band = result.get('middle_band', 0)
+        percent_b = result.get('percent_b', 0)
+        squeeze = result.get('squeeze', False)
+        
+        print(f"\n📊 Bollinger Bands Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"Upper Band: ${upper_band:.4f}")
+        print(f"Middle Band: ${middle_band:.4f}")
+        print(f"Lower Band: ${lower_band:.4f}")
+        print(f"Percent B: {percent_b:.3f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'overbought': '🔴',
+            'oversold': '🟢', 
+            'bullish_breakout': '🚀',
+            'bearish_breakout': '📉',
+            'squeeze': '🔒',
+            'neutral': '⚪'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        
+        if squeeze:
+            print("💥 Squeeze detected - potential breakout incoming!")
+            
+        # Position relative to bands
+        if percent_b > 1:
+            print("📍 Price above upper band (potential reversal zone)")
+        elif percent_b < 0:
+            print("📍 Price below lower band (potential reversal zone)")
+        elif percent_b > 0.8:
+            print("📍 Price near upper band")
+        elif percent_b < 0.2:
+            print("📍 Price near lower band")
+        else:
+            print("📍 Price within normal band range")
         

@@ -352,4 +352,84 @@ class ParabolicSAR:
                     "volume_confirmation": self.param["volume_confirmation"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for Parabolic SAR indicator"""
+        if "error" in result:
+            print(f"⚠️  Parabolic SAR Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        sar = result.get('sar', 0)
+        trend = result.get('trend', 'neutral')
+        acceleration_factor = result.get('acceleration_factor', 0)
+        price_above_sar = result.get('price_above_sar', False)
+        reversal = result.get('reversal', False)
+        
+        print(f"\n🌟 Parabolic SAR Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"SAR: ${sar:.4f}")
+        print(f"Acceleration Factor: {acceleration_factor:.4f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'bullish': '🟢',
+            'bearish': '🔴',
+            'trend_reversal': '🔄',
+            'bullish_weakening': '🟡',
+            'bearish_weakening': '🟡',
+            'neutral': '⚪'
+        }
+        
+        trend_emoji = {
+            'up': '📈',
+            'down': '📉',
+            'neutral': '📊'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Trend: {trend_emoji.get(trend, '📊')} {trend.upper()}")
+        
+        # Reversal detection
+        if reversal:
+            if trend == 'up':
+                print("🚀 Bullish reversal detected - SAR switched below price!")
+            else:
+                print("📉 Bearish reversal detected - SAR switched above price!")
+        
+        # Price position analysis
+        if price_above_sar:
+            distance_pct = (current_price - sar) / current_price * 100
+            print(f"📈 Price above SAR (+{distance_pct:.2f}%) - uptrend confirmed")
+            print(f"🛡️  SAR acting as support at ${sar:.4f}")
+        else:
+            distance_pct = (sar - current_price) / current_price * 100
+            print(f"📉 Price below SAR (-{distance_pct:.2f}%) - downtrend confirmed")
+            print(f"⚠️  SAR acting as resistance at ${sar:.4f}")
+        
+        # Acceleration factor analysis
+        if acceleration_factor > 0.15:
+            print("🔥 High acceleration factor - strong momentum!")
+        elif acceleration_factor > 0.10:
+            print("⚡ Medium acceleration factor - building momentum")
+        else:
+            print("🐌 Low acceleration factor - slow trend development")
+        
+        # Signal-specific insights
+        if signal == 'bullish':
+            print("💡 Consider long positions - strong uptrend momentum")
+        elif signal == 'bearish':
+            print("💡 Consider short positions - strong downtrend momentum")
+        elif signal == 'trend_reversal':
+            print("💡 Major trend change - reassess position strategy")
+        elif 'weakening' in signal:
+            print("💡 Trend momentum weakening - prepare for potential reversal")
+        elif trend == 'up':
+            print("💡 Stay bullish - uptrend continues with SAR support")
+        elif trend == 'down':
+            print("💡 Stay bearish - downtrend continues with SAR resistance")

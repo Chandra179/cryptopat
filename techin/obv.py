@@ -310,4 +310,68 @@ class OBV:
                     "breakout_threshold": breakout_threshold
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for OBV indicator"""
+        if "error" in result:
+            print(f"⚠️  OBV Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        obv = result.get('obv', 0)
+        obv_sma = result.get('obv_sma', 0)
+        trend = result.get('trend', 'neutral')
+        volume_flow = result.get('volume_flow', 'neutral')
+        divergence = result.get('divergence', 'none')
+        obv_above_sma = result.get('obv_above_sma', False)
+        
+        print(f"\n📊 OBV Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"OBV: {obv:,.0f}")
+        print(f"OBV SMA: {obv_sma:,.0f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'accumulation': '🟢',
+            'distribution': '🔴',
+            'bullish_volume': '🚀',
+            'bearish_volume': '📉',
+            'neutral': '⚪'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Trend: {trend.upper()}")
+        print(f"Volume Flow: {volume_flow.upper()}")
+        
+        # OBV position analysis
+        if obv_above_sma:
+            print("📈 OBV above its moving average - bullish volume momentum")
+        else:
+            print("📉 OBV below its moving average - bearish volume momentum")
+        
+        # Volume flow analysis
+        if volume_flow == 'accumulation':
+            print("💰 Smart money accumulation detected")
+        elif volume_flow == 'distribution':
+            print("📤 Smart money distribution detected")
+        
+        # Divergence analysis
+        if divergence == 'bullish':
+            print("🔄 Bullish divergence - OBV rising while price falling!")
+        elif divergence == 'bearish':
+            print("🔄 Bearish divergence - OBV falling while price rising!")
+        
+        # Signal-specific insights
+        if signal == 'bullish_volume':
+            print("🎯 Strong volume breakout - momentum accelerating!")
+        elif signal == 'bearish_volume':
+            print("⚠️  Volume selling pressure - momentum declining!")
+        elif signal == 'accumulation':
+            print("📈 Volume supports price trend - healthy uptrend")
+        elif signal == 'distribution':
+            print("📉 Volume supports price trend - healthy downtrend")

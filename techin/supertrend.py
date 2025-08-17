@@ -299,4 +299,76 @@ class Supertrend:
                     "volume_confirmation": self.param["volume_confirmation"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for Supertrend indicator"""
+        if "error" in result:
+            print(f"⚠️  Supertrend Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'hold')
+        current_price = result.get('current_price', 0)
+        supertrend = result.get('supertrend', 0)
+        trend = result.get('trend', 'neutral')
+        atr = result.get('atr', 0)
+        price_above_supertrend = result.get('price_above_supertrend', False)
+        trend_change = result.get('trend_change', False)
+        support_resistance = result.get('support_resistance', 0)
+        
+        print(f"\n🎯 Supertrend Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"Supertrend: ${supertrend:.4f}")
+        print(f"ATR: ${atr:.4f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'buy': '🟢',
+            'sell': '🔴',
+            'hold': '⚪'
+        }
+        
+        trend_emoji = {
+            'up': '📈',
+            'down': '📉'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Trend: {trend_emoji.get(trend, '📊')} {trend.upper()}")
+        
+        # Trend change detection
+        if trend_change:
+            if trend == 'up':
+                print("🚀 Trend change detected - Bullish reversal!")
+            else:
+                print("📉 Trend change detected - Bearish reversal!")
+        
+        # Price position analysis
+        if price_above_supertrend:
+            print("📈 Price above Supertrend - uptrend confirmed")
+            print(f"🛡️  Support level: ${support_resistance:.4f}")
+        else:
+            print("📉 Price below Supertrend - downtrend confirmed")
+            print(f"⚠️  Resistance level: ${support_resistance:.4f}")
+        
+        # Distance analysis
+        distance_pct = abs(current_price - supertrend) / current_price * 100
+        if distance_pct < 1.0:
+            print(f"🎯 Price very close to Supertrend ({distance_pct:.2f}%) - potential reversal zone")
+        elif distance_pct < 2.0:
+            print(f"📍 Price moderately close to Supertrend ({distance_pct:.2f}%)")
+        else:
+            print(f"📏 Price distant from Supertrend ({distance_pct:.2f}%) - strong trend")
+        
+        # Signal-specific insights
+        if signal == 'buy':
+            print("💡 Consider long positions - trend turning bullish")
+        elif signal == 'sell':
+            print("💡 Consider short positions - trend turning bearish")
+        elif trend == 'up':
+            print("💡 Stay bullish - uptrend continues")
+        elif trend == 'down':
+            print("💡 Stay bearish - downtrend continues")

@@ -318,4 +318,101 @@ class IchimokuCloud:
                     "displacement": displacement
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for Ichimoku Cloud indicator"""
+        if "error" in result:
+            print(f"⚠️  Ichimoku Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        tenkan_sen = result.get('tenkan_sen', 0)
+        kijun_sen = result.get('kijun_sen', 0)
+        cloud_top = result.get('cloud_top', 0)
+        cloud_bottom = result.get('cloud_bottom', 0)
+        trend = result.get('trend', 'neutral')
+        cloud_color = result.get('cloud_color', 'neutral')
+        price_vs_cloud = result.get('price_vs_cloud', 'neutral')
+        tenkan_kijun_cross = result.get('tenkan_kijun_cross', 'none')
+        chikou_clear = result.get('chikou_clear', None)
+        
+        print(f"\n☁️  Ichimoku Cloud Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"Tenkan-sen: ${tenkan_sen:.4f}")
+        print(f"Kijun-sen: ${kijun_sen:.4f}")
+        print(f"Cloud: ${cloud_bottom:.4f} - ${cloud_top:.4f}")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'strong_bullish': '🟢',
+            'bullish': '🟢',
+            'strong_bearish': '🔴',
+            'bearish': '🔴',
+            'neutral': '⚪'
+        }
+        
+        cloud_emoji = {
+            'bullish': '🟢',
+            'bearish': '🔴',
+            'neutral': '⚪'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Trend: {trend.upper()}")
+        print(f"Cloud: {cloud_emoji.get(cloud_color, '⚪')} {cloud_color.upper()}")
+        
+        # Price vs Cloud analysis
+        if price_vs_cloud == 'above':
+            distance_pct = (current_price - cloud_top) / current_price * 100
+            print(f"📈 Price above cloud (+{distance_pct:.2f}%) - bullish environment")
+        elif price_vs_cloud == 'below':
+            distance_pct = (cloud_bottom - current_price) / current_price * 100
+            print(f"📉 Price below cloud (-{distance_pct:.2f}%) - bearish environment")
+        elif price_vs_cloud == 'inside':
+            print("🌫️  Price inside cloud - consolidation/uncertainty")
+        
+        # Tenkan-Kijun cross analysis
+        if tenkan_kijun_cross == 'bullish':
+            print("🚀 Tenkan-sen crossed above Kijun-sen - bullish signal!")
+        elif tenkan_kijun_cross == 'bearish':
+            print("📉 Tenkan-sen crossed below Kijun-sen - bearish signal!")
+        elif tenkan_sen > kijun_sen:
+            print("📈 Tenkan-sen above Kijun-sen - short-term bullish")
+        elif tenkan_sen < kijun_sen:
+            print("📉 Tenkan-sen below Kijun-sen - short-term bearish")
+        
+        # Chikou Span analysis
+        if chikou_clear is True:
+            print("✅ Chikou Span clear of price action - trend confirmed")
+        elif chikou_clear is False:
+            print("❌ Chikou Span blocked by price action - trend unclear")
+        
+        # Cloud analysis
+        cloud_thickness = cloud_top - cloud_bottom
+        cloud_thickness_pct = cloud_thickness / current_price * 100
+        
+        if cloud_thickness_pct > 3:
+            print(f"🏔️  Thick cloud ({cloud_thickness_pct:.1f}%) - strong support/resistance")
+        elif cloud_thickness_pct > 1:
+            print(f"⛅ Medium cloud ({cloud_thickness_pct:.1f}%) - moderate support/resistance")
+        else:
+            print(f"🌤️  Thin cloud ({cloud_thickness_pct:.1f}%) - weak support/resistance")
+        
+        # Signal-specific insights
+        if signal == 'strong_bullish':
+            print("💡 All Ichimoku elements bullish - strong buy signal")
+        elif signal == 'strong_bearish':
+            print("💡 All Ichimoku elements bearish - strong sell signal")
+        elif signal == 'bullish':
+            print("💡 Bullish bias - consider long positions")
+        elif signal == 'bearish':
+            print("💡 Bearish bias - consider short positions")
+        elif price_vs_cloud == 'inside':
+            print("💡 Wait for cloud breakout before taking positions")
+        else:
+            print("💡 Mixed signals - exercise caution")

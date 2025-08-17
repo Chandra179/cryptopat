@@ -293,4 +293,100 @@ class DonchianChannel:
                     "reversal_zone_pct": self.param["reversal_zone_pct"]
                 }
         
+        self.print_output(result)
         return result
+    
+    def print_output(self, result):
+        """Print analysis summary for Donchian Channel indicator"""
+        if "error" in result:
+            print(f"⚠️  Donchian Channel Error: {result['error']}")
+            return
+            
+        symbol = result.get('symbol', 'N/A')
+        timeframe = result.get('timeframe', 'N/A')
+        signal = result.get('signal', 'neutral')
+        current_price = result.get('current_price', 0)
+        upper_band = result.get('upper_band', 0)
+        lower_band = result.get('lower_band', 0)
+        middle_line = result.get('middle_line', 0)
+        position = result.get('position', 'neutral')
+        channel_width = result.get('channel_width', 0)
+        breakout_up = result.get('breakout_up', False)
+        breakout_down = result.get('breakout_down', False)
+        
+        print(f"\n📊 Donchian Channel Analysis - {symbol} ({timeframe})")
+        print(f"Current Price: ${current_price:.4f}")
+        print(f"Upper Band: ${upper_band:.4f}")
+        if middle_line:
+            print(f"Middle Line: ${middle_line:.4f}")
+        print(f"Lower Band: ${lower_band:.4f}")
+        print(f"Channel Width: {channel_width:.2f}%")
+        
+        # Signal interpretation
+        signal_emoji = {
+            'bullish_breakout': '🚀',
+            'bearish_breakout': '📉',
+            'reversal_up': '🔄',
+            'reversal_down': '🔄',
+            'squeeze': '🔒',
+            'neutral': '⚪'
+        }
+        
+        print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
+        print(f"Position: {position.upper()}")
+        
+        # Breakout detection
+        if breakout_up:
+            print("🚀 Bullish breakout detected - price above 20-period high!")
+        elif breakout_down:
+            print("📉 Bearish breakout detected - price below 20-period low!")
+        
+        # Price position analysis
+        if position == 'upper':
+            distance_pct = (current_price - upper_band) / upper_band * 100 if breakout_up else (upper_band - current_price) / upper_band * 100
+            if breakout_up:
+                print(f"🚀 Price above upper band (+{abs(distance_pct):.2f}%) - strong momentum")
+            else:
+                print(f"📈 Price in upper channel area - bullish bias")
+        elif position == 'lower':
+            distance_pct = (lower_band - current_price) / lower_band * 100 if breakout_down else (current_price - lower_band) / lower_band * 100
+            if breakout_down:
+                print(f"📉 Price below lower band (-{abs(distance_pct):.2f}%) - strong selling")
+            else:
+                print(f"📉 Price in lower channel area - bearish bias")
+        elif position == 'middle':
+            print("⚖️  Price in middle of channel - neutral position")
+        
+        # Channel width analysis
+        if channel_width > 8:
+            print("📏 Wide channel - high volatility, strong trending environment")
+        elif channel_width < 2:
+            print("📏 Narrow channel - low volatility, potential breakout setup")
+        else:
+            print("📏 Normal channel width - moderate volatility")
+        
+        # Signal-specific insights
+        if signal == 'bullish_breakout':
+            print("💡 Strong bullish signal - consider long positions")
+            print("📈 Price breaking above resistance - trend continuation likely")
+        elif signal == 'bearish_breakout':
+            print("💡 Strong bearish signal - consider short positions")
+            print("📉 Price breaking below support - trend continuation likely")
+        elif signal == 'reversal_up':
+            print("💡 Potential bullish reversal - watch for confirmation")
+        elif signal == 'reversal_down':
+            print("💡 Potential bearish reversal - watch for confirmation")
+        elif signal == 'squeeze':
+            print("💡 Channel squeeze - prepare for breakout in either direction")
+        elif position == 'upper':
+            print("💡 Price near resistance - watch for breakout or reversal")
+        elif position == 'lower':
+            print("💡 Price near support - watch for bounce or breakdown")
+        else:
+            print("💡 Price in neutral zone - wait for clearer signals")
+        
+        # Trend strength based on channel position
+        if breakout_up or breakout_down:
+            print("🔥 Strong trend momentum - follow the breakout direction")
+        elif channel_width < 2:
+            print("⏳ Consolidation phase - accumulate before next move")
