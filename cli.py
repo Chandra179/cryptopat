@@ -22,6 +22,7 @@ from techin.supertrend import Supertrend
 from techin.vwap import VWAP
 from techin.ema_20_50 import EMA2050
 from techin.rsi import RSI
+from analysis_summary import AnalysisSummary
 
 class CryptoPatCLI:
     def __init__(self):
@@ -121,12 +122,6 @@ class CryptoPatCLI:
                 fetch_trades()
             )
             
-            
-            # Run all technical indicators (they now store results in memory)
-            print("\n" + "="*60)
-            print("RUNNING TECHNICAL ANALYSIS")
-            print("="*60)
-            
             indicators = [
                 ("Bollinger Bands", BollingerBands),
                 ("Chaikin Money Flow", ChaikinMoneyFlow),
@@ -161,6 +156,11 @@ class CryptoPatCLI:
                     results[name] = result
             
             print(f"\n✓ Technical analysis completed. {len(results)} indicators successfully calculated.")
+            
+            # Generate comprehensive analysis summary
+            summary_engine = AnalysisSummary()
+            summary = summary_engine.generate_summary(results, symbol, timeframe)
+            print(f"\n{summary}")
             
         except Exception as e:
             print(f"Error fetching data: {e}")

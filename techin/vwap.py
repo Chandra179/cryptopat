@@ -343,7 +343,9 @@ class VWAP:
         volume_spike = result.get('volume_spike', False)
         trend = result.get('trend', 'neutral')
         
-        print(f"\n💰 VWAP Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"VWAP Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"VWAP: ${vwap:.4f}")
         print(f"Deviation: {price_deviation_pct:+.2f}%")

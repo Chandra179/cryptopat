@@ -325,7 +325,9 @@ class MACD():
         histogram = result.get('histogram', 0)
         trend = result.get('trend', 'neutral')
         
-        print(f"\n📈 MACD Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"📈 MACD Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"MACD Line: {macd_line:.6f}")
         print(f"Signal Line: {signal_line:.6f}")

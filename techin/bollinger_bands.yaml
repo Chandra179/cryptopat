@@ -28,8 +28,6 @@ bollinger_bands:
     bandwidth_ma_period: 10           # Period for bandwidth moving average
     squeeze_percentile_low: 20        # Low percentile for squeeze detection
     squeeze_percentile_high: 80       # High percentile for squeeze detection
-    overbought_offset: 0.0            # Offset for overbought threshold
-    oversold_offset: 0.0              # Offset for oversold threshold
     sma_slope_period: 2               # Period for SMA slope calculation
     position_threshold_pct: 1.0       # Position threshold percentage
     confidence_weights:               # Weights for confidence scoring

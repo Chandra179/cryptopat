@@ -294,7 +294,9 @@ class BollingerBands():
         percent_b = result.get('percent_b', 0)
         squeeze = result.get('squeeze', False)
         
-        print(f"\n📊 Bollinger Bands Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"📊 Bollinger Bands Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"Upper Band: ${upper_band:.4f}")
         print(f"Middle Band: ${middle_band:.4f}")

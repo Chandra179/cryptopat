@@ -319,7 +319,9 @@ class Supertrend:
         trend_change = result.get('trend_change', False)
         support_resistance = result.get('support_resistance', 0)
         
-        print(f"\n🎯 Supertrend Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"Supertrend Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"Supertrend: ${supertrend:.4f}")
         print(f"ATR: ${atr:.4f}")

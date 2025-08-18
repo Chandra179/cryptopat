@@ -341,7 +341,9 @@ class IchimokuCloud:
         tenkan_kijun_cross = result.get('tenkan_kijun_cross', 'none')
         chikou_clear = result.get('chikou_clear', None)
         
-        print(f"\n☁️  Ichimoku Cloud Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"☁️  Ichimoku Cloud Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"Tenkan-sen: ${tenkan_sen:.4f}")
         print(f"Kijun-sen: ${kijun_sen:.4f}")

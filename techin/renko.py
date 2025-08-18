@@ -496,7 +496,9 @@ class Renko:
         reversal_detected = result.get('reversal_detected', False)
         new_brick = result.get('new_brick', False)
         
-        print(f"\n🧱 Renko Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"Renko Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"Brick Size: ${brick_size:.4f}")
         print(f"Last Brick: ${last_brick_price:.4f}")

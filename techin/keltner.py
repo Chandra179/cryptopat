@@ -331,7 +331,9 @@ class KeltnerChannel:
         channel_width = result.get('channel_width', 0)
         atr = result.get('atr', 0)
         
-        print(f"\n📊 Keltner Channel Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"📊 Keltner Channel Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"Upper Band: ${upper_band:.4f}")
         print(f"Middle Line: ${middle_line:.4f}")

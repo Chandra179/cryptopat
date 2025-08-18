@@ -289,7 +289,9 @@ class ChaikinMoneyFlow:
         money_flow_volume = result.get('money_flow_volume', 0)
         divergence = result.get('divergence', 'none')
         
-        print(f"\n💰 Chaikin Money Flow Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"💰 Chaikin Money Flow Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"CMF: {cmf:.4f}")
         print(f"Money Flow Volume: {money_flow_volume:,.0f}")
@@ -308,15 +310,15 @@ class ChaikinMoneyFlow:
         
         # CMF level analysis
         if cmf > 0.2:
-            print(f"🟢 Strong buying pressure (CMF: {cmf:.3f})")
+            print(f"Strong buying pressure (CMF: {cmf:.3f})")
         elif cmf > 0.05:
-            print(f"📈 Moderate buying pressure (CMF: {cmf:.3f})")
+            print(f"Moderate buying pressure (CMF: {cmf:.3f})")
         elif cmf < -0.2:
-            print(f"🔴 Strong selling pressure (CMF: {cmf:.3f})")
+            print(f"Strong selling pressure (CMF: {cmf:.3f})")
         elif cmf < -0.05:
-            print(f"📉 Moderate selling pressure (CMF: {cmf:.3f})")
+            print(f"Moderate selling pressure (CMF: {cmf:.3f})")
         else:
-            print(f"⚖️  Balanced money flow (CMF: {cmf:.3f})")
+            print(f"Balanced money flow (CMF: {cmf:.3f})")
         
         # Divergence analysis
         if divergence == 'bullish':
@@ -326,22 +328,22 @@ class ChaikinMoneyFlow:
         
         # Signal-specific insights
         if signal == 'strong_bullish':
-            print("💡 Strong institutional buying - consider long positions")
+            print("Strong institutional buying - consider long positions")
         elif signal == 'bullish':
-            print("💡 Positive money flow - accumulation phase")
+            print("Positive money flow - accumulation phase")
         elif signal == 'strong_bearish':
-            print("💡 Strong institutional selling - consider short positions")
+            print("Strong institutional selling - consider short positions")
         elif signal == 'bearish':
-            print("💡 Negative money flow - distribution phase")
+            print("Negative money flow - distribution phase")
         elif cmf > 0:
-            print("💡 Money flowing in - buyers in control")
+            print("Money flowing in - buyers in control")
         elif cmf < 0:
-            print("💡 Money flowing out - sellers in control")
+            print("Money flowing out - sellers in control")
         else:
-            print("💡 Neutral money flow - wait for clear direction")
+            print("Neutral money flow - wait for clear direction")
         
         # Volume insights
         if money_flow_volume > 0:
-            print(f"📊 Positive volume flow: {money_flow_volume:,.0f}")
+            print(f"Positive volume flow: {money_flow_volume:,.0f}")
         else:
-            print(f"📊 Negative volume flow: {abs(money_flow_volume):,.0f}")
+            print(f"Negative volume flow: {abs(money_flow_volume):,.0f}")

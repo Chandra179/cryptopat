@@ -330,7 +330,9 @@ class OBV:
         divergence = result.get('divergence', 'none')
         obv_above_sma = result.get('obv_above_sma', False)
         
-        print(f"\n📊 OBV Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"📊 OBV Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"OBV: {obv:,.0f}")
         print(f"OBV SMA: {obv_sma:,.0f}")

@@ -1,0 +1,160 @@
+# Analysis Summary Configuration for CryptoPat
+# Controls thresholds, mappings, and classification rules for technical analysis consensus
+
+# Indicator categorization based on analysis type
+categories:
+  Trend: ['MACD', 'EMA 20/50', 'Parabolic SAR', 'Supertrend']
+  Volatility: ['Bollinger Bands', 'Keltner Channel', 'Donchian Channel']
+  Volume: ['OBV', 'VWAP', 'Chaikin Money Flow']
+  Momentum: ['RSI']
+  'S/R': ['Pivot Point', 'Ichimoku Cloud']
+  'Alt Chart': ['Renko']
+
+# Signal to numerical score mappings (-1.0 to +1.0)
+signal_mappings:
+  MACD:
+    bearish_zero_cross: -1.0
+    bearish_signal_cross: -0.8
+    bearish_momentum: -0.6
+    weakening_bullish: -0.3
+    neutral: 0.0
+    weakening_bearish: 0.3
+    bullish_momentum: 0.6
+    bullish_signal_cross: 0.8
+    bullish_zero_cross: 1.0
+  
+  RSI:
+    extreme_oversold: -1.0
+    oversold: -0.7
+    bearish: -0.3
+    neutral: 0.0
+    bullish: 0.3
+    overbought: 0.7
+    extreme_overbought: 1.0
+  
+  'Chaikin Money Flow':
+    strong_distribution: -1.0
+    bearish: -0.5
+    neutral: 0.0
+    bullish: 0.5
+    strong_accumulation: 1.0
+  
+  'Parabolic SAR':
+    sell_signal: -1.0
+    bearish: -0.5
+    neutral: 0.0
+    bullish: 0.5
+    buy_signal: 1.0
+  
+  Supertrend:
+    sell: -1.0
+    bearish: -0.5
+    neutral: 0.0
+    bullish: 0.5
+    buy: 1.0
+  
+  # Generic mappings for indicators without specific configurations
+  generic:
+    bearish: -0.5
+    neutral: 0.0
+    bullish: 0.5
+    strong_bearish: -1.0
+    strong_bullish: 1.0
+    overbought: 0.7
+    oversold: -0.7
+    squeeze: 0.0
+    bullish_breakout: 0.8
+    bearish_breakout: -0.8
+
+# Category consensus thresholds
+category_consensus:
+  bearish_threshold: -0.3  # Score <= this = bearish
+  bullish_threshold: 0.3   # Score >= this = bullish
+  # Between thresholds = neutral
+
+# Overall bias classification thresholds and descriptions
+bias_classification:
+  strongly_bearish:
+    threshold: -0.7
+    description: "🔻 Strongly Bearish"
+    emoji: "🔴"
+  
+  moderately_bearish:
+    threshold: -0.3
+    description: "🔻 Moderately Bearish"
+    emoji: "🔴"
+  
+  weakly_bearish:
+    threshold: -0.1
+    description: "🔻 Weakly Bearish"
+    emoji: "🟡"
+  
+  neutral:
+    threshold_min: -0.1
+    threshold_max: 0.1
+    description: "⚪ Neutral"
+    emoji: "⚪"
+  
+  weakly_bullish:
+    threshold: 0.1
+    threshold_max: 0.3
+    description: "🔺 Weakly Bullish"
+    emoji: "🟡"
+  
+  moderately_bullish:
+    threshold: 0.3
+    threshold_max: 0.7
+    description: "🔺 Moderately Bullish"
+    emoji: "🟢"
+  
+  strongly_bullish:
+    threshold: 0.7
+    description: "🔺 Strongly Bullish"
+    emoji: "🟢"
+
+# Signal counting thresholds for overall consensus
+signal_counting:
+  bear_threshold: -0.2    # Score <= this counts as bearish
+  bull_threshold: 0.2     # Score >= this counts as bullish
+  # Between thresholds = neutral
+
+# Key driver detection thresholds
+key_drivers:
+  chaikin_money_flow:
+    significance_threshold: 0.05  # abs(CMF) > this is significant
+  
+  rsi:
+    oversold_threshold: 30
+    overbought_threshold: 70
+  
+  # Indicators that should be highlighted as key drivers
+  highlight_signals:
+    - 'buy_signal'
+    - 'sell_signal'
+    - 'bullish_signal_cross'
+    - 'bearish_signal_cross'
+    - 'bullish_zero_cross'
+    - 'bearish_zero_cross'
+
+# Action recommendation thresholds
+action_recommendations:
+  strong_bearish_threshold: -0.5  # Avoid longs, consider shorts
+  strong_bullish_threshold: 0.5   # Favor longs, avoid shorts
+  # Between = mixed signals, range trading
+
+# Display formatting
+display:
+  score_precision: 2        # Decimal places for scores
+  confidence_precision: 0   # Decimal places for confidence percentage
+  price_precision: 0        # Decimal places for price levels (0 = integer)
+  
+  # Emojis for different states
+  emojis:
+    bearish: "🔴"
+    bullish: "🟢"
+    neutral: "🟡"
+    mixed: "⚪"
+    support: "📍"
+    resistance: "📍"
+    action: "➡️"
+    analysis: "📊"

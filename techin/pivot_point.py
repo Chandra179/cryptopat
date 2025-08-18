@@ -350,7 +350,9 @@ class PivotPoint:
         nearest_support = result.get('nearest_support', None)
         nearest_resistance = result.get('nearest_resistance', None)
         
-        print(f"\n🎯 Pivot Point Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"Pivot Point Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"Pivot Point: ${pivot_point:.4f}")
         

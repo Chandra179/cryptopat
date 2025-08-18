@@ -333,7 +333,9 @@ class RSI():
         momentum_signal = result.get('momentum_signal', 'neutral')
         trend_direction = result.get('trend_direction', 'neutral')
         
-        print(f"\n🎯 RSI Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"RSI Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"RSI Value: {rsi:.2f}")
         

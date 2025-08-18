@@ -292,7 +292,9 @@ class EMA2050:
         trend = result.get('trend', 'neutral')
         crossover = result.get('crossover', 'none')
         
-        print(f"\n📈 EMA 20/50 Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"📈 EMA 20/50 Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"EMA 20: ${ema_20:.4f}")
         print(f"EMA 50: ${ema_50:.4f}")

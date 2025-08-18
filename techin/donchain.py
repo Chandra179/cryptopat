@@ -306,15 +306,17 @@ class DonchianChannel:
         timeframe = result.get('timeframe', 'N/A')
         signal = result.get('signal', 'neutral')
         current_price = result.get('current_price', 0)
-        upper_band = result.get('upper_band', 0)
-        lower_band = result.get('lower_band', 0)
+        upper_band = result.get('upper_channel', 0)
+        lower_band = result.get('lower_channel', 0)
         middle_line = result.get('middle_line', 0)
         position = result.get('position', 'neutral')
         channel_width = result.get('channel_width', 0)
         breakout_up = result.get('breakout_up', False)
         breakout_down = result.get('breakout_down', False)
         
-        print(f"\n📊 Donchian Channel Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"📊 Donchian Channel Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"Upper Band: ${upper_band:.4f}")
         if middle_line:
@@ -333,7 +335,6 @@ class DonchianChannel:
         }
         
         print(f"Signal: {signal_emoji.get(signal, '⚪')} {signal.upper()}")
-        print(f"Position: {position.upper()}")
         
         # Breakout detection
         if breakout_up:
@@ -359,11 +360,11 @@ class DonchianChannel:
         
         # Channel width analysis
         if channel_width > 8:
-            print("📏 Wide channel - high volatility, strong trending environment")
+            print("Wide channel - high volatility, strong trending environment")
         elif channel_width < 2:
-            print("📏 Narrow channel - low volatility, potential breakout setup")
+            print("Narrow channel - low volatility, potential breakout setup")
         else:
-            print("📏 Normal channel width - moderate volatility")
+            print("Normal channel width - moderate volatility")
         
         # Signal-specific insights
         if signal == 'bullish_breakout':

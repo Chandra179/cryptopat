@@ -371,7 +371,9 @@ class ParabolicSAR:
         price_above_sar = result.get('price_above_sar', False)
         reversal = result.get('reversal', False)
         
-        print(f"\n🌟 Parabolic SAR Analysis - {symbol} ({timeframe})")
+        print("\n======================================")
+        print(f"Parabolic SAR Analysis - {symbol} ({timeframe})")
+        print("======================================")
         print(f"Current Price: ${current_price:.4f}")
         print(f"SAR: ${sar:.4f}")
         print(f"Acceleration Factor: {acceleration_factor:.4f}")
