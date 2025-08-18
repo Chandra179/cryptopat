@@ -1,0 +1,86 @@
+@startuml CryptoPat Data Flow
+
+title CryptoPat - Data Flow Sequence
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 20
+skinparam maxmessagesize 60
+
+actor User
+participant "CLI\n(cli.py)" as CLI
+participant "DataCollector\n(Singleton)" as DC
+participant "Exchange API\n(CCXT)" as API
+collections "Technical Indicators\n(14 indicators)" as TI
+participant "AnalysisSummary\n(analysis_summary.py)" as AS
+database "CSV Storage" as CSV
+
+User -> CLI : s=BTC/USDT t=1d l=100
+activate CLI
+
+CLI -> DC : parse_command()
+activate DC
+
+group Concurrent Data Fetching
+    DC -> API : fetch_ohlcv_data()
+    DC -> API : fetch_ticker()
+    DC -> API : fetch_order_book()
+    DC -> API : fetch_trades()
+    
+    API --> DC : OHLCV data
+    API --> DC : Ticker data
+    API --> DC : Order book data
+    API --> DC : Trades data
+end
+
+group Parallel Indicator Processing
+    DC -> TI : execute_indicators()
+    activate TI
+    
+    note right of TI
+        14 indicators run in parallel:
+        • Trend: MACD, EMA, SAR, SuperTrend
+        • Volatility: BB, Keltner, Donchian
+        • Volume: OBV, VWAP, CMF
+        • Momentum: RSI
+        • S/R: Pivot Points, Ichimoku
+        • Alt Chart: Renko
+    end note
+    
+    TI --> DC : indicator_results
+    deactivate TI
+end
+
+DC -> AS : generate_summary(results)
+activate AS
+
+note right of AS
+    • Calculate consensus scores
+    • Categorize indicators
+    • Identify key drivers
+    • Generate S/R levels
+    • Create action recommendations
+end note
+
+AS --> DC : comprehensive_summary
+deactivate AS
+
+opt Optional CSV Export
+    DC -> CSV : export_market_data()
+end
+
+DC --> CLI : analysis_results
+deactivate DC
+
+CLI --> User : formatted_summary
+deactivate CLI
+
+note over User
+    **Output includes:**
+    • Overall bias & confidence
+    • Category-wise sentiment
+    • Key signal drivers
+    • Support/Resistance levels
+    • Trading recommendations
+end note
+
+@enduml

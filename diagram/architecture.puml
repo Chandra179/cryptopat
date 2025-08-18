@@ -1,0 +1,104 @@
+@startuml CryptoPat System Architecture
+
+title CryptoPat - High-Level System Architecture
+
+skinparam packageStyle rectangle
+skinparam component {
+  BackgroundColor lightblue
+  BorderColor darkblue
+}
+skinparam class {
+  BackgroundColor lightgreen
+  BorderColor darkgreen
+}
+skinparam database {
+  BackgroundColor lightyellow
+  BorderColor orange
+}
+
+' External Systems
+database "Exchange APIs (Binance, etc.)" as ExchangeAPI
+note right of ExchangeAPI
+  CCXT Library
+  Supports 100+ exchanges
+end note
+
+' Main System Components
+package "CryptoPat System" {
+
+  ' CLI Layer
+  component "CLI Interface (cli.py)" as CLI
+  note right of CLI
+    Interactive command-line
+    Command parsing (s=SYMBOL t=TIMEFRAME l=LIMIT)
+    History & signal handling
+    AsyncIO orchestration
+  end note
+
+  ' Data Collection Layer
+  package "Data Collection Layer (data/)" as DataLayer {
+    component DataCollector
+    note right of DataCollector : Singleton
+    
+    component "OHLCVFetcher" as OHLCVFetcher
+    component "OrderBookFetcher" as OrderBookFetcher
+    component "TickerFetcher" as TickerFetcher
+    component "TradesFetcher" as TradesFetcher
+    
+    DataCollector *-- OHLCVFetcher : composes
+    DataCollector *-- OrderBookFetcher : composes
+    DataCollector *-- TickerFetcher : composes
+    DataCollector *-- TradesFetcher : composes
+  }
+
+  ' Technical Analysis Layer
+  component "Technical Indicators (techin/)" as TechIndicators
+  note right of TechIndicators
+    Parallel execution via ThreadPoolExecutor
+    Categories: Trend, Volatility, Volume, Momentum, S/R
+    Examples: MACD, Bollinger Bands, RSI, VWAP, Ichimoku
+    YAML configuration per indicator
+  end note
+
+  ' Analysis Engine
+  component "AnalysisSummary (analysis_summary.py)" as AnalysisEngine
+  note right of AnalysisEngine
+    YAML-driven configuration
+    Category-based consensus
+    Support/Resistance calculation
+    Signal scoring (-1 to +1)
+    Confidence metrics
+  end note
+
+  ' Configuration
+  database "Configuration (YAML)" as Config
+  note right of Config
+    Signal mappings
+    Thresholds
+    Category definitions
+    Display formatting
+  end note
+
+  ' Data Storage
+  package "Data Storage" as Storage {
+    database "CSV Exports (data/csv_exports/)" as CSVStorage
+    database "Format Templates (data/format/)" as FormatStorage
+  }
+}
+
+' Data Flow Connections
+CLI --> DataCollector : 1. Command Processing (s=BTC/USDT t=1d l=100)
+DataCollector --> ExchangeAPI : 2. Concurrent API Calls (OHLCV, Ticker, OrderBook, Trades)
+ExchangeAPI --> DataCollector : 3. Market Data Response
+
+DataCollector --> TechIndicators : 4. Parallel Indicator Execution
+
+TechIndicators --> AnalysisEngine : 5. All Indicator Results
+
+Config --> AnalysisEngine : Configuration Parameters
+
+AnalysisEngine --> CLI : 6. Comprehensive Analysis Summary
+
+DataCollector --> Storage : CSV Export (Optional)
+
+@enduml

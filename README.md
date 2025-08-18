@@ -1,6 +1,8 @@
 # CryptoPat
 A comprehensive Python-based cryptocurrency pattern detection and technical analysis system. CryptoPat fetches real-time market data from exchanges and performs advanced analysis using technical indicators
 
+![Alt text](diagram/arch.png)
+
 ### Technical Analysis Suite
 - **Trend Indicators**: MACD, EMA (20/50), Parabolic SAR, Supertrend
 - **Volatility Analysis**: Bollinger Bands, Keltner Channel, Donchian Channel, ATR
