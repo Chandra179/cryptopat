@@ -49,8 +49,7 @@ python cli.py
 
 # Examples:
 cryptopat> s=BTC/USDT t=1d l=100    # Bitcoin daily, 100 candles
-cryptopat> s=ETH/USDT t=1h l=200    # Ethereum hourly, 200 candles
-cryptopat> s=SOL/USDT t=15m l=50    # Solana 15-minute, 50 candles
+cryptopat> s=ETH/USDT t=1w l=200    # Ethereum weekly, 200 candles
 
 # Utility commands:
 cryptopat> help                     # Show available commands
